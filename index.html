@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>器械台帳</title>
+<meta name="description" content="自作単一HTML器械の台帳">
+<meta name="theme-color" content="#0E1621">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="器械台帳">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+/* ══ 台帳の紙と墨 ══════════════════════════════════ */
+:root{
+  --ink:        #0E1621;   /* 藍墨・地  */
+  --ink-raised: #16212E;   /* 罫内の紙  */
+  --rule:       #24344A;   /* 罫線      */
+  --paper:      #DCD3BE;   /* 主文字    */
+  --paper-dim:  #7E8898;   /* 副文字    */
+  --brass:      #C08A3E;   /* 真鍮・番号 */
+  --vermilion:  #B23A2E;   /* 朱・印    */
+  --verdigris:  #4E8A82;   /* 緑青・分類 */
+
+  --mincho: "Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+  --gothic: "Hiragino Sans","Yu Gothic",YuGothic,system-ui,sans-serif;
+  --mono:   ui-monospace,"SF Mono",Menlo,"Courier New",monospace;
+
+  --margin-rule: 62px;     /* 台帳の朱罫の位置 */
+  --pad: 18px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--paper);
+  font-family:var(--gothic);
+  font-size:15px;
+  line-height:1.6;
+  overscroll-behavior-y:contain;
+  -webkit-font-smoothing:antialiased;
+  padding-top:env(safe-area-inset-top);
+  min-height:100dvh;
+}
+
+/* 台帳の朱罫：左端に一本、上から下まで通す */
+#sheet{
+  position:relative;
+  max-width:760px;
+  margin:0 auto;
+  padding-bottom:calc(48px + env(safe-area-inset-bottom));
+}
+#sheet::before{
+  content:"";
+  position:absolute;
+  left:calc(var(--margin-rule) - 10px);
+  top:0;bottom:0;width:1px;
+  background:var(--vermilion);
+  opacity:.28;
+  pointer-events:none;
+}
+
+/* ══ 標題 ══════════════════════════════════════════ */
+header{
+  padding:26px var(--pad) 14px;
+  border-bottom:1px solid var(--rule);
+}
+.masthead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{
+  font-family:var(--mincho);
+  font-size:29px;
+  font-weight:600;
+  letter-spacing:.34em;
+  margin:0;
+  text-indent:.34em;
+}
+.romaji{
+  font-family:var(--mono);
+  font-size:9.5px;
+  letter-spacing:.24em;
+  color:var(--paper-dim);
+  text-transform:uppercase;
+}
+.ledger-meta{
+  display:flex;gap:16px;flex-wrap:wrap;
+  font-family:var(--mono);
+  font-size:10.5px;
+  letter-spacing:.08em;
+  color:var(--paper-dim);
+  margin-top:12px;
+}
+.ledger-meta b{color:var(--brass);font-weight:500}
+.offline-flag{color:var(--vermilion);display:none}
+body.is-offline .offline-flag{display:inline}
+
+/* ══ 記入欄（検索） ════════════════════════════════ */
+.write-in{
+  display:flex;align-items:center;gap:10px;
+  padding:0 var(--pad);
+  margin:14px 0 4px;
+}
+.write-in label{
+  font-family:var(--mincho);
+  font-size:12px;
+  letter-spacing:.2em;
+  color:var(--paper-dim);
+  flex:none;
+}
+#q{
+  flex:1;
+  min-width:0;
+  background:transparent;
+  border:none;
+  border-bottom:1px solid var(--rule);
+  color:var(--paper);
+  font-family:var(--mincho);
+  font-size:16px;          /* iOS の自動ズーム回避 */
+  padding:7px 2px;
+  outline:none;
+  transition:border-color .18s;
+}
+#q:focus{border-bottom-color:var(--brass)}
+#q::placeholder{color:#4A5768;font-size:14px}
+#clear{
+  flex:none;background:none;border:none;color:var(--paper-dim);
+  font-family:var(--mono);font-size:16px;padding:6px 8px;
+  visibility:hidden;cursor:pointer;
+}
+#q:not(:placeholder-shown)~#clear{visibility:visible}
+
+/* ══ 見出し（分類・並び） ══════════════════════════ */
+.tabs{
+  display:flex;gap:6px;overflow-x:auto;
+  padding:10px var(--pad) 12px;
+  border-bottom:1px solid var(--rule);
+  scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:none;
+  background:none;
+  border:1px solid var(--rule);
+  color:var(--paper-dim);
+  font-family:var(--gothic);
+  font-size:12px;
+  letter-spacing:.1em;
+  padding:6px 13px;
+  border-radius:1px;
+  cursor:pointer;
+  transition:color .15s,border-color .15s;
+}
+.tab[aria-pressed="true"]{color:var(--ink);background:var(--brass);border-color:var(--brass)}
+
+.sortbar{
+  display:flex;justify-content:flex-end;gap:14px;
+  padding:9px var(--pad);
+  font-family:var(--mono);
+  font-size:10.5px;letter-spacing:.1em;
+}
+.sortbar button{
+  background:none;border:none;padding:2px 0;cursor:pointer;
+  color:var(--paper-dim);font:inherit;
+  border-bottom:1px solid transparent;
+}
+.sortbar button[aria-pressed="true"]{color:var(--brass);border-bottom-color:var(--brass)}
+
+/* ══ 台帳の行 ══════════════════════════════════════ */
+.section-label{
+  font-family:var(--mincho);
+  font-size:11px;letter-spacing:.3em;
+  color:var(--paper-dim);
+  padding:20px var(--pad) 7px;
+  border-bottom:1px solid var(--rule);
+}
+.rows{list-style:none;margin:0;padding:0}
+
+.row{
+  position:relative;
+  display:grid;
+  grid-template-columns:calc(var(--margin-rule) - var(--pad)) 1fr auto;
+  align-items:start;
+  gap:0 12px;
+  padding:15px var(--pad);
+  border-bottom:1px solid var(--rule);
+  animation:settle .32s ease both;
+}
+@keyframes settle{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+.row-open{
+  position:absolute;inset:0;
+  z-index:1;
+  text-decoration:none;
+}
+.row:active{background:var(--ink-raised)}
+
+/* 左欄：管理番号と印 */
+.col-no{
+  position:relative;z-index:2;pointer-events:none;
+  display:flex;flex-direction:column;align-items:flex-start;gap:7px;
+}
+.no{
+  font-family:var(--mono);
+  font-size:11px;letter-spacing:.06em;
+  color:var(--brass);
+  padding-top:3px;
+}
+.glyph{
+  font-family:var(--mincho);
+  font-size:19px;line-height:1;
+  color:var(--paper-dim);
+}
+
+/* 中欄：名称と摘要 */
+.col-body{min-width:0;position:relative;z-index:2;pointer-events:none}
+.name{
+  font-family:var(--mincho);
+  font-size:19px;
+  font-weight:600;
+  letter-spacing:.06em;
+  margin:0 0 3px;
+}
+.name mark{background:none;color:var(--brass)}
+.desc{
+  font-size:12.5px;
+  color:var(--paper-dim);
+  margin:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.tagline{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+  margin-top:6px;
+  font-family:var(--mono);
+  font-size:9.5px;letter-spacing:.1em;
+  color:var(--paper-dim);
+}
+.cat{color:var(--verdigris)}
+
+/* 右欄：朱印 */
+.stamp{
+  position:relative;z-index:3;
+  flex:none;
+  width:44px;height:44px;
+  display:grid;place-items:center;
+  background:none;border:none;padding:0;margin:-4px -6px 0 0;
+  cursor:pointer;
+}
+.stamp i{
+  display:grid;place-items:center;
+  width:29px;height:29px;
+  border:1.5px solid var(--rule);
+  border-radius:50%;
+  font-family:var(--mincho);
+  font-style:normal;font-size:13px;
+  color:transparent;
+  transition:border-color .2s;
+}
+.row.is-kept .stamp i{
+  border-color:var(--vermilion);
+  color:var(--vermilion);
+  animation:press .34s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes press{
+  0%  {transform:scale(1.75) rotate(-11deg);opacity:0;filter:blur(2.5px)}
+  55% {transform:scale(.9)  rotate(-4deg); opacity:1;filter:blur(0)}
+  100%{transform:scale(1)   rotate(-4deg); opacity:1}
+}
+.row.is-kept .stamp i{transform:rotate(-4deg)}
+
+/* ══ 空欄・不備 ════════════════════════════════════ */
+.notice{
+  padding:44px var(--pad);
+  border-bottom:1px solid var(--rule);
+}
+.notice h2{
+  font-family:var(--mincho);font-size:17px;font-weight:600;
+  letter-spacing:.14em;margin:0 0 10px;
+}
+.notice p{color:var(--paper-dim);font-size:13px;margin:0 0 8px;max-width:44ch}
+.notice code{
+  font-family:var(--mono);font-size:12px;
+  color:var(--brass);background:var(--ink-raised);
+  padding:1px 5px;
+}
+
+footer{
+  padding:22px var(--pad);
+  font-family:var(--mono);
+  font-size:10px;letter-spacing:.1em;
+  color:#3E4A5C;
+  display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+footer button,footer a{background:none;border:none;color:inherit;font:inherit;cursor:pointer;text-decoration:underline;padding:0}
+footer a:hover,footer button:hover{color:var(--brass)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div id="sheet">
+  <header>
+    <div class="masthead">
+      <h1>器械台帳</h1>
+      <span class="romaji">Instrument Register</span>
+    </div>
+    <div class="ledger-meta">
+      <span>収録 <b id="m-count">—</b> 台</span>
+      <span>総量 <b id="m-size">—</b></span>
+      <span>記帳 <b id="m-gen">—</b></span>
+      <span class="offline-flag">機外・控えを表示中</span>
+    </div>
+  </header>
+
+  <div class="write-in">
+    <label for="q">検索</label>
+    <input id="q" type="search" placeholder="名称・摘要・分類・番号" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button id="clear" aria-label="検索欄を消す">×</button>
+  </div>
+
+  <nav class="tabs" id="tabs" aria-label="分類"></nav>
+
+  <div class="sortbar" role="group" aria-label="並び順">
+    <button data-sort="no"      aria-pressed="true">番号順</button>
+    <button data-sort="updated" aria-pressed="false">更新順</button>
+    <button data-sort="used"    aria-pressed="false">使用順</button>
+  </div>
+
+  <main id="ledger" aria-live="polite"></main>
+
+  <footer>
+    <span id="build">—</span>
+    <span><a href="post.html">投函所</a> ／ <button id="refresh">台帳を取り直す</button></span>
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const KEEP_KEY = 'kikai.kept.v1';   // 常備（朱印）
+const USED_KEY = 'kikai.used.v1';   // 最終使用時刻
+const CACHE_KEY = 'kikai.register.v1';
+
+const $ = (s) => document.querySelector(s);
+const ledger = $('#ledger');
+
+let register = null;
+let kept = load(KEEP_KEY, []);
+let used = load(USED_KEY, {});
+let filterCat = null;
+let sortBy = 'no';
+let query = '';
+
+function load(key, fallback){
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
+}
+function save(key, val){
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+/* ── 表示の整形 ─────────────────────────────────── */
+
+const fmtBytes = (n) =>
+  n >= 1048576 ? (n/1048576).toFixed(1)+' MB'
+: n >= 1024    ? Math.round(n/1024)+' KB'
+:                n+' B';
+
+function fmtDate(iso){
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  const p = (x) => String(x).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}`;
+}
+
+function fmtAgo(ms){
+  if (!ms) return '';
+  const min = Math.floor((Date.now()-ms)/60000);
+  if (min < 1)    return 'たった今';
+  if (min < 60)   return `${min}分前`;
+  const h = Math.floor(min/60);
+  if (h < 24)     return `${h}時間前`;
+  const d = Math.floor(h/24);
+  if (d < 31)     return `${d}日前`;
+  return fmtDate(new Date(ms).toISOString());
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function highlight(text, q){
+  const safe = escapeHtml(text);
+  if (!q) return safe;
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0) return safe;
+  return escapeHtml(text.slice(0,idx))
+       + '<mark>' + escapeHtml(text.slice(idx, idx+q.length)) + '</mark>'
+       + escapeHtml(text.slice(idx+q.length));
+}
+
+/* ── 取得 ───────────────────────────────────────── */
+
+async function fetchRegister({ fresh = false } = {}){
+  try {
+    const res = await fetch('apps.json', { cache: fresh ? 'reload' : 'default' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    save(CACHE_KEY, data);
+    syncOnlineFlag();
+    return data;
+  } catch (err) {
+    return load(CACHE_KEY, null);
+  }
+}
+
+/* ── 描画 ───────────────────────────────────────── */
+
+function matches(app, q){
+  if (!q) return true;
+  const hay = [app.name, app.reading, app.desc, app.category, app.no, ...(app.tags||[])]
+    .join(' ').toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+
+function sortApps(list){
+  const arr = [...list];
+  if (sortBy === 'updated') arr.sort((a,b) => (b.updated||'').localeCompare(a.updated||''));
+  else if (sortBy === 'used') arr.sort((a,b) => (used[b.file]||0) - (used[a.file]||0));
+  else arr.sort((a,b) => a.no.localeCompare(b.no));
+  return arr;
+}
+
+function rowHtml(app, i){
+  const isKept = kept.includes(app.file);
+  const last = used[app.file];
+  return `
+  <li class="row${isKept ? ' is-kept' : ''}" style="animation-delay:${Math.min(i,14)*22}ms">
+    <a class="row-open" href="${escapeHtml(app.file)}" data-file="${escapeHtml(app.file)}" aria-label="${escapeHtml(app.name)}を開く"></a>
+    <div class="col-no">
+      <span class="no">No.${escapeHtml(app.no)}</span>
+      <span class="glyph">${escapeHtml(app.icon || '◇')}</span>
+    </div>
+    <div class="col-body">
+      <p class="name">${highlight(app.name, query)}</p>
+      <p class="desc">${highlight(app.desc || '摘要未記入', query)}</p>
+      <div class="tagline">
+        <span class="cat">${escapeHtml(app.category)}</span>
+        <span>更新 ${fmtDate(app.updated)}</span>
+        <span>${fmtBytes(app.bytes)}</span>
+        ${last ? `<span>使用 ${fmtAgo(last)}</span>` : ''}
+      </div>
+    </div>
+    <button class="stamp" data-keep="${escapeHtml(app.file)}"
+            aria-pressed="${isKept}" aria-label="${escapeHtml(app.name)}を常備にする">
+      <i>常</i>
+    </button>
+  </li>`;
+}
+
+function render(){
+  if (!register){
+    ledger.innerHTML = `
+      <div class="notice">
+        <h2>台帳を読み込めません</h2>
+        <p>この端末に控えもありません。通信できる場所で一度開くと、以後は機外でも一覧が出ます。</p>
+        <p><code>apps.json</code> がまだ生成されていない可能性もあります。</p>
+      </div>`;
+    return;
+  }
+
+  const all = register.apps || [];
+  const visible = all
+    .filter((a) => !filterCat || a.category === filterCat)
+    .filter((a) => matches(a, query));
+
+  if (all.length === 0){
+    ledger.innerHTML = `
+      <div class="notice">
+        <h2>台帳は白紙です</h2>
+        <p>HTMLを <code>apps/</code> に置いて push すると、次の記帳でここに載ります。</p>
+        <p>各HTMLの &lt;head&gt; に <code>app-manifest</code> を書いておくと、名称・摘要・分類がそのまま台帳に写ります。</p>
+      </div>`;
+    return;
+  }
+
+  if (visible.length === 0){
+    ledger.innerHTML = `
+      <div class="notice">
+        <h2>該当なし</h2>
+        <p>「${escapeHtml(query)}」に当たる器械はありません。分類を「全て」に戻すと範囲が広がります。</p>
+      </div>`;
+    return;
+  }
+
+  const keptRows = sortApps(visible.filter((a) => kept.includes(a.file)));
+  const restRows = sortApps(visible.filter((a) => !kept.includes(a.file)));
+
+  let html = '';
+  if (keptRows.length){
+    html += `<h2 class="section-label">常 備</h2><ul class="rows">`
+          + keptRows.map(rowHtml).join('') + `</ul>`;
+  }
+  if (restRows.length){
+    html += `<h2 class="section-label">収 録</h2>`
+          + `<ul class="rows">` + restRows.map(rowHtml).join('') + `</ul>`;
+  }
+  ledger.innerHTML = html;
+}
+
+function renderTabs(){
+  const cats = register?.categories || [];
+  const tabs = $('#tabs');
+  tabs.innerHTML =
+    [`<button class="tab" data-cat="" aria-pressed="${!filterCat}">全て</button>`]
+    .concat(cats.map((c) =>
+      `<button class="tab" data-cat="${escapeHtml(c)}" aria-pressed="${filterCat===c}">${escapeHtml(c)}</button>`))
+    .join('');
+}
+
+function renderMeta(){
+  if (!register) return;
+  $('#m-count').textContent = register.count ?? (register.apps||[]).length;
+  $('#m-size').textContent  = fmtBytes(register.totalBytes || 0);
+  $('#m-gen').textContent   = fmtDate(register.generated);
+  $('#build').textContent   = '記帳 ' + fmtDate(register.generated);
+}
+
+/* ── 操作 ───────────────────────────────────────── */
+
+document.addEventListener('click', (e) => {
+  const stamp = e.target.closest('.stamp');
+  if (stamp){
+    e.preventDefault();
+    const file = stamp.dataset.keep;
+    kept = kept.includes(file) ? kept.filter((f) => f !== file) : [...kept, file];
+    save(KEEP_KEY, kept);
+    render();
+    return;
+  }
+  const open = e.target.closest('.row-open');
+  if (open){
+    used[open.dataset.file] = Date.now();
+    save(USED_KEY, used);
+  }
+});
+
+$('#tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  filterCat = tab.dataset.cat || null;
+  renderTabs();
+  render();
+});
+
+document.querySelector('.sortbar').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sort]');
+  if (!b) return;
+  sortBy = b.dataset.sort;
+  document.querySelectorAll('.sortbar button').forEach((x) =>
+    x.setAttribute('aria-pressed', String(x === b)));
+  render();
+});
+
+let typing;
+$('#q').addEventListener('input', (e) => {
+  clearTimeout(typing);
+  typing = setTimeout(() => { query = e.target.value.trim(); render(); }, 90);
+});
+$('#clear').addEventListener('click', () => {
+  $('#q').value = ''; query = ''; render(); $('#q').focus();
+});
+
+$('#refresh').addEventListener('click', async () => {
+  $('#build').textContent = '取得中…';
+  register = await fetchRegister({ fresh:true }) || register;
+  renderTabs(); renderMeta(); render();
+});
+
+function syncOnlineFlag(){
+  document.body.classList.toggle('is-offline', navigator.onLine === false);
+}
+window.addEventListener('online',  syncOnlineFlag);
+window.addEventListener('offline', syncOnlineFlag);
+syncOnlineFlag();
+
+/* 復帰時に台帳を静かに取り直す */
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  const fresh = await fetchRegister({ fresh:true });
+  if (fresh){ register = fresh; renderTabs(); renderMeta(); render(); }
+});
+
+/* ── 起動 ───────────────────────────────────────── */
+
+(async () => {
+  const cached = load(CACHE_KEY, null);
+  if (cached){ register = cached; renderTabs(); renderMeta(); render(); }
+
+  const fresh = await fetchRegister();
+  if (fresh){ register = fresh; }
+  renderTabs(); renderMeta(); render();
+})();
+
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () =>
+    navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+})();
+</script>
+</body>
+</html>
