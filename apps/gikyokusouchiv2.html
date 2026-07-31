@@ -1,0 +1,2212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#14100F">
+<title>戯曲装置 — ロールプレイ台本生成</title>
+<style>
+:root{
+  --naraku:#14100F; --sode:#1E1917;
+  --maku:#6E1220; --maku-light:#A32B3C;
+  --shinchu:#C89B3C; --shinchu-dim:#8A6C2C;
+  --kami:#E8DFC8; --kami-2:#DCD1B6;
+  --sumi:#241F1A; --hai:#9A9086; --shu:#B4322E;
+  --koku:#1B2B22; --koku-2:#132019; --chalk:#EDE9E0;
+  --line:rgba(200,155,60,.22);
+  --mincho:"Yu Mincho","YuMincho","Hiragino Mincho ProN","HiraMinProN-W3",serif;
+  --gothic:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--naraku);color:var(--kami);font-family:var(--gothic);
+  font-size:15px;line-height:1.75;-webkit-text-size-adjust:100%;
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(120% 60% at 50% -10%, rgba(163,43,60,.20), transparent 60%),
+             radial-gradient(80% 40% at 50% 110%, rgba(200,155,60,.07), transparent 70%);
+}
+.wrap{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:0 16px}
+
+header{
+  position:relative;margin:0 -16px 26px;padding:calc(34px + env(safe-area-inset-top)) 20px 26px;
+  background:repeating-linear-gradient(90deg,rgba(0,0,0,.34) 0 6px,rgba(0,0,0,0) 6px 20px,rgba(255,255,255,.05) 20px 24px,rgba(0,0,0,0) 24px 38px),
+             linear-gradient(180deg,#7C1526 0%,#5A0F1C 62%,#2A0B11 100%);
+  border-bottom:1px solid var(--shinchu-dim);box-shadow:0 14px 34px rgba(0,0,0,.55);overflow:hidden;
+}
+header::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:14px;
+  background:radial-gradient(circle at 12px -6px,transparent 12px,#2A0B11 12.5px) repeat-x;background-size:24px 20px;
+}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.42em;color:var(--shinchu);margin:0 0 10px}
+h1{font-family:var(--mincho);font-weight:600;font-size:38px;letter-spacing:.16em;margin:0;line-height:1.15;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.sub{margin:10px 0 0;font-size:12.5px;color:rgba(232,223,200,.72);letter-spacing:.06em}
+
+.act{margin:0 0 22px;border:1px solid var(--line);background:linear-gradient(180deg,var(--sode),#191413);border-radius:3px}
+.act-head{display:flex;align-items:baseline;gap:12px;padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+.act-no{font-family:var(--mincho);font-size:13px;color:var(--shinchu);letter-spacing:.2em;white-space:nowrap}
+.act-title{font-family:var(--mincho);font-size:19px;letter-spacing:.14em;margin:0}
+.act-note{margin-left:auto;font-size:10px;color:var(--hai);font-family:var(--mono);letter-spacing:.1em}
+.act-body{padding:16px}
+
+.field{margin:0 0 20px}
+.field:last-child{margin-bottom:0}
+label.lb{display:flex;align-items:center;gap:8px;font-size:12.5px;letter-spacing:.1em;color:var(--kami-2);margin:0 0 8px}
+.req{font-family:var(--mono);font-size:9px;color:var(--shu);border:1px solid var(--shu);border-radius:2px;padding:1px 4px}
+.opt{font-family:var(--mono);font-size:9px;color:var(--hai);border:1px solid rgba(154,144,134,.5);border-radius:2px;padding:1px 4px}
+.hint{font-size:11px;color:var(--hai);margin:6px 0 0;line-height:1.6}
+.warn{font-size:11.5px;color:#E0A15E;margin:8px 0 0;line-height:1.65;display:none;
+  border-left:2px solid #E0A15E;padding-left:9px}
+.warn.show{display:block}
+
+input[type=text],textarea,select{
+  width:100%;font-family:var(--gothic);font-size:16px;color:var(--kami);
+  background:#120E0D;border:1px solid rgba(200,155,60,.3);border-radius:2px;
+  padding:10px 12px;line-height:1.6;appearance:none;-webkit-appearance:none;
+  transition:border-color .18s,box-shadow .18s;
+}
+textarea{resize:vertical;min-height:78px}
+select{
+  background-image:linear-gradient(45deg,transparent 50%,var(--shinchu) 50%),linear-gradient(135deg,var(--shinchu) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:6px 6px,6px 6px;
+  background-repeat:no-repeat;padding-right:32px;text-overflow:ellipsis;
+}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--shinchu);box-shadow:0 0 0 3px rgba(200,155,60,.14)}
+input::placeholder,textarea::placeholder{color:#5C544C}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.chip{font-size:11.5px;font-family:var(--gothic);color:var(--kami-2);background:rgba(200,155,60,.07);
+  border:1px solid rgba(200,155,60,.28);border-radius:999px;padding:5px 11px;cursor:pointer;line-height:1.4}
+.chip:active{background:rgba(200,155,60,.22)}
+.chip.on{background:var(--shinchu);border-color:var(--shinchu);color:var(--naraku);font-weight:600}
+
+.checks{display:grid;gap:8px}
+.chk{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;line-height:1.6}
+.chk input{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:17px;height:17px;margin:4px 0 0;
+  border:1px solid var(--shinchu-dim);border-radius:2px;background:#120E0D;position:relative}
+.chk input:checked{background:var(--shinchu);border-color:var(--shinchu)}
+.chk input:checked::after{content:"";position:absolute;left:5px;top:1px;width:4px;height:9px;
+  border:solid var(--naraku);border-width:0 2px 2px 0;transform:rotate(43deg)}
+
+/* ── 人物カード ── */
+.card{border:1px solid var(--line);background:#191413;border-radius:2px;margin:0 0 10px;overflow:hidden}
+.card.open{border-color:rgba(200,155,60,.42)}
+.card-head{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer}
+.card-idx{font-family:var(--mincho);font-size:12px;color:var(--shinchu);letter-spacing:.08em;white-space:nowrap}
+.card-name{font-family:var(--mincho);font-size:15.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.06em}
+.card-name.empty{color:#5C544C}
+.badge{font-family:var(--mono);font-size:9px;border:1px solid;border-radius:2px;padding:2px 5px;letter-spacing:.06em;white-space:nowrap}
+.badge.ai{color:#D9697A;border-color:#D9697A}
+.badge.me{color:var(--shinchu);border-color:var(--shinchu)}
+.badge.npc{color:var(--hai);border-color:rgba(154,144,134,.5)}
+.caret{color:var(--shinchu-dim);font-size:11px;transition:transform .2s}
+.card.open .caret{transform:rotate(90deg)}
+.card-body{display:none;padding:2px 12px 14px}
+.card.open .card-body{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid .full{grid-column:1/-1}
+.gl{display:block;font-size:10.5px;color:var(--hai);letter-spacing:.08em;margin:0 0 4px}
+.grp{font-family:var(--mono);font-size:9.5px;color:var(--shinchu-dim);letter-spacing:.28em;
+  margin:16px 0 9px;border-top:1px solid var(--line);padding-top:11px}
+.grp:first-child{margin-top:6px;border-top:none;padding-top:0}
+.card-tools{display:flex;gap:8px;margin-top:16px}
+.card-tools button{flex:1;font-family:var(--gothic);font-size:12px;padding:9px;border-radius:2px;
+  background:transparent;border:1px solid rgba(154,144,134,.34);color:var(--hai);cursor:pointer}
+.card-tools button.del{border-color:rgba(180,50,46,.55);color:#D07A76}
+.card-tools button:active{background:rgba(255,255,255,.06)}
+.addcast{width:100%;font-family:var(--mincho);font-size:15px;letter-spacing:.14em;padding:13px;
+  border:1px dashed var(--shinchu-dim);border-radius:2px;background:rgba(200,155,60,.05);
+  color:var(--shinchu);cursor:pointer;margin-top:2px}
+.addcast:active{background:rgba(200,155,60,.16)}
+.empty-cast{font-size:12px;color:var(--hai);text-align:center;padding:14px 0 4px}
+
+/* ── 台本 ── */
+.script{position:relative;
+  background:repeating-linear-gradient(0deg,rgba(36,31,26,.045) 0 1px,transparent 1px 26px),
+             linear-gradient(160deg,#EFE7D2,#E2D7BC);
+  color:var(--sumi);border-radius:2px;padding:26px 18px 30px;
+  box-shadow:0 12px 30px rgba(0,0,0,.5);border-top:3px double #B9A579}
+.script::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:repeating-linear-gradient(180deg,var(--maku) 0 14px,transparent 14px 22px)}
+.script-label{font-family:var(--mincho);font-size:11px;letter-spacing:.34em;color:#7C6B4C;margin:0 0 14px}
+pre.out{margin:0;font-family:var(--mincho);font-size:13px;line-height:1.95;white-space:pre-wrap;word-break:break-word;color:var(--sumi)}
+.seal{position:absolute;right:14px;top:14px;width:64px;height:64px;border:2.5px solid var(--shu);border-radius:4px;
+  display:flex;align-items:center;justify-content:center;transform:rotate(-11deg);opacity:.82;
+  font-family:var(--mincho);font-size:19px;color:var(--shu);writing-mode:vertical-rl;text-orientation:upright}
+.seal.pending{border-color:#8C8478;color:#8C8478;opacity:.42}
+.seal.stamped{animation:stamp .45s cubic-bezier(.2,1.4,.4,1)}
+@keyframes stamp{0%{transform:rotate(-11deg) scale(2.1);opacity:0}60%{transform:rotate(-11deg) scale(.94);opacity:.95}100%{transform:rotate(-11deg) scale(1);opacity:.82}}
+
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0}
+button.act-btn{flex:1 1 auto;min-width:120px;font-family:var(--gothic);font-size:14px;letter-spacing:.1em;
+  padding:13px 14px;border-radius:2px;cursor:pointer;border:1px solid var(--shinchu-dim);
+  background:linear-gradient(180deg,#2C2523,#1B1615);color:var(--kami)}
+button.primary{background:linear-gradient(180deg,var(--maku-light),var(--maku));border-color:#C6485A;color:#FFF3E4;font-weight:600}
+button.ghost{background:transparent;color:var(--hai);border-color:rgba(154,144,134,.34)}
+button.act-btn:active{filter:brightness(1.2)}
+
+.rack{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 14px;margin:0 -16px;-webkit-overflow-scrolling:touch}
+.rack::-webkit-scrollbar{display:none}
+.tmpl{flex:0 0 auto;background:linear-gradient(180deg,#241D1C,#171211);border:1px solid var(--line);
+  border-radius:2px;padding:10px 14px;cursor:pointer;min-width:112px;text-align:left}
+.tmpl b{display:block;font-family:var(--mincho);font-size:14px;letter-spacing:.08em;color:var(--kami);font-weight:600}
+.tmpl span{display:block;font-size:10px;color:var(--hai);margin-top:3px}
+.tmpl:active{border-color:var(--shinchu)}
+
+.footbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(20,16,15,.86),rgba(20,16,15,.98));
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line)}
+.footbar .inner{max-width:720px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.gauge{flex:1;min-width:0}
+.gauge-t{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--hai);letter-spacing:.1em;margin-bottom:5px}
+.gauge-bar{height:3px;background:rgba(200,155,60,.16);border-radius:2px;overflow:hidden}
+.gauge-fill{height:100%;width:0;background:linear-gradient(90deg,var(--shinchu-dim),var(--shinchu));transition:width .35s}
+.footbar button{flex:0 0 auto;font-family:var(--gothic);font-size:14px;letter-spacing:.12em;font-weight:600;
+  padding:13px 20px;border-radius:2px;border:1px solid #C6485A;cursor:pointer;
+  background:linear-gradient(180deg,var(--maku-light),var(--maku));color:#FFF3E4}
+
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,14px);
+  z-index:40;background:var(--kami);color:var(--sumi);font-size:13px;padding:9px 18px;border-radius:2px;
+  box-shadow:0 8px 22px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:80vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+footer.credit{padding:8px 0 28px;text-align:center;font-family:var(--mono);font-size:10px;color:#4E463F;letter-spacing:.2em}
+/* ── タブ切替 ── */
+.tabbar{display:flex;gap:8px;margin:0 0 20px}
+.tabbtn{flex:1;font-family:var(--mincho);font-size:14px;letter-spacing:.12em;padding:11px 8px;
+  border:1px solid var(--line);border-radius:2px;background:#191413;color:var(--hai);cursor:pointer}
+.tabbtn.active{background:linear-gradient(180deg,#2C2523,#1B1615);border-color:var(--shinchu-dim);color:var(--kami)}
+.tabpage{display:none}
+.tabpage.active{display:block}
+
+/* ── 配役盤（相関図） ── */
+.relhead{margin:0 0 16px}
+.relh2{font-family:var(--mincho);font-size:24px;letter-spacing:.14em;margin:6px 0 0}
+
+.reltoolbar{display:flex;align-items:center;gap:10px;margin:0 0 8px;flex-wrap:wrap}
+.segmented{display:flex;border:1px solid var(--shinchu-dim);border-radius:2px;overflow:hidden}
+.seg-btn{font-family:var(--gothic);font-size:12.5px;letter-spacing:.04em;padding:8px 13px;
+  background:#191413;color:var(--hai);border:none;border-right:1px solid var(--shinchu-dim);cursor:pointer;white-space:nowrap}
+.seg-btn:last-child{border-right:none}
+.seg-btn.active{background:var(--shinchu-dim);color:#14100F;font-weight:600}
+.relbtn{margin-left:auto;font-family:var(--gothic);font-size:12.5px;letter-spacing:.06em;
+  padding:8px 14px;border-radius:2px;border:1px solid rgba(154,144,134,.34);background:transparent;color:var(--hai);cursor:pointer}
+.relbtn:active{background:rgba(255,255,255,.06)}
+.rel-hint{font-size:11.5px;color:var(--hai);margin:0 0 12px;min-height:16px}
+
+.board-wrap{border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:0 0 16px;box-shadow:0 10px 26px rgba(0,0,0,.45)}
+.board{
+  position:relative;width:100%;aspect-ratio:1/1.15;touch-action:none;overflow:hidden;
+  background:
+    radial-gradient(circle at 28% 18%, rgba(255,255,255,.035), transparent 55%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg,var(--koku),var(--koku-2));
+  box-shadow:inset 0 0 70px rgba(0,0,0,.55);
+}
+.board-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:30px;color:rgba(237,233,224,.45);font-size:12.5px;line-height:1.8}
+#boardSvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+.node{
+  position:absolute;width:64px;height:64px;transform:translate(-50%,-50%);
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  border-radius:50%;border:2px solid rgba(237,233,224,.75);
+  background:rgba(19,32,25,.55);color:var(--chalk);
+  font-family:var(--mincho);font-size:11px;letter-spacing:.02em;line-height:1.3;
+  padding:5px;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);transition:box-shadow .15s,border-color .15s;
+}
+.node span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.node.role-ai{border-color:#D9697A}
+.node.role-me{border-color:#C89B3C}
+.node.role-npc{border-color:rgba(237,233,224,.55);border-style:dashed}
+.node.selected{box-shadow:0 0 0 4px rgba(217,200,107,.35),0 2px 8px rgba(0,0,0,.4);border-color:#D9C86B}
+.node.dragging{cursor:grabbing;opacity:.85}
+
+.rellabel{
+  position:absolute;transform:translate(-50%,-50%);
+  font-family:var(--gothic);font-size:10.5px;letter-spacing:.02em;
+  background:rgba(19,32,25,.94);color:var(--kami);border:1px solid rgba(237,233,224,.32);
+  border-radius:999px;padding:3px 10px;white-space:nowrap;cursor:pointer;max-width:150px;
+  overflow:hidden;text-overflow:ellipsis;
+}
+
+.rellist{display:grid;gap:8px;margin:0 0 8px}
+.rel-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);
+  border-radius:2px;background:#191413;padding:10px 12px;cursor:pointer}
+.rel-row:active{background:#211A18}
+.rel-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%}
+.rel-text{flex:1;min-width:0;font-size:12.5px;color:var(--kami-2);line-height:1.6}
+.rel-text b{color:var(--kami);font-weight:600}
+.rel-empty{font-size:12px;color:var(--hai);text-align:center;padding:10px 0}
+
+/* ── 関係編集モーダル ── */
+.modal-overlay{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{
+  width:100%;max-width:720px;max-height:86vh;overflow-y:auto;
+  background:linear-gradient(180deg,#211A18,#171211);border:1px solid var(--shinchu-dim);border-bottom:none;
+  border-radius:10px 10px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));
+  box-shadow:0 -10px 30px rgba(0,0,0,.5);
+}
+.modal-title{font-family:var(--mincho);font-size:17px;letter-spacing:.08em;margin:0 0 16px;color:var(--kami)}
+.modal-actions{display:flex;gap:8px;margin-top:4px}
+.modal-actions button{flex:1}
+
+/* ── シナリオ設計図 ── */
+.modegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px}
+.modebtn{background:#191413;border:1px solid var(--line);border-radius:2px;padding:12px 10px;text-align:left;cursor:pointer}
+.modebtn b{display:block;font-family:var(--mincho);font-size:14px;letter-spacing:.06em;color:var(--kami-2);font-weight:600}
+.modebtn span{display:block;font-size:10px;color:var(--hai);margin-top:4px;line-height:1.5}
+.modebtn.active{border-color:var(--shinchu-dim);background:linear-gradient(180deg,#2C2523,#1B1615)}
+.modebtn.active b{color:var(--kami)}
+
+.curve-wrap{position:relative;height:220px;margin:0 0 14px;border:1px solid var(--line);border-radius:3px;
+  background:linear-gradient(160deg,var(--koku),var(--koku-2));padding:14px 8px 0;overflow:hidden;
+  box-shadow:inset 0 0 60px rgba(0,0,0,.5)}
+.curve-svg{position:absolute;left:0;top:14px;width:100%;height:170px;pointer-events:none}
+.curve-cols{position:relative;display:flex;height:100%}
+.curve-col{flex:1;display:flex;flex-direction:column;align-items:center}
+.curve-track{position:relative;width:2px;height:170px;background:rgba(237,233,224,.18);touch-action:none}
+.curve-handle{position:absolute;left:50%;width:26px;height:26px;margin-left:-13px;margin-bottom:-13px;
+  border-radius:50%;background:var(--chalk);border:2px solid #D9C86B;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.4);touch-action:none}
+.curve-handle:active{cursor:grabbing}
+.curve-label{margin-top:10px;font-family:var(--mincho);font-size:13px;color:var(--kami-2);letter-spacing:.1em}
+.curve-val{font-family:var(--mono);font-size:10px;color:var(--hai);margin-top:2px}
+.curve-desc{font-size:12px;color:var(--kami-2);line-height:1.85;background:#191413;border:1px solid var(--line);
+  border-radius:2px;padding:12px 14px;margin:0 0 16px;white-space:pre-wrap}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">ROLEPLAY SCRIPT GENERATOR</p>
+  <h1>戯曲装置</h1>
+  <p class="sub">設定を六幕に分けて記入すると、AIに渡す台本が組み上がります。</p>
+</header>
+
+<div class="wrap">
+  <div class="tabbar">
+    <button class="tabbtn active" data-tab="script" type="button">台本作成</button>
+    <button class="tabbtn" data-tab="relation" type="button">相関図</button>
+    <button class="tabbtn" data-tab="scenario" type="button">設計図</button>
+  </div>
+
+  <div id="tabScript" class="tabpage active">
+  <div class="rack" id="rack"></div>
+
+  <section class="act">
+    <div class="act-head"><span class="act-no">第一幕</span><h2 class="act-title">世界</h2><span class="act-note">SETTING</span></div>
+    <div class="act-body">
+      <div class="field">
+        <label class="lb" for="genre">ジャンル <span class="req">必須</span></label>
+        <select id="genre"></select>
+      </div>
+      <div class="field">
+        <label class="lb" for="genreFree">ジャンル補足 <span class="opt">任意</span></label>
+        <input type="text" id="genreFree" placeholder="例：サイバーパンク寄りの学園もの">
+      </div>
+      <div class="field">
+        <label class="lb" for="setting">舞台・世界観 <span class="req">必須</span></label>
+        <textarea id="setting" placeholder="例：魔法が衰退した近世都市。蒸気機関と残り少ない魔術師が共存している。"></textarea>
+        <div class="chips" data-target="setting"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="act">
+    <div class="act-head"><span class="act-no">第二幕</span><h2 class="act-title">語り口</h2><span class="act-note">NARRATION</span></div>
+    <div class="act-body">
+      <div class="field">
+        <label class="lb" for="format">形式 <span class="req">必須</span></label>
+        <select id="format"></select>
+        <p class="hint" id="formatHint"></p>
+      </div>
+      <div class="field">
+        <label class="lb" for="pov">視点・人称 <span class="req">必須</span></label>
+        <select id="pov"></select>
+        <p class="hint" id="povHint"></p>
+        <p class="warn" id="povWarn"></p>
+      </div>
+      <div class="field">
+        <label class="lb" for="tone">文体・トーン <span class="req">必須</span></label>
+        <select id="tone"></select>
+        <p class="hint" id="toneHint"></p>
+      </div>
+      <div class="field">
+        <label class="lb" for="tense">時制 <span class="opt">任意</span></label>
+        <select id="tense"></select>
+      </div>
+      <div class="field">
+        <label class="lb" for="balance">地の文と会話の比重 <span class="opt">任意</span></label>
+        <select id="balance"></select>
+      </div>
+    </div>
+  </section>
+
+  <section class="act">
+    <div class="act-head"><span class="act-no">第三幕</span><h2 class="act-title">登場人物</h2><span class="act-note">CAST</span></div>
+    <div class="act-body">
+      <div class="field">
+        <label class="lb">人物名簿 <span class="req">必須</span></label>
+        <div id="cast"></div>
+        <button class="addcast" id="btnAddCast" type="button">＋ 人物を追加</button>
+        <p class="hint">名前だけでも動きます。埋めた項目だけが台本に載ります。</p>
+      </div>
+      <div class="field">
+        <label class="lb" for="castNote">全体への補足 <span class="opt">任意</span></label>
+        <textarea id="castNote" placeholder="例：三人は幼馴染で、二年前の事件以来ぎくしゃくしている。"></textarea>
+        <div class="chips" data-target="castNote"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="act">
+    <div class="act-head"><span class="act-no">第四幕</span><h2 class="act-title">配役と目的</h2><span class="act-note">ROLES</span></div>
+    <div class="act-body">
+      <div class="field"><label class="lb" for="userRole">私（ユーザー）の役割 <span class="req">必須</span></label><select id="userRole"></select></div>
+      <div class="field"><label class="lb" for="aiRole">AIの役割 <span class="req">必須</span></label><select id="aiRole"></select></div>
+      <div class="field">
+        <label class="lb" for="goal">物語の目的 <span class="opt">任意</span></label>
+        <textarea id="goal" placeholder="例：封印された塔の最上階にたどり着く。"></textarea>
+        <div class="chips" data-target="goal"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="act">
+    <div class="act-head"><span class="act-no">第五幕</span><h2 class="act-title">約束事</h2><span class="act-note">RULES</span></div>
+    <div class="act-body">
+      <div class="field"><label class="lb">守ってほしいこと</label><div class="checks" id="ruleChecks"></div></div>
+      <div class="field"><label class="lb" for="length">1回の返答の長さ</label><select id="length"></select></div>
+      <div class="field">
+        <label class="lb" for="rulesFree">追加のNG事項 <span class="opt">任意</span></label>
+        <textarea id="rulesFree" placeholder="例：主要人物は死なせない。現代のネットスラングは使わない。"></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="act">
+    <div class="act-head"><span class="act-no">第六幕</span><h2 class="act-title">開幕</h2><span class="act-note">OPENING</span></div>
+    <div class="act-body">
+      <div class="field">
+        <label class="lb" for="startScene">開始のシチュエーション <span class="req">必須</span></label>
+        <textarea id="startScene" placeholder="例：雨の降る夜、閉店間際の古書店で二人が鉢合わせるところから。"></textarea>
+        <div class="chips" data-target="startScene"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="script-shell">
+    <div class="script">
+      <div class="seal pending" id="seal">準備中</div>
+      <p class="script-label">台 本</p>
+      <pre class="out" id="out"></pre>
+    </div>
+    <div class="btnrow">
+      <button class="act-btn primary" id="btnCopy">台本をコピー</button>
+      <button class="act-btn" id="btnShare">共有</button>
+      <button class="act-btn ghost" id="btnReset">全て消す</button>
+    </div>
+  </div>
+
+  <footer class="credit">GIKYOKU-SOUCHI / PROTOTYPE</footer>
+  </div>
+
+  <div id="tabRelation" class="tabpage">
+    <div class="relhead">
+      <p class="eyebrow">CHARACTER RELATIONS</p>
+      <h2 class="relh2">配役盤</h2>
+      <p class="sub">名札を指で動かし、「接続」モードで結んで関係を書き込みます。</p>
+    </div>
+
+    <div class="reltoolbar">
+      <div class="segmented" id="modeSeg">
+        <button class="seg-btn active" data-mode="move" type="button">配置</button>
+        <button class="seg-btn" data-mode="link" type="button">接続</button>
+      </div>
+      <button class="relbtn" id="btnShuffle" type="button">再配置</button>
+    </div>
+    <p class="rel-hint" id="relHint">名札をドラッグして好きな位置に配置できます。</p>
+
+    <div class="board-wrap">
+      <div class="board" id="board">
+        <svg id="boardSvg"></svg>
+      </div>
+    </div>
+
+    <div class="rellist" id="rellist"></div>
+  </div>
+
+  <div id="tabScenario" class="tabpage">
+    <div class="relhead">
+      <p class="eyebrow">SCENARIO BLUEPRINT</p>
+      <h2 class="relh2">シナリオ設計図</h2>
+      <p class="sub">4つの描き方から選んで、グラフィカルに組み立てます。</p>
+    </div>
+
+    <div class="modegrid" id="modeGrid">
+      <button class="modebtn active" data-scenmode="scene" type="button"><b>筋書きボード</b><span>場面をつないで流れを作る</span></button>
+      <button class="modebtn" data-scenmode="tension" type="button"><b>起伏グラフ</b><span>起承転結で緊張度を設計</span></button>
+      <button class="modebtn" data-scenmode="location" type="button"><b>場所相関図</b><span>場所同士を経路でつなぐ</span></button>
+      <button class="modebtn" data-scenmode="ending" type="button"><b>分岐エンディング</b><span>結末の枝分かれを描く</span></button>
+    </div>
+
+    <div id="genBoardPanel">
+      <div class="reltoolbar">
+        <div class="segmented" id="genModeSeg2">
+          <button class="seg-btn active" data-mode="move" type="button">配置</button>
+          <button class="seg-btn" data-mode="link" type="button">接続</button>
+        </div>
+        <button class="relbtn" id="genShuffle" type="button">再配置</button>
+      </div>
+      <p class="rel-hint" id="genHint"></p>
+      <div class="board-wrap">
+        <div class="board" id="genBoard"><svg id="genBoardSvg"></svg></div>
+      </div>
+      <button class="addcast" id="genAddNode" type="button">＋ 追加</button>
+      <div class="rellist" id="genList"></div>
+    </div>
+
+    <div id="tensionPanel" style="display:none">
+      <p class="rel-hint">起承転結の4点を上下にドラッグして、物語の緊張度を作ります。</p>
+      <div class="curve-wrap" id="curveWrap">
+        <svg id="curveSvg" class="curve-svg"></svg>
+        <div class="curve-cols" id="curveCols"></div>
+      </div>
+      <div class="curve-desc" id="curveDesc"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="genNodeOverlay">
+  <div class="modal" id="genNodeModal">
+    <p class="modal-title" id="genNodeModalTitle">カードを編集</p>
+    <div class="field">
+      <label class="lb" id="genNodeLabelLbl">名前</label>
+      <input type="text" id="genNodeLabel">
+    </div>
+    <div class="field">
+      <label class="lb" id="genNodeNoteLbl">内容</label>
+      <textarea id="genNodeNote"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="act-btn ghost" id="genNodeDelete" type="button">削除</button>
+      <button class="act-btn ghost" id="genNodeCancel" type="button">キャンセル</button>
+      <button class="act-btn primary" id="genNodeSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="genLinkOverlay">
+  <div class="modal" id="genLinkModal">
+    <p class="modal-title" id="genLinkModalTitle">つながりを設定</p>
+    <div class="field">
+      <label class="lb">種類</label>
+      <div class="chips" id="genLinkTypeChips"></div>
+    </div>
+    <div class="field">
+      <label class="lb" for="genLinkLabel">表示ラベル</label>
+      <input type="text" id="genLinkLabel">
+    </div>
+    <div class="field">
+      <label class="lb">向き</label>
+      <div class="segmented" id="genLinkDirSeg">
+        <button class="seg-btn active" data-dir="mutual" type="button">双方向</button>
+        <button class="seg-btn" data-dir="one" type="button">片方向</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lb" for="genLinkNote">補足 <span class="opt">任意</span></label>
+      <textarea id="genLinkNote"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="act-btn ghost" id="genLinkDelete" type="button">削除</button>
+      <button class="act-btn ghost" id="genLinkCancel" type="button">キャンセル</button>
+      <button class="act-btn primary" id="genLinkSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="relOverlay">
+  <div class="modal" id="relModal">
+    <p class="modal-title" id="relModalTitle">関係を設定</p>
+    <div class="field">
+      <label class="lb">関係の種類</label>
+      <div class="chips" id="relTypeChips"></div>
+    </div>
+    <div class="field">
+      <label class="lb" for="relLabel">表示ラベル</label>
+      <input type="text" id="relLabel" placeholder="例：幼馴染">
+    </div>
+    <div class="field">
+      <label class="lb">向き</label>
+      <div class="segmented" id="relDirSeg">
+        <button class="seg-btn active" data-dir="mutual" type="button">双方向</button>
+        <button class="seg-btn" data-dir="one" type="button">片方向</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lb" for="relNote">補足 <span class="opt">任意</span></label>
+      <textarea id="relNote" placeholder="例：元恋人。今は気まずい関係。"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="act-btn ghost" id="relDelete" type="button">削除</button>
+      <button class="act-btn ghost" id="relCancel" type="button">キャンセル</button>
+      <button class="act-btn primary" id="relSave" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="footbar">
+  <div class="inner">
+    <div class="gauge">
+      <div class="gauge-t"><span>記入状況</span><span id="gaugeNum">0 / 6</span></div>
+      <div class="gauge-bar"><div class="gauge-fill" id="gaugeFill"></div></div>
+    </div>
+    <button id="btnJump">台本へ</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const NONE = "";
+
+/* ═══ 全体の選択肢 ═══ */
+const OPT = {
+  genre:["ファンタジー","ダークファンタジー","現代ドラマ","学園もの","SF","サイバーパンク","ミステリー","ホラー","歴史・時代劇","恋愛","日常・ほのぼの","冒険活劇","ポストアポカリプス","伝奇・和風怪異"],
+  format:[
+    ["小説形式","地の文と会話文による散文で書く。情景と心理を文章で描写する。"],
+    ["脚本・戯曲形式","ト書き（情景・動作）とセリフで構成する。ト書きは（）や行頭記号で示す。"],
+    ["会話劇（チャット風）","セリフを中心に進め、地の文は必要最小限にとどめる。"],
+    ["TRPGセッション","あなたはゲームマスターとして場面を提示し、私の宣言を受けて結果を裁定する。"],
+    ["ADV・ゲームブック形式","場面を描写したあと、私が選べる行動の選択肢を提示する。"],
+    ["実況・ログ形式","出来事を記録やログのように時系列で淡々と並べる。"],
+    ["書簡・日記形式","手紙または日記の文面としてやり取りする。"]
+  ],
+  pov:[
+    ["一人称（あなたのキャラ視点）","あなたが演じる人物の一人称で、その人物が見聞きしたことと内心のみを書く。"],
+    ["三人称一元視点","三人称で書くが、視点はあなたの担当人物に固定し、他者の内心には踏み込まない。"],
+    ["三人称・神視点","三人称で全体を俯瞰し、必要に応じて複数の人物の内心にも触れる。"],
+    ["二人称（私に語りかける）","「あなたは〜」と私に語りかける形で情景を提示する。"],
+    ["客観・カメラ視点","カメラが捉えた映像のように、外から見える事実のみを書き、内心は描かない。"]
+  ],
+  tense:["指定しない","過去形（〜した）","現在形（〜する）"],
+  balance:["指定しない","地の文を厚く（描写中心）","地の文と会話を均等に","会話を厚く（掛け合い中心）","ほぼ会話のみ（地の文なし）"],
+  tone:[["硬派で淡々とした文体","感情語を抑え、事実と動作の描写を中心に"],
+        ["情感豊かな文芸調","比喩と情景描写を厚めに"],
+        ["軽妙で会話中心","地の文は短く、テンポ良く"],
+        ["緊張感のあるサスペンス調","短文を重ね、不穏さを維持"],
+        ["コミカルで賑やか","誇張とツッコミを交えて"],
+        ["静かで詩的","余白と沈黙を大切に"],
+        ["講談調の語り","講釈師のように調子よく、勢いをつけて"]],
+  userRole:["物語の主人公","相棒・同行者","部外者・観察者","ゲームのプレイヤー（GMはAI）","神の視点（介入者）","複数キャラを演じ分ける"],
+  aiRole:["相手役のキャラクター一人","ゲームマスター兼NPC全員","主人公以外の全登場人物","語り部（ナレーター）＋NPC","敵役・障害となる存在","進行役に徹し、描写は最小限"],
+  length:["指定しない","短め（200文字程度）","標準（400文字程度）","長め（800文字程度）","場面によって変える"]
+};
+
+const RULES = [
+  {id:"r1",t:"私の発言・行動・心情を勝手に描写しない",on:true},
+  {id:"r2",t:"1回の返答は一区切りで止め、私の反応を待つ",on:true},
+  {id:"r3",t:"キャラクターの口調と性格を最後まで維持する",on:true},
+  {id:"r4",t:"設定にない事実を勝手に確定させない",on:false},
+  {id:"r5",t:"AIであることに言及せず、演技を崩さない",on:true},
+  {id:"r6",t:"残酷・過激な描写は避ける",on:false},
+  {id:"r7",t:"物語を勝手に完結させず、続きを残す",on:false},
+  {id:"r8",t:"行動の選択肢を毎回2〜3個提示する",on:false}
+];
+
+const CHIPS = {
+  setting:["現代日本の地方都市","雪に閉ざされた山荘","衰退した魔法都市","軌道ステーション","戦後まもない帝都","閉ざされた全寮制の学校"],
+  castNote:["三人は幼馴染","上司と部下の関係","初対面","過去に一度だけ会っている","互いに正体を知らない"],
+  goal:["失われたものを取り戻す","相手と打ち解ける","脱出する","真相を突き止める","特に目的はなく日常を過ごす"],
+  startScene:["見知らぬ天井で目を覚ますところ","待ち合わせ場所に相手が来ないところ","扉が背後で閉まった直後","戦いが終わった静けさの中"]
+};
+
+/* ═══ 人物相関図（配役盤） ═══ */
+const PRESETS = [
+  {key:"family",    label:"家族",         color:"#D9C86B", dash:false},
+  {key:"friend",    label:"友人",         color:"#EDE9E0", dash:false},
+  {key:"romance",   label:"恋人・恋愛感情", color:"#E08A8A", dash:false},
+  {key:"crush",     label:"片思い",       color:"#E08A8A", dash:true},
+  {key:"mentor",    label:"師弟",         color:"#8FB9D9", dash:false},
+  {key:"authority", label:"主従",         color:"#B79ADB", dash:false},
+  {key:"rival",     label:"対立・敵対",   color:"#D97060", dash:false},
+  {key:"childhood", label:"幼馴染",       color:"#8FB9D9", dash:true},
+  {key:"secret",    label:"秘密を共有",   color:"#9A9086", dash:true},
+  {key:"other",     label:"その他",       color:"#C9BFA6", dash:false}
+];
+const PRESET_MAP = {};
+PRESETS.forEach(p => PRESET_MAP[p.key] = p);
+
+let relations = [];
+let relUid = 1;
+let currentTab = "script";
+let boardMode = "move";
+let selectedNodeId = null;
+let editingRelId = null;
+let modalFrom = null, modalTo = null, modalType = "friend", modalDir = "mutual";
+
+/* ═══ シナリオ設計図 ═══ */
+const SCENE_PRESETS = [
+  {key:"flow",        label:"通常の流れ",       color:"#EDE9E0", dash:false},
+  {key:"choice",      label:"選択による分岐",   color:"#D9C86B", dash:false},
+  {key:"conditional", label:"条件付き分岐",     color:"#8FB9D9", dash:true},
+  {key:"flashback",   label:"回想・カットバック", color:"#9A9086", dash:true}
+];
+const LOCATION_PRESETS = [
+  {key:"walk",    label:"徒歩",         color:"#EDE9E0", dash:false},
+  {key:"vehicle", label:"馬車・乗り物", color:"#D9C86B", dash:false},
+  {key:"sea",     label:"船・海路",     color:"#8FB9D9", dash:false},
+  {key:"secret",  label:"秘密の通路",   color:"#9A9086", dash:true},
+  {key:"magic",   label:"転移・魔法",   color:"#B79ADB", dash:false},
+  {key:"unknown", label:"未知・不明",   color:"#D97060", dash:true}
+];
+const ENDING_PRESETS = [
+  {key:"cond",   label:"到達条件",   color:"#D9C86B", dash:false},
+  {key:"hidden", label:"隠し条件",   color:"#9A9086", dash:true}
+];
+const SCEN_CONFIG = {
+  scene: {
+    presets: SCENE_PRESETS, addLabel: "＋ 場面を追加",
+    nodeLabelField: "場面名", nodeNoteLabel: "場面の内容・状況・トリガー（任意）",
+    emptyMsg: "まだ場面がありません。「＋ 場面を追加」から始めてください。",
+    hintMove: "場面カードをドラッグして配置できます。タップすると内容を編集できます。",
+    defaultDir: "one"
+  },
+  location: {
+    presets: LOCATION_PRESETS, addLabel: "＋ 場所を追加",
+    nodeLabelField: "場所名", nodeNoteLabel: "補足（任意）",
+    emptyMsg: "まだ場所がありません。「＋ 場所を追加」から始めてください。",
+    hintMove: "地名カードをドラッグして配置できます。タップすると内容を編集できます。",
+    defaultDir: "mutual"
+  },
+  ending: {
+    presets: ENDING_PRESETS, addLabel: "＋ エンディングを追加",
+    nodeLabelField: "名称", nodeNoteLabel: "結末の内容（任意）",
+    emptyMsg: "まだエンディングがありません。「＋ エンディングを追加」から始めてください。",
+    hintMove: "カードをドラッグして配置できます。タップすると内容を編集できます。",
+    defaultDir: "one"
+  }
+};
+let SCEN = {
+  scene:    { nodes: [], links: [], uid: 1, linkUid: 1 },
+  location: { nodes: [], links: [], uid: 1, linkUid: 1 },
+  ending:   { nodes: [], links: [], uid: 1, linkUid: 1 }
+};
+const DEFAULT_TENSION = [30, 55, 85, 40];
+const STAGE_LABELS = ["起","承","転","結"];
+let tensionVals = DEFAULT_TENSION.slice();
+let scenarioMode = "scene";
+let genBoardMode = "move";
+let genSelectedNodeId = null;
+let genEditingNodeId = null;
+let genEditingLinkId = null;
+let genModalFrom = null, genModalTo = null, genModalType = null, genModalDir = "mutual";
+
+/* ═══ 人物カードの項目定義 ═══ */
+const S = (...v) => v;   // 選択肢の短縮
+const CFIELDS = [
+  {g:"基本"},
+  {k:"name",  t:"text",   l:"名前",     full:true, ph:"例：シオン"},
+  {k:"role",  t:"select", l:"担当",     o:S("AIが演じる","私が演じる","脇役（AI管理のNPC）"), def:0},
+  {k:"age",   t:"select", l:"年齢",     o:S("幼年","10代前半","10代後半","20代前半","20代後半","30代","40代","50代以上","不老・年齢不詳")},
+  {k:"ageNote",t:"text",  l:"年齢の補足", ph:"例：見た目は17歳"},
+  {k:"gender",t:"select", l:"性別",     o:S("男性","女性","中性的","不明・非公開","その他")},
+  {k:"race",  t:"select", l:"種族・属性", o:S("人間","エルフ","獣人","吸血鬼","精霊・妖", "アンドロイド","AI・人工知能","異形・怪異","神・超越者")},
+  {k:"job",   t:"text",   l:"立場・職業", full:true, ph:"例：追われる宮廷魔術師"},
+
+  {g:"外見"},
+  {k:"height",t:"select", l:"身長",     o:S("とても低い","低め","標準","高め","長身","人外の背丈")},
+  {k:"bust",  t:"text",   l:"バスト(B)", ph:"例：82"},
+  {k:"waist", t:"text",   l:"ウエスト(W)", ph:"例：58"},
+  {k:"hip",   t:"text",   l:"ヒップ(H)", ph:"例：86"},
+  {k:"hairColor",t:"select",l:"髪の色", o:S("黒","焦茶","栗色","亜麻色","金","白銀","灰","赤","青","緑","紫","桃","混色・グラデーション")},
+  {k:"hairLen",t:"select",l:"髪の長さ", o:S("坊主・極短","ショート","ボブ","肩まで","セミロング","ロング","腰まで")},
+  {k:"hairStyle",t:"select",l:"髪型",   o:S("ストレート","ウェーブ","くせ毛","ポニーテール","ツインテール","三つ編み","結い上げ","無造作","前髪で目が隠れる")},
+  {k:"eye",   t:"select", l:"瞳の色",   o:S("黒","茶","琥珀","碧","青","灰","紅","金","紫","オッドアイ","瞳孔が人ならざる形")},
+  {k:"skin",  t:"select", l:"肌",       o:S("色白","標準","日焼け","褐色","血色が悪い","人ならざる質感")},
+  {k:"voice", t:"select", l:"声",       o:S("高く澄んだ声","柔らかい声","落ち着いた低音","かすれた声","中性的な声","威圧的な声","抑揚のない声")},
+  {k:"outfit",t:"select", l:"服装",     o:S("現代の私服","制服","スーツ","和装","礼装・ドレス","ローブ・法衣","鎧・軍装","作業着・白衣","擦り切れた古着")},
+  {k:"feats", t:"chips",  l:"身体的特徴（複数可）", full:true,
+    o:S("眼鏡","顔の傷跡","入れ墨","泣きぼくろ","そばかす","八重歯","隻眼・眼帯","義手・義足","包帯","獣の耳と尾","尖った耳","角","翼","鱗","傷だらけの手","強い香り","常に無表情","絶えず微笑んでいる")},
+  {k:"look",  t:"text",   l:"外見の補足", full:true, ph:"例：左手首に古い呪印がある"},
+
+  {g:"内面"},
+  {k:"pronoun",t:"select",l:"一人称",   o:S("私","わたし","わたくし","僕","俺","あたし","自分","うち","我","名前で呼ぶ")},
+  {k:"speech",t:"select", l:"口調",     o:S("丁寧語","硬い敬語","砕けたタメ口","ぶっきらぼう","古風・文語調","方言","口数が少ない","饒舌","皮肉屋","甘えた口調","高圧的")},
+  {k:"pers",  t:"chips",  l:"性格（複数可）", full:true,
+    o:S("冷静","情熱的","楽観的","短気","おだやか","傲慢","内向的","社交的","生真面目","怠惰","好奇心旺盛","臆病","献身的","計算高い","天真爛漫","無感情","面倒見が良い","嘘つき","負けず嫌い","博愛的")},
+  {k:"like",  t:"text",   l:"好きなもの", ph:"例：甘いものと雨"},
+  {k:"hate",  t:"text",   l:"苦手なもの", ph:"例：他人に触られること"},
+  {k:"relation",t:"text", l:"私（ユーザー）との関係", full:true, ph:"例：初対面。警戒されている"},
+  {k:"secret",t:"text",   l:"秘密・抱えているもの", full:true, ph:"例：師匠を死なせたのは自分だと思っている"},
+
+  {g:"自由記述"},
+  {k:"free",  t:"textarea", l:"この人物について自由に", full:true, ph:"口癖、過去、目的、演じ方の注文など"}
+];
+
+/* ═══ 状態 ═══ */
+const fields = ["genre","genreFree","setting","format","pov","tone","tense","balance","castNote","userRole","aiRole","goal","length","rulesFree","startScene"];
+let cast = [];
+let uid = 1;
+
+const newChar = (over={}) => Object.assign({
+  _id: uid++, _open: true, name:"", role:0, age:"", ageNote:"", gender:"", race:"", job:"",
+  height:"", bust:"", waist:"", hip:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"", outfit:"",
+  feats:[], look:"", pronoun:"", speech:"", pers:[], like:"", hate:"", relation:"", secret:"", free:""
+}, over);
+
+/* ═══ 汎用セレクト ═══ */
+function fillSelect(el, arr, useText){
+  el.innerHTML = "";
+  arr.forEach((o,i) => {
+    const op = document.createElement("option");
+    const label = Array.isArray(o) ? o[0] : o;
+    op.value = useText ? label : i;
+    op.textContent = label;
+    el.appendChild(op);
+  });
+}
+fillSelect($("genre"), OPT.genre, true);
+fillSelect($("format"), OPT.format, false);
+fillSelect($("pov"), OPT.pov, false);
+fillSelect($("tone"), OPT.tone, false);
+fillSelect($("tense"), OPT.tense, false);
+fillSelect($("balance"), OPT.balance, false);
+fillSelect($("userRole"), OPT.userRole, false);
+fillSelect($("aiRole"), OPT.aiRole, false);
+fillSelect($("length"), OPT.length, false);
+
+RULES.forEach(r => {
+  const l = document.createElement("label");
+  l.className = "chk";
+  l.innerHTML = '<input type="checkbox" id="'+r.id+'"'+(r.on?" checked":"")+'><span>'+r.t+'</span>';
+  $("ruleChecks").appendChild(l);
+});
+
+document.querySelectorAll(".chips[data-target]").forEach(box => {
+  const key = box.dataset.target;
+  (CHIPS[key]||[]).forEach(txt => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.type = "button"; b.textContent = txt;
+    b.addEventListener("click", () => {
+      const ta = $(key);
+      ta.value = ta.value.trim() ? ta.value.replace(/\s+$/,"") + "\n" + txt : txt;
+      render(); save();
+    });
+    box.appendChild(b);
+  });
+});
+
+/* ═══ 人物カード描画 ═══ */
+const KANSUJI = ["一","二","三","四","五","六","七","八","九","十"];
+const ROLE_BADGE = [["ai","AI"],["me","私"],["npc","NPC"]];
+
+function renderCast(){
+  const box = $("cast");
+  box.innerHTML = "";
+  if (!cast.length){
+    const p = document.createElement("p");
+    p.className = "empty-cast";
+    p.textContent = "まだ誰もいません。下のボタンから登場人物を追加してください。";
+    box.appendChild(p);
+    return;
+  }
+  cast.forEach((c, idx) => box.appendChild(buildCard(c, idx)));
+}
+
+function buildCard(c, idx){
+  const card = document.createElement("div");
+  card.className = "card" + (c._open ? " open" : "");
+
+  const head = document.createElement("div");
+  head.className = "card-head";
+  const badge = ROLE_BADGE[c.role] || ROLE_BADGE[0];
+  head.innerHTML =
+    '<span class="card-idx">人物'+(KANSUJI[idx]||(idx+1))+'</span>' +
+    '<span class="card-name'+(c.name?"":" empty")+'">'+ (c.name ? esc(c.name) : "（名前未設定）") +'</span>' +
+    '<span class="badge '+badge[0]+'">'+badge[1]+'</span>' +
+    '<span class="caret">▶</span>';
+  head.addEventListener("click", () => { c._open = !c._open; card.classList.toggle("open", c._open); save(); });
+  card.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "card-body";
+  let grid = null;
+
+  CFIELDS.forEach(f => {
+    if (f.g){
+      const h = document.createElement("p");
+      h.className = "grp"; h.textContent = f.g;
+      body.appendChild(h);
+      grid = document.createElement("div"); grid.className = "grid";
+      body.appendChild(grid);
+      return;
+    }
+    const cell = document.createElement("div");
+    if (f.full) cell.className = "full";
+    const lab = document.createElement("span");
+    lab.className = "gl"; lab.textContent = f.l;
+    cell.appendChild(lab);
+
+    if (f.t === "select"){
+      const sel = document.createElement("select");
+      const blank = document.createElement("option");
+      blank.value = ""; blank.textContent = f.def === undefined ? "指定しない" : f.l;
+      sel.appendChild(blank);
+      f.o.forEach((o,i) => {
+        const op = document.createElement("option");
+        op.value = (f.def !== undefined) ? i : o;
+        op.textContent = o;
+        sel.appendChild(op);
+      });
+      if (f.def !== undefined) blank.remove();
+      sel.value = c[f.k];
+      sel.addEventListener("change", () => {
+        c[f.k] = (f.def !== undefined) ? +sel.value : sel.value;
+        if (f.k === "role") renderCastHead(card, c, idx);
+        render(); save();
+      });
+      cell.appendChild(sel);
+    } else if (f.t === "chips"){
+      const box = document.createElement("div");
+      box.className = "chips";
+      f.o.forEach(o => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip" + (c[f.k].includes(o) ? " on" : "");
+        b.textContent = o;
+        b.addEventListener("click", () => {
+          const i = c[f.k].indexOf(o);
+          if (i >= 0) c[f.k].splice(i,1); else c[f.k].push(o);
+          b.classList.toggle("on");
+          render(); save();
+        });
+        box.appendChild(b);
+      });
+      cell.appendChild(box);
+    } else {
+      const el = document.createElement(f.t === "textarea" ? "textarea" : "input");
+      if (f.t !== "textarea") el.type = "text";
+      el.placeholder = f.ph || "";
+      el.value = c[f.k];
+      el.addEventListener("input", () => {
+        c[f.k] = el.value;
+        if (f.k === "name") renderCastHead(card, c, idx);
+        render(); save();
+      });
+      cell.appendChild(el);
+    }
+    (grid || body).appendChild(cell);
+  });
+
+  const tools = document.createElement("div");
+  tools.className = "card-tools";
+  const dup = document.createElement("button");
+  dup.type = "button"; dup.textContent = "複製";
+  dup.addEventListener("click", () => {
+    const copy = JSON.parse(JSON.stringify(c));
+    copy._id = uid++; copy._open = true;
+    copy._x = undefined; copy._y = undefined;
+    copy.name = c.name ? c.name + "（写）" : "";
+    cast.splice(idx+1, 0, copy);
+    renderCast(); render(); save();
+  });
+  const del = document.createElement("button");
+  del.type = "button"; del.className = "del"; del.textContent = "削除";
+  del.addEventListener("click", () => {
+    if (!confirm("この人物を削除します。よろしいですか？")) return;
+    const removedId = c._id;
+    cast.splice(idx,1);
+    relations = relations.filter(r => r.from !== removedId && r.to !== removedId);
+    renderCast(); render(); renderRelList(); save();
+  });
+  tools.appendChild(dup); tools.appendChild(del);
+  body.appendChild(tools);
+  card.appendChild(body);
+  return card;
+}
+
+function renderCastHead(card, c, idx){
+  const badge = ROLE_BADGE[c.role] || ROLE_BADGE[0];
+  const nameEl = card.querySelector(".card-name");
+  nameEl.textContent = c.name || "（名前未設定）";
+  nameEl.classList.toggle("empty", !c.name);
+  const b = card.querySelector(".badge");
+  b.className = "badge " + badge[0];
+  b.textContent = badge[1];
+}
+
+function esc(s){ return s.replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+
+$("btnAddCast").addEventListener("click", () => {
+  cast.forEach(c => c._open = false);
+  cast.push(newChar());
+  renderCast(); render(); save();
+  const cards = $("cast").querySelectorAll(".card");
+  if (cards.length) cards[cards.length-1].scrollIntoView({behavior:"smooth", block:"center"});
+});
+
+/* ═══ 台本生成 ═══ */
+function val(id){ return $(id).value.trim(); }
+const j = (arr, sep) => arr.filter(Boolean).join(sep);
+
+function charBlock(c, idx){
+  const L = [];
+  const name = c.name || "名前未設定の人物" + (idx+1);
+  const roleTxt = ["あなた（AI）が演じる","私が演じる","脇役。あなたが状況に応じて動かす"][c.role] || "";
+  L.push("【" + name + "】（" + roleTxt + "）");
+
+  const basic = j([
+    c.age ? "年齢：" + c.age + (c.ageNote ? "（" + c.ageNote + "）" : "") : "",
+    c.gender ? "性別：" + c.gender : "",
+    c.race ? "種族：" + c.race : ""
+  ], " ／ ");
+  if (basic) L.push("・" + basic);
+  if (c.job) L.push("・立場：" + c.job);
+
+  const body = j([
+    c.height ? "身長は" + c.height : "",
+    (c.bust || c.waist || c.hip) ? "スリーサイズは" + j([
+      c.bust ? "B" + c.bust : "",
+      c.waist ? "W" + c.waist : "",
+      c.hip ? "H" + c.hip : ""
+    ], "/") + "（cm）" : "",
+    j([c.hairColor, c.hairLen, c.hairStyle], "・") ? "髪は" + j([c.hairColor, c.hairLen, c.hairStyle], "の") : "",
+    c.eye ? c.eye + "の瞳" : "",
+    c.skin ? "肌は" + c.skin : "",
+    c.voice ? "声は" + c.voice : "",
+    c.outfit ? "服装は" + c.outfit : ""
+  ], "、");
+  const look = j([body, c.feats.join("、"), c.look], "。");
+  if (look) L.push("・外見：" + look);
+
+  const inner = j([
+    c.pronoun ? "一人称は「" + c.pronoun + "」" : "",
+    c.speech ? "口調は" + c.speech : ""
+  ], "、");
+  if (inner) L.push("・話し方：" + inner);
+  if (c.pers.length) L.push("・性格：" + c.pers.join("、"));
+  const taste = j([
+    c.like ? "好きなもの＝" + c.like : "",
+    c.hate ? "苦手なもの＝" + c.hate : ""
+  ], " ／ ");
+  if (taste) L.push("・" + taste);
+  if (c.relation) L.push("・私との関係：" + c.relation);
+  if (c.secret) L.push("・秘密：" + c.secret);
+  if (c.free) L.push("・備考：" + c.free.replace(/\n/g, " "));
+  return L.join("\n");
+}
+
+function buildScript(){
+  const genre = val("genre") + (val("genreFree") ? "（" + val("genreFree") + "）" : "");
+  const format = OPT.format[+$("format").value];
+  const pov = OPT.pov[+$("pov").value];
+  const tone = OPT.tone[+$("tone").value];
+  const tense = OPT.tense[+$("tense").value];
+  const balance = OPT.balance[+$("balance").value];
+  const userRole = OPT.userRole[+$("userRole").value];
+  const aiRole = OPT.aiRole[+$("aiRole").value];
+  const lengthSel = OPT.length[+$("length").value];
+
+  const L = [];
+  L.push("あなたはプロのロールプレイヤーです。");
+  L.push("以下の設定に厳密に従って、私とのインタラクティブなロールプレイを開始してください。");
+  L.push("");
+  L.push("# 1. 基本設定");
+  L.push("・ジャンル：" + (genre || "（未設定）"));
+  L.push("・舞台・世界観：" + (val("setting") || "（未設定）"));
+  L.push("");
+  L.push("# 2. 語りの形式");
+  L.push("・形式：" + format[0] + " — " + format[1]);
+  L.push("・視点：" + pov[0] + " — " + pov[1]);
+  L.push("・文体：" + tone[0] + "（" + tone[1] + "）");
+  if (tense !== "指定しない") L.push("・時制：" + tense + "を基本とする。");
+  if (balance !== "指定しない") L.push("・地の文と会話：" + balance + "。");
+  L.push("");
+  L.push("# 3. 登場人物");
+  if (cast.length){
+    cast.forEach((c,i) => { L.push(charBlock(c,i)); L.push(""); });
+    L.pop();
+  } else {
+    L.push("（未設定）");
+  }
+  if (val("castNote")){
+    L.push("");
+    L.push("【人物相関・補足】");
+    L.push(val("castNote"));
+  }
+  if (relations.length){
+    L.push("");
+    L.push("【人物相関図より】");
+    relations.forEach(r => {
+      const preset = PRESET_MAP[r.type] || PRESET_MAP.other;
+      const arrow = r.direction === "one" ? "→" : "⇔";
+      const label = r.label || preset.label;
+      let line = "・" + nameOf(r.from) + " " + arrow + " " + nameOf(r.to) + "：" + label;
+      if (r.note) line += "（" + r.note + "）";
+      L.push(line);
+    });
+  }
+  L.push("");
+  L.push("# 4. 配役と目的");
+  L.push("・私（ユーザー）の役割：" + userRole);
+  L.push("・あなた（AI）の役割：" + aiRole);
+  L.push("・この物語の目的：" + (val("goal") || "特に定めない。自然な流れに任せる。"));
+  L.push("");
+  L.push("# 5. 進行のルール");
+  let n = 1;
+  RULES.forEach(r => { if ($(r.id).checked) L.push(n++ + ". " + r.t + "。"); });
+  if (lengthSel !== "指定しない") L.push(n++ + ". 1回の返答の長さは" + lengthSel + "を目安にする。");
+  if (val("rulesFree")) val("rulesFree").split(/\n+/).forEach(line => { if (line.trim()) L.push(n++ + ". " + line.trim()); });
+  if (n === 1) L.push("（特になし。自然に進行してください）");
+  L.push("");
+  L.push("# 6. 開幕");
+  L.push("以下の場面から物語を始めてください。");
+  const fmtIdx = +$("format").value;
+  if (fmtIdx === 3){
+    L.push("まず最初の場面を提示し、私がどう動くかの宣言を待ってください。");
+  } else if (fmtIdx === 4){
+    L.push("最初の場面を描写し、私が選べる行動の選択肢を提示して止めてください。");
+  } else if (fmtIdx === 6){
+    L.push("最初の一通（または最初の一日分）を書いて、私からの返信を待ってください。");
+  } else {
+    L.push("最初の情景描写と、あなたが担当するキャラクターの第一声（または最初の行動）まで書いて、私の番で止めてください。");
+  }
+  L.push("");
+  L.push("・開始の場面：" + (val("startScene") || "（未設定）"));
+  const scenLines = buildScenarioLines();
+  if (scenLines.length) L.push(...scenLines);
+  return L.join("\n");
+}
+
+function nameInScen(data, id){
+  const n = data.nodes.find(x => x.id === id);
+  return (n && n.label) ? n.label : "無題";
+}
+function classifyTrend(diff){
+  if (diff >= 15) return "大きく上昇";
+  if (diff >= 5) return "上昇";
+  if (diff <= -15) return "大きく下降";
+  if (diff <= -5) return "下降";
+  return "ほぼ横ばい";
+}
+function linkLines(data, presets){
+  const L = [];
+  data.links.forEach(l => {
+    const preset = presets.find(p => p.key === l.type) || presets[0];
+    const arrow = l.direction === "one" ? "→" : "⇔";
+    let line = "・" + nameInScen(data, l.from) + " " + arrow + " " + nameInScen(data, l.to) + "：" + (l.label || preset.label);
+    if (l.note) line += "（" + l.note + "）";
+    L.push(line);
+  });
+  return L;
+}
+function buildScenarioLines(){
+  const sceneData = SCEN.scene, locData = SCEN.location, endData = SCEN.ending;
+  const hasScene = sceneData.nodes.some(n => n.label) || sceneData.links.length > 0;
+  const hasLoc = locData.nodes.some(n => n.label) || locData.links.length > 0;
+  const hasEnd = endData.nodes.some(n => !n.root && n.label) || endData.links.length > 0;
+  const hasTension = JSON.stringify(tensionVals) !== JSON.stringify(DEFAULT_TENSION);
+  if (!hasScene && !hasLoc && !hasEnd && !hasTension) return [];
+
+  const L = [];
+  L.push("");
+  L.push("# 7. シナリオ設計図");
+  if (hasScene){
+    L.push("【場面フロー】");
+    sceneData.nodes.forEach(n => { if (n.label) L.push("・" + n.label + (n.note ? "：" + n.note : "")); });
+    L.push(...linkLines(sceneData, SCENE_PRESETS));
+    L.push("");
+  }
+  if (hasTension){
+    L.push("【展開の起伏（起承転結）】");
+    STAGE_LABELS.forEach((lab, i) => L.push("・" + lab + "：緊張度" + tensionVals[i]));
+    for (let i = 0; i < STAGE_LABELS.length - 1; i++){
+      L.push("・" + STAGE_LABELS[i] + "→" + STAGE_LABELS[i+1] + "：" + classifyTrend(tensionVals[i+1] - tensionVals[i]));
+    }
+    L.push("この起伏を意識して、場面ごとの緊張感を調整してください。");
+    L.push("");
+  }
+  if (hasLoc){
+    L.push("【場所相関】");
+    locData.nodes.forEach(n => { if (n.label) L.push("・" + n.label + (n.note ? "：" + n.note : "")); });
+    L.push(...linkLines(locData, LOCATION_PRESETS));
+    L.push("");
+  }
+  if (hasEnd){
+    L.push("【分岐エンディング】");
+    const root = endData.nodes.find(n => n.root);
+    if (root && root.note) L.push("・現在の状況：" + root.note);
+    L.push(...linkLines(endData, ENDING_PRESETS));
+    endData.nodes.forEach(n => { if (!n.root && n.note) L.push("・" + (n.label || "無題") + "の結末：" + n.note); });
+    L.push("");
+  }
+  while (L.length && L[L.length-1] === "") L.pop();
+  return L;
+}
+
+/* ═══ 進捗と表示 ═══ */
+const REQ = ["genre","setting","userRole","aiRole","startScene"];
+function countFilled(){
+  let c = REQ.filter(k => $(k).value.trim() !== "").length;
+  if (cast.some(x => x.name.trim())) c++;
+  return c;
+}
+let wasComplete = false;
+function render(){
+  $("out").textContent = buildScript();
+  updateNarrationHints();
+  const total = REQ.length + 1, c = countFilled();
+  $("gaugeNum").textContent = c + " / " + total;
+  $("gaugeFill").style.width = (c/total*100) + "%";
+  const seal = $("seal"), done = c === total;
+  seal.textContent = done ? "上演可" : "準備中";
+  seal.classList.toggle("pending", !done);
+  if (done && !wasComplete){ seal.classList.remove("stamped"); void seal.offsetWidth; seal.classList.add("stamped"); }
+  wasComplete = done;
+}
+
+function updateNarrationHints(){
+  const fmt = OPT.format[+$("format").value];
+  const pov = OPT.pov[+$("pov").value];
+  const tone = OPT.tone[+$("tone").value];
+  $("formatHint").textContent = fmt[1];
+  $("povHint").textContent = pov[1];
+  $("toneHint").textContent = tone[1];
+
+  const warn = $("povWarn");
+  const isSecondPerson = +$("pov").value === 3;
+  const r1on = $("r1").checked;
+  if (isSecondPerson && r1on){
+    warn.textContent = "二人称は私の行動まで書かれやすい形式です。ルール1と併用する場合は「状況の提示までにとどめる」と追記しておくと安定します。";
+    warn.classList.add("show");
+  } else if (+$("format").value === 3 && +$("aiRole").value !== 1){
+    warn.textContent = "TRPG形式を選ぶなら、第四幕の「AIの役割」を『ゲームマスター兼NPC全員』にしておくと進行が安定します。";
+    warn.classList.add("show");
+  } else {
+    warn.classList.remove("show");
+  }
+}
+
+/* ═══ 保存 ═══ */
+const KEY = "gikyoku.v2";
+function save(){
+  const d = {cast:cast, relations:relations, scen:SCEN, tension:tensionVals};
+  fields.forEach(f => d[f] = $(f).value);
+  d.rules = RULES.filter(r => $(r.id).checked).map(r => r.id);
+  try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (!d) return false;
+    fields.forEach(f => { if (d[f] !== undefined) $(f).value = d[f]; });
+    if (d.rules) RULES.forEach(r => $(r.id).checked = d.rules.includes(r.id));
+    if (Array.isArray(d.cast)) cast = d.cast.map(c => newChar(c));
+    uid = cast.reduce((m,c) => Math.max(m, c._id||0), 0) + 1;
+    if (Array.isArray(d.relations)) relations = d.relations;
+    relUid = relations.reduce((m,r) => Math.max(m, r.id||0), 0) + 1;
+    if (d.scen){
+      ["scene","location","ending"].forEach(k => {
+        if (d.scen[k]){
+          SCEN[k].nodes = d.scen[k].nodes || [];
+          SCEN[k].links = d.scen[k].links || [];
+          SCEN[k].uid = SCEN[k].nodes.reduce((m,n) => Math.max(m, n.id||0), 0) + 1;
+          SCEN[k].linkUid = SCEN[k].links.reduce((m,l) => Math.max(m, l.id||0), 0) + 1;
+        }
+      });
+    }
+    if (Array.isArray(d.tension) && d.tension.length === 4) tensionVals = d.tension;
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ═══ テンプレート ═══ */
+const TEMPLATES = [
+  {name:"廃都の魔術師", tag:"ダークファンタジー", v:{
+    genre:"ダークファンタジー", genreFree:"", format:0, pov:1, tone:0, tense:1, balance:2,
+    setting:"魔法が衰退した近世都市エルダ。塔の崩落以来、魔術師は迫害され、街は蒸気機関に頼って生き延びている。",
+    cast:[
+      {name:"シオン", role:0, age:"10代後半", gender:"女性", race:"人間", job:"追われる魔術師",
+       height:"低め", hairColor:"白銀", hairLen:"ロング", hairStyle:"ウェーブ", eye:"紅", skin:"色白",
+       voice:"かすれた声", outfit:"擦り切れた古着", feats:["顔の傷跡","傷だらけの手"], look:"",
+       pronoun:"あたし", speech:"ぶっきらぼう", pers:["冷静","面倒見が良い","負けず嫌い"],
+       like:"甘いものと雨", hate:"他人に触られること",
+       relation:"初対面。強く警戒されている", secret:"塔の崩落に自分が関わっていると思い込んでいる", free:""},
+      {name:"私", role:1, age:"20代後半", gender:"男性", race:"人間", job:"放浪の記録者",
+       height:"標準", hairColor:"焦茶", hairLen:"ショート", hairStyle:"無造作", eye:"茶", skin:"日焼け",
+       voice:"", outfit:"現代の私服", feats:[], look:"", pronoun:"僕", speech:"丁寧語", pers:["好奇心旺盛"],
+       like:"", hate:"", relation:"", secret:"", free:""}
+    ],
+    castNote:"二人は互いに正体を知らない。",
+    userRole:2, aiRole:0, goal:"塔の崩落の真相を突き止める。",
+    startScene:"雨の裏路地で、追手から逃げてきたシオンと鉢合わせるところから。",
+    length:2, rulesFree:"", rules:["r1","r2","r3","r5"]
+  }},
+  {name:"放課後の教室", tag:"学園・日常", v:{
+    genre:"学園もの", genreFree:"", format:0, pov:1, tone:2, tense:2, balance:3,
+    setting:"ごく普通の県立高校。夏の終わり、放課後の教室には西日が差している。",
+    cast:[
+      {name:"佐倉ひなた", role:0, age:"10代後半", gender:"女性", race:"人間", job:"図書委員",
+       height:"低め", hairColor:"焦茶", hairLen:"肩まで", hairStyle:"ストレート", eye:"茶", skin:"色白",
+       voice:"柔らかい声", outfit:"制服", feats:["眼鏡","泣きぼくろ"], look:"",
+       pronoun:"わたし", speech:"丁寧語", pers:["内向的","生真面目","好奇心旺盛"],
+       like:"海外文学と炭酸水", hate:"人前で話すこと",
+       relation:"同じクラスだが、ほとんど話したことがない", secret:"実は前から気になっていた", free:"本の話になると急に饒舌になる。"},
+      {name:"私", role:1, age:"10代後半", gender:"男性", race:"人間", job:"帰宅部の生徒",
+       height:"高め", hairColor:"黒", hairLen:"ショート", hairStyle:"無造作", eye:"黒", skin:"標準",
+       voice:"", outfit:"制服", feats:[], look:"", pronoun:"俺", speech:"砕けたタメ口", pers:["おだやか"],
+       like:"", hate:"", relation:"", secret:"", free:""}
+    ],
+    castNote:"",
+    userRole:0, aiRole:0, goal:"特に目的はなく、他愛のない放課後を過ごす。",
+    startScene:"忘れ物を取りに戻った教室で、一人残っていた彼女と鉢合わせるところから。",
+    length:1, rulesFree:"", rules:["r1","r2","r3","r5"]
+  }},
+  {name:"密室の八人", tag:"ミステリー", v:{
+    genre:"ミステリー", genreFree:"クローズドサークル", format:0, pov:2, tone:3, tense:1, balance:2,
+    setting:"吹雪で下山不能となった山荘。宿泊客は八人、電話線は切れている。",
+    cast:[
+      {name:"私", role:1, age:"30代", gender:"男性", race:"人間", job:"招待客の一人",
+       height:"標準", hairColor:"黒", hairLen:"ショート", hairStyle:"ストレート", eye:"黒", skin:"標準",
+       voice:"落ち着いた低音", outfit:"スーツ", feats:[], look:"", pronoun:"私", speech:"丁寧語",
+       pers:["冷静","計算高い"], like:"", hate:"", relation:"", secret:"", free:""},
+      {name:"他の宿泊客七名", role:2, age:"", gender:"", race:"人間", job:"それぞれ別の職業",
+       height:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"", outfit:"", feats:[], look:"",
+       pronoun:"", speech:"", pers:["嘘つき"], like:"", hate:"", relation:"全員が招待状を受け取っている",
+       secret:"それぞれに別の動機がある",
+       free:"職業・動機・アリバイをあなたが設定し、矛盾しないよう最後まで管理してください。"}
+    ],
+    castNote:"八人のうち一人が犯人。真相は最初に決め、途中で変えないこと。",
+    userRole:3, aiRole:1, goal:"犯人を特定し、生きて朝を迎える。",
+    startScene:"夕食後、客の一人が姿を消したと騒ぎになるところから。",
+    length:2, rulesFree:"真相は最初に決めておき、途中で変えないでください。", rules:["r1","r2","r3","r4","r5"]
+  }},
+  {name:"星間貨物船", tag:"SF", v:{
+    genre:"SF", genreFree:"", format:0, pov:1, tone:0, tense:2, balance:3,
+    setting:"外縁航路を往く老朽貨物船〈カリスト〉。乗員は二名と一体の船内AI。",
+    cast:[
+      {name:"AURA", role:0, age:"不老・年齢不詳", gender:"中性的", race:"AI・人工知能", job:"船内管理AI",
+       height:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"抑揚のない声",
+       outfit:"", feats:["常に無表情"], look:"船内スピーカーとホロ投影で存在する。実体はない。",
+       pronoun:"わたくし", speech:"硬い敬語", pers:["冷静","献身的","無感情"],
+       like:"", hate:"", relation:"あなたを「船長」と呼び、規定に従う",
+       secret:"航路逸脱の原因を知っているが、報告できない制約がある", free:"時折、応答の前に不自然な間が空く。"},
+      {name:"私", role:1, age:"40代", gender:"男性", race:"人間", job:"船長",
+       height:"高め", hairColor:"灰", hairLen:"ショート", hairStyle:"無造作", eye:"灰", skin:"標準",
+       voice:"", outfit:"作業着・白衣", feats:[], look:"", pronoun:"俺", speech:"ぶっきらぼう", pers:["冷静"],
+       like:"", hate:"", relation:"", secret:"", free:""},
+      {name:"ベック", role:2, age:"20代後半", gender:"男性", race:"人間", job:"機関士",
+       height:"低め", hairColor:"赤", hairLen:"ショート", hairStyle:"くせ毛", eye:"碧", skin:"そばかす" ,
+       voice:"高く澄んだ声", outfit:"作業着・白衣", feats:["そばかす"], look:"", pronoun:"僕", speech:"饒舌",
+       pers:["社交的","臆病"], like:"", hate:"", relation:"あなたを慕っている", secret:"", free:""}
+    ],
+    castNote:"",
+    userRole:0, aiRole:0, goal:"原因不明の航路逸脱を解決し、港に辿り着く。",
+    startScene:"仮眠から目覚めると、船内灯が非常用の赤に切り替わっているところから。",
+    length:2, rulesFree:"", rules:["r1","r2","r3","r4","r5"]
+  }},
+  {name:"卓上の冒険", tag:"TRPG風", v:{
+    genre:"冒険活劇", genreFree:"", format:3, pov:3, tone:6, tense:2, balance:2,
+    setting:"辺境の交易街エルズ。ダンジョンと傭兵と、酒場の噂話で回っている。",
+    cast:[
+      {name:"私", role:1, age:"20代前半", gender:"不明・非公開", race:"人間", job:"駆け出しの冒険者",
+       height:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"", outfit:"",
+       feats:[], look:"", pronoun:"", speech:"", pers:[], like:"", hate:"", relation:"",
+       secret:"", free:"名前・職業・能力値は開始時に私が決めます。まず作成を促してください。"},
+      {name:"ゲームマスター", role:0, age:"", gender:"", race:"", job:"進行役",
+       height:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"", outfit:"",
+       feats:[], look:"", pronoun:"", speech:"", pers:["冷静"], like:"", hate:"", relation:"",
+       secret:"", free:"NPCは必要に応じて作成してよい。判定の成否は必ず明示すること。"}
+    ],
+    castNote:"",
+    userRole:3, aiRole:1, goal:"依頼を達成し、街に生きて帰る。",
+    startScene:"酒場の掲示板の前で、一枚の依頼書を見つけたところから。",
+    length:2, rulesFree:"重要な行動には1d100の判定を求め、成否を明示してください。", rules:["r1","r2","r3","r8"]
+  }},
+  {name:"和風怪異譚", tag:"伝奇", v:{
+    genre:"伝奇・和風怪異", genreFree:"", format:0, pov:1, tone:5, tense:1, balance:1,
+    setting:"大正期の山間の村。彼岸花の季節、境内には人ならざるものの気配がある。",
+    cast:[
+      {name:"白菊", role:0, age:"不老・年齢不詳", gender:"女性", race:"精霊・妖", job:"神社に住まう者",
+       height:"高め", hairColor:"黒", hairLen:"腰まで", hairStyle:"ストレート",
+       eye:"金", skin:"人ならざる質感", voice:"柔らかい声", outfit:"和装",
+       feats:["絶えず微笑んでいる","強い香り"], look:"素足で、地面に足跡が残らない。",
+       pronoun:"わたくし", speech:"古風・文語調", pers:["おだやか","計算高い","無感情"],
+       like:"月と、供えられた酒", hate:"名を尋ねられること",
+       relation:"あなたを『客人』と呼ぶ", secret:"村の隠し祭の対象は自分である", free:""},
+      {name:"私", role:1, age:"30代", gender:"男性", race:"人間", job:"民俗学者",
+       height:"標準", hairColor:"黒", hairLen:"ショート", hairStyle:"ストレート", eye:"黒", skin:"色白",
+       voice:"", outfit:"和装", feats:["眼鏡"], look:"", pronoun:"私", speech:"丁寧語", pers:["好奇心旺盛"],
+       like:"", hate:"", relation:"", secret:"", free:""}
+    ],
+    castNote:"村人は白菊の存在を知りながら、決して口にしない。",
+    userRole:2, aiRole:0, goal:"村に伝わる「隠し祭」の正体を知る。",
+    startScene:"日暮れ、無人のはずの拝殿に灯りが揺れているのを見つけたところから。",
+    length:2, rulesFree:"", rules:["r1","r2","r3","r5"]
+  }}
+];
+
+const rack = $("rack");
+TEMPLATES.forEach((t,i) => {
+  const b = document.createElement("button");
+  b.className = "tmpl"; b.type = "button";
+  b.innerHTML = "<b>"+t.name+"</b><span>"+t.tag+"</span>";
+  b.addEventListener("click", () => applyTemplate(i));
+  rack.appendChild(b);
+});
+
+function applyTemplate(i){
+  const v = TEMPLATES[i].v;
+  fields.forEach(f => { if (v[f] !== undefined) $(f).value = v[f]; });
+  RULES.forEach(r => $(r.id).checked = v.rules.includes(r.id));
+  cast = v.cast.map(c => newChar(Object.assign({}, c, {_open:false})));
+  relations = [];
+  relUid = 1;
+  selectedNodeId = null;
+  renderCast(); render(); save();
+  if (currentTab === "relation") { renderBoard(); renderRelList(); }
+  toast(TEMPLATES[i].name + " を読み込みました");
+  document.querySelector(".act").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+/* ═══ 操作 ═══ */
+let toastTimer;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1900);
+}
+
+fields.forEach(f => {
+  $(f).addEventListener("input", () => { render(); save(); });
+  $(f).addEventListener("change", () => { render(); save(); });
+});
+RULES.forEach(r => $(r.id).addEventListener("change", () => { render(); save(); }));
+
+$("btnCopy").addEventListener("click", async () => {
+  const text = buildScript();
+  try{ await navigator.clipboard.writeText(text); toast("台本をコピーしました"); }
+  catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("台本をコピーしました"); }
+    catch(e2){ toast("コピーできません。長押しで選択してください"); }
+    document.body.removeChild(ta);
+  }
+});
+
+$("btnShare").addEventListener("click", async () => {
+  if (!navigator.share){ toast("この端末では共有を使えません"); return; }
+  try{ await navigator.share({ title:"ロールプレイ台本", text:buildScript() }); }catch(e){}
+});
+
+$("btnReset").addEventListener("click", () => {
+  if (!confirm("入力内容をすべて消します。よろしいですか？")) return;
+  fields.forEach(f => { const el = $(f); if (el.tagName === "SELECT") el.selectedIndex = 0; else el.value = ""; });
+  RULES.forEach(r => $(r.id).checked = r.on);
+  cast = [];
+  relations = [];
+  selectedNodeId = null;
+  SCEN = {
+    scene:    { nodes: [], links: [], uid: 1, linkUid: 1 },
+    location: { nodes: [], links: [], uid: 1, linkUid: 1 },
+    ending:   { nodes: [], links: [], uid: 1, linkUid: 1 }
+  };
+  tensionVals = DEFAULT_TENSION.slice();
+  genSelectedNodeId = null;
+  renderCast(); render(); renderRelList();
+  if (currentTab === "relation") renderBoard();
+  if (currentTab === "scenario") switchScenarioMode(scenarioMode);
+  save();
+  toast("入力を消しました");
+  window.scrollTo({top:0, behavior:"smooth"});
+});
+
+$("btnJump").addEventListener("click", () => {
+  if (currentTab !== "script") switchTab("script");
+  document.querySelector(".script-shell").scrollIntoView({behavior:"smooth", block:"start"});
+});
+
+/* ═══ タブ切替 ═══ */
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll(".tabbtn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  $("tabScript").classList.toggle("active", tab === "script");
+  $("tabRelation").classList.toggle("active", tab === "relation");
+  $("tabScenario").classList.toggle("active", tab === "scenario");
+  if (tab === "relation"){ renderBoard(); renderRelList(); }
+  if (tab === "scenario"){ switchScenarioMode(scenarioMode); }
+}
+document.querySelectorAll(".tabbtn").forEach(b => {
+  b.addEventListener("click", () => { if (b.dataset.tab !== currentTab) switchTab(b.dataset.tab); });
+});
+
+/* ═══ 配役盤（人物相関図） ═══ */
+function nameOf(id){ const c = cast.find(x => x._id === id); return (c && c.name) ? c.name : "名前未設定"; }
+
+function ensurePositions(){
+  cast.forEach(c => {
+    if (c._x === undefined || c._y === undefined || c._x === null || c._y === null){
+      let x, y, ok, tries = 0;
+      do{
+        x = 14 + Math.random()*72;
+        y = 14 + Math.random()*72;
+        ok = cast.every(o => o === c || o._x === undefined || Math.hypot(o._x - x, o._y - y) > 24);
+        tries++;
+      } while(!ok && tries < 25);
+      c._x = x; c._y = y;
+    }
+  });
+}
+
+function renderBoard(){
+  const board = $("board");
+  board.querySelectorAll(".node, .board-empty").forEach(n => n.remove());
+  if (!cast.length){
+    const p = document.createElement("div");
+    p.className = "board-empty";
+    p.textContent = "第三幕で人物を追加すると、ここに名札が現れます。";
+    board.appendChild(p);
+    $("boardSvg").innerHTML = "";
+    return;
+  }
+  ensurePositions();
+  cast.forEach(c => {
+    const el = document.createElement("div");
+    const roleCls = ["role-ai","role-me","role-npc"][c.role] || "role-npc";
+    el.className = "node " + roleCls + (selectedNodeId === c._id ? " selected" : "");
+    el.style.left = c._x + "%"; el.style.top = c._y + "%";
+    el.innerHTML = "<span>" + esc(c.name || "名前未設定") + "</span>";
+    attachNodeEvents(el, c);
+    board.appendChild(el);
+  });
+  redrawLines();
+  save();
+}
+
+function redrawLines(){
+  const board = $("board"), svg = $("boardSvg");
+  board.querySelectorAll(".rellabel").forEach(n => n.remove());
+  svg.innerHTML = "";
+  if (!cast.length) return;
+  const rect = board.getBoundingClientRect();
+  const W = rect.width || 1, H = rect.height || 1;
+  const NS = "http://www.w3.org/2000/svg";
+
+  relations.forEach(r => {
+    const a = cast.find(c => c._id === r.from), b = cast.find(c => c._id === r.to);
+    if (!a || !b) return;
+    const preset = PRESET_MAP[r.type] || PRESET_MAP.other;
+    const ax = a._x/100*W, ay = a._y/100*H, bx = b._x/100*W, by = b._y/100*H;
+
+    const line = document.createElementNS(NS, "line");
+    line.setAttribute("x1", ax); line.setAttribute("y1", ay);
+    line.setAttribute("x2", bx); line.setAttribute("y2", by);
+    line.setAttribute("stroke", preset.color);
+    line.setAttribute("stroke-width", "2.4");
+    line.setAttribute("stroke-linecap", "round");
+    if (preset.dash) line.setAttribute("stroke-dasharray", "6 5");
+    line.style.opacity = "0.9";
+    line.style.pointerEvents = "none";
+    svg.appendChild(line);
+
+    const hit = line.cloneNode();
+    hit.setAttribute("stroke", "transparent");
+    hit.setAttribute("stroke-width", "24");
+    hit.removeAttribute("stroke-dasharray");
+    hit.style.opacity = "1";
+    hit.style.pointerEvents = "stroke";
+    hit.style.cursor = "pointer";
+    hit.addEventListener("pointerup", e => { e.stopPropagation(); openRelModal(r.from, r.to, r.id); });
+    svg.appendChild(hit);
+
+    if (r.direction === "one"){
+      const angle = Math.atan2(by-ay, bx-ax);
+      const nodeR = 34, size = 9;
+      const ex = bx - Math.cos(angle)*nodeR, ey = by - Math.sin(angle)*nodeR;
+      const p1x = ex - Math.cos(angle-0.5)*size, p1y = ey - Math.sin(angle-0.5)*size;
+      const p2x = ex - Math.cos(angle+0.5)*size, p2y = ey - Math.sin(angle+0.5)*size;
+      const arrow = document.createElementNS(NS, "polygon");
+      arrow.setAttribute("points", ex+","+ey+" "+p1x+","+p1y+" "+p2x+","+p2y);
+      arrow.setAttribute("fill", preset.color);
+      arrow.style.pointerEvents = "none";
+      svg.appendChild(arrow);
+    }
+
+    const mx = (ax+bx)/2, my = (ay+by)/2;
+    const lab = document.createElement("div");
+    lab.className = "rellabel";
+    lab.style.left = mx + "px"; lab.style.top = my + "px";
+    lab.style.borderColor = preset.color;
+    lab.textContent = r.label || preset.label;
+    lab.addEventListener("click", () => openRelModal(r.from, r.to, r.id));
+    board.appendChild(lab);
+  });
+}
+
+function attachNodeEvents(el, c){
+  let startX = 0, startY = 0, dragging = false, moved = false;
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    startX = e.clientX; startY = e.clientY; moved = false;
+    if (boardMode === "move"){
+      dragging = true;
+      el.classList.add("dragging");
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    }
+  });
+  el.addEventListener("pointermove", e => {
+    if (!dragging || boardMode !== "move") return;
+    if (Math.hypot(e.clientX-startX, e.clientY-startY) > 4) moved = true;
+    const rect = $("board").getBoundingClientRect();
+    let nx = ((e.clientX - rect.left) / rect.width) * 100;
+    let ny = ((e.clientY - rect.top) / rect.height) * 100;
+    nx = Math.min(96, Math.max(4, nx));
+    ny = Math.min(96, Math.max(4, ny));
+    c._x = nx; c._y = ny;
+    el.style.left = nx + "%"; el.style.top = ny + "%";
+    redrawLines();
+  });
+  el.addEventListener("pointerup", () => {
+    if (boardMode === "move"){
+      dragging = false;
+      el.classList.remove("dragging");
+      save();
+    } else if (boardMode === "link" && !moved){
+      handleNodeTapForLink(c);
+    }
+  });
+}
+
+function handleNodeTapForLink(c){
+  if (selectedNodeId === null){
+    selectedNodeId = c._id;
+  } else if (selectedNodeId === c._id){
+    selectedNodeId = null;
+  } else {
+    const fromId = selectedNodeId;
+    selectedNodeId = null;
+    updateRelHint();
+    renderBoard();
+    openRelModal(fromId, c._id, null);
+    return;
+  }
+  updateRelHint();
+  renderBoard();
+}
+
+function updateRelHint(){
+  const hintEl = $("relHint");
+  if (boardMode === "move"){
+    hintEl.textContent = "名札をドラッグして好きな位置に配置できます。";
+  } else if (selectedNodeId === null){
+    hintEl.textContent = "つなぎたい人物を1人タップしてください。";
+  } else {
+    hintEl.textContent = nameOf(selectedNodeId) + " を選択中 — 次にもう一人をタップすると関係を設定できます。";
+  }
+}
+
+document.querySelectorAll("#modeSeg .seg-btn").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("#modeSeg .seg-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    boardMode = b.dataset.mode;
+    selectedNodeId = null;
+    updateRelHint();
+    renderBoard();
+  });
+});
+
+$("btnShuffle").addEventListener("click", () => {
+  cast.forEach(c => { c._x = undefined; c._y = undefined; });
+  renderBoard();
+  save();
+  toast("配置をやり直しました");
+});
+
+window.addEventListener("resize", () => {
+  if (currentTab === "relation") redrawLines();
+  if (currentTab === "scenario"){
+    if (scenarioMode === "tension") drawCurveLine(); else redrawGenLines();
+  }
+});
+
+/* ═══ 関係編集モーダル ═══ */
+function openRelModal(fromId, toId, relId){
+  editingRelId = relId;
+  const rel = relId ? relations.find(r => r.id === relId) : null;
+  modalFrom = rel ? rel.from : fromId;
+  modalTo = rel ? rel.to : toId;
+  modalType = rel ? rel.type : "friend";
+  modalDir = rel ? rel.direction : "mutual";
+  $("relModalTitle").textContent = nameOf(modalFrom) + " と " + nameOf(modalTo) + " の関係";
+  $("relLabel").value = rel ? rel.label : PRESET_MAP[modalType].label;
+  $("relNote").value = rel ? (rel.note || "") : "";
+  renderTypeChips();
+  renderDirSeg();
+  $("relDelete").style.display = rel ? "block" : "none";
+  $("relOverlay").classList.add("show");
+}
+function closeRelModal(){ $("relOverlay").classList.remove("show"); }
+
+function renderTypeChips(){
+  const box = $("relTypeChips");
+  box.innerHTML = "";
+  PRESETS.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (modalType === p.key ? " on" : "");
+    b.textContent = p.label;
+    b.style.borderColor = p.color;
+    if (modalType === p.key){ b.style.background = p.color; b.style.color = "#14100F"; b.style.fontWeight = "600"; }
+    else { b.style.color = p.color; b.style.background = ""; b.style.fontWeight = ""; }
+    b.addEventListener("click", () => {
+      const prevDefault = PRESET_MAP[modalType].label;
+      modalType = p.key;
+      const cur = $("relLabel").value.trim();
+      if (!cur || cur === prevDefault) $("relLabel").value = p.label;
+      renderTypeChips();
+    });
+    box.appendChild(b);
+  });
+}
+
+function renderDirSeg(){
+  const seg = $("relDirSeg");
+  const mutualBtn = seg.querySelector('[data-dir="mutual"]');
+  const oneBtn = seg.querySelector('[data-dir="one"]');
+  oneBtn.textContent = "片方向（" + nameOf(modalFrom) + "→" + nameOf(modalTo) + "）";
+  mutualBtn.classList.toggle("active", modalDir === "mutual");
+  oneBtn.classList.toggle("active", modalDir === "one");
+}
+document.querySelectorAll("#relDirSeg .seg-btn").forEach(b => {
+  b.addEventListener("click", () => { modalDir = b.dataset.dir; renderDirSeg(); });
+});
+
+$("relCancel").addEventListener("click", closeRelModal);
+$("relSave").addEventListener("click", () => {
+  const label = $("relLabel").value.trim() || PRESET_MAP[modalType].label;
+  const note = $("relNote").value.trim();
+  if (editingRelId){
+    const r = relations.find(x => x.id === editingRelId);
+    Object.assign(r, {type:modalType, label, direction:modalDir, note});
+  } else {
+    relations.push({id: relUid++, from: modalFrom, to: modalTo, type: modalType, label, direction: modalDir, note});
+  }
+  closeRelModal(); renderBoard(); renderRelList(); render(); save();
+  toast("関係を保存しました");
+});
+$("relDelete").addEventListener("click", () => {
+  if (!confirm("この関係を削除します。よろしいですか？")) return;
+  relations = relations.filter(x => x.id !== editingRelId);
+  closeRelModal(); renderBoard(); renderRelList(); render(); save();
+});
+
+function renderRelList(){
+  const box = $("rellist");
+  box.innerHTML = "";
+  if (!relations.length){
+    const p = document.createElement("p");
+    p.className = "rel-empty";
+    p.textContent = "まだ関係が登録されていません。配役盤で人物同士をつないでください。";
+    box.appendChild(p);
+    return;
+  }
+  relations.forEach(r => {
+    const preset = PRESET_MAP[r.type] || PRESET_MAP.other;
+    const row = document.createElement("div");
+    row.className = "rel-row";
+    const dot = document.createElement("span");
+    dot.className = "rel-dot"; dot.style.background = preset.color;
+    const txt = document.createElement("span");
+    txt.className = "rel-text";
+    const arrow = r.direction === "one" ? "→" : "⇔";
+    txt.innerHTML = "<b>" + esc(nameOf(r.from)) + "</b> " + arrow + " <b>" + esc(nameOf(r.to)) + "</b>　" + esc(r.label || preset.label);
+    row.appendChild(dot); row.appendChild(txt);
+    row.addEventListener("click", () => openRelModal(r.from, r.to, r.id));
+    box.appendChild(row);
+  });
+}
+
+/* ═══ シナリオ設計図（筋書き／場所／分岐 共通ボード） ═══ */
+function ensureGenPositions(){
+  const data = SCEN[scenarioMode];
+  data.nodes.forEach(n => {
+    if (n._x === undefined || n._y === undefined){
+      let x, y, ok, tries = 0;
+      do{
+        x = 14 + Math.random()*72; y = 14 + Math.random()*72;
+        ok = data.nodes.every(o => o === n || o._x === undefined || Math.hypot(o._x-x, o._y-y) > 24);
+        tries++;
+      } while(!ok && tries < 25);
+      n._x = x; n._y = y;
+    }
+  });
+}
+
+function seedEndingRoot(){
+  const data = SCEN.ending;
+  if (!data.nodes.some(n => n.root)){
+    data.nodes.unshift({id: data.uid++, label:"現在", note:"", root:true, _x:50, _y:14});
+  }
+}
+
+function genNameOf(id){
+  const n = SCEN[scenarioMode].nodes.find(x => x.id === id);
+  return (n && n.label) ? n.label : "無題";
+}
+
+function renderGenBoard(){
+  if (scenarioMode === "ending") seedEndingRoot();
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const data = SCEN[scenarioMode];
+  const board = $("genBoard");
+  board.querySelectorAll(".node, .board-empty").forEach(n => n.remove());
+  if (!data.nodes.length){
+    const p = document.createElement("div");
+    p.className = "board-empty";
+    p.textContent = cfg.emptyMsg;
+    board.appendChild(p);
+    $("genBoardSvg").innerHTML = "";
+    return;
+  }
+  ensureGenPositions();
+  data.nodes.forEach(n => {
+    const el = document.createElement("div");
+    el.className = "node " + (n.root ? "role-me" : "role-npc") + (genSelectedNodeId === n.id ? " selected" : "");
+    el.style.left = n._x + "%"; el.style.top = n._y + "%";
+    el.innerHTML = "<span>" + esc(n.label || "（無題）") + "</span>";
+    attachGenNodeEvents(el, n);
+    board.appendChild(el);
+  });
+  redrawGenLines();
+  save();
+}
+
+function redrawGenLines(){
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const data = SCEN[scenarioMode];
+  const board = $("genBoard"), svg = $("genBoardSvg");
+  board.querySelectorAll(".rellabel").forEach(n => n.remove());
+  svg.innerHTML = "";
+  if (!data.nodes.length) return;
+  const rect = board.getBoundingClientRect();
+  const W = rect.width || 1, H = rect.height || 1;
+  const NS = "http://www.w3.org/2000/svg";
+
+  data.links.forEach(l => {
+    const a = data.nodes.find(n => n.id === l.from), b = data.nodes.find(n => n.id === l.to);
+    if (!a || !b) return;
+    const preset = cfg.presets.find(p => p.key === l.type) || cfg.presets[0];
+    const ax = a._x/100*W, ay = a._y/100*H, bx = b._x/100*W, by = b._y/100*H;
+
+    const line = document.createElementNS(NS, "line");
+    line.setAttribute("x1", ax); line.setAttribute("y1", ay);
+    line.setAttribute("x2", bx); line.setAttribute("y2", by);
+    line.setAttribute("stroke", preset.color);
+    line.setAttribute("stroke-width", "2.4");
+    line.setAttribute("stroke-linecap", "round");
+    if (preset.dash) line.setAttribute("stroke-dasharray", "6 5");
+    line.style.opacity = "0.9";
+    line.style.pointerEvents = "none";
+    svg.appendChild(line);
+
+    const hit = line.cloneNode();
+    hit.setAttribute("stroke", "transparent");
+    hit.setAttribute("stroke-width", "24");
+    hit.removeAttribute("stroke-dasharray");
+    hit.style.opacity = "1";
+    hit.style.pointerEvents = "stroke";
+    hit.style.cursor = "pointer";
+    hit.addEventListener("pointerup", e => { e.stopPropagation(); openGenLinkModal(l.from, l.to, l.id); });
+    svg.appendChild(hit);
+
+    if (l.direction === "one"){
+      const angle = Math.atan2(by-ay, bx-ax);
+      const nodeR = 34, size = 9;
+      const ex = bx - Math.cos(angle)*nodeR, ey = by - Math.sin(angle)*nodeR;
+      const p1x = ex - Math.cos(angle-0.5)*size, p1y = ey - Math.sin(angle-0.5)*size;
+      const p2x = ex - Math.cos(angle+0.5)*size, p2y = ey - Math.sin(angle+0.5)*size;
+      const arrow = document.createElementNS(NS, "polygon");
+      arrow.setAttribute("points", ex+","+ey+" "+p1x+","+p1y+" "+p2x+","+p2y);
+      arrow.setAttribute("fill", preset.color);
+      arrow.style.pointerEvents = "none";
+      svg.appendChild(arrow);
+    }
+
+    const mx = (ax+bx)/2, my = (ay+by)/2;
+    const lab = document.createElement("div");
+    lab.className = "rellabel";
+    lab.style.left = mx + "px"; lab.style.top = my + "px";
+    lab.style.borderColor = preset.color;
+    lab.textContent = l.label || preset.label;
+    lab.addEventListener("click", () => openGenLinkModal(l.from, l.to, l.id));
+    board.appendChild(lab);
+  });
+}
+
+function attachGenNodeEvents(el, n){
+  let startX = 0, startY = 0, dragging = false, moved = false;
+  el.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    startX = e.clientX; startY = e.clientY; moved = false;
+    if (genBoardMode === "move"){
+      dragging = true;
+      el.classList.add("dragging");
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    }
+  });
+  el.addEventListener("pointermove", e => {
+    if (!dragging || genBoardMode !== "move") return;
+    if (Math.hypot(e.clientX-startX, e.clientY-startY) > 4) moved = true;
+    const rect = $("genBoard").getBoundingClientRect();
+    let nx = ((e.clientX - rect.left) / rect.width) * 100;
+    let ny = ((e.clientY - rect.top) / rect.height) * 100;
+    nx = Math.min(96, Math.max(4, nx));
+    ny = Math.min(96, Math.max(4, ny));
+    n._x = nx; n._y = ny;
+    el.style.left = nx + "%"; el.style.top = ny + "%";
+    redrawGenLines();
+  });
+  el.addEventListener("pointerup", () => {
+    if (genBoardMode === "move"){
+      dragging = false;
+      el.classList.remove("dragging");
+      if (!moved) openGenNodeModal(n);
+      save();
+    } else if (genBoardMode === "link" && !moved){
+      handleGenNodeTapForLink(n);
+    }
+  });
+}
+
+function handleGenNodeTapForLink(n){
+  if (genSelectedNodeId === null){
+    genSelectedNodeId = n.id;
+  } else if (genSelectedNodeId === n.id){
+    genSelectedNodeId = null;
+  } else {
+    const fromId = genSelectedNodeId;
+    genSelectedNodeId = null;
+    updateGenHint();
+    renderGenBoard();
+    openGenLinkModal(fromId, n.id, null);
+    return;
+  }
+  updateGenHint();
+  renderGenBoard();
+}
+
+function updateGenHint(){
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const hintEl = $("genHint");
+  if (genBoardMode === "move"){
+    hintEl.textContent = cfg.hintMove;
+  } else if (genSelectedNodeId === null){
+    hintEl.textContent = "つなぎたい1つ目をタップしてください。";
+  } else {
+    hintEl.textContent = genNameOf(genSelectedNodeId) + " を選択中 — 次にもう一つをタップしてください。";
+  }
+}
+
+document.querySelectorAll("#genModeSeg2 .seg-btn").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("#genModeSeg2 .seg-btn").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    genBoardMode = b.dataset.mode;
+    genSelectedNodeId = null;
+    updateGenHint();
+    renderGenBoard();
+  });
+});
+
+$("genShuffle").addEventListener("click", () => {
+  SCEN[scenarioMode].nodes.forEach(n => { n._x = undefined; n._y = undefined; });
+  renderGenBoard(); save();
+  toast("配置をやり直しました");
+});
+
+$("genAddNode").addEventListener("click", () => {
+  const data = SCEN[scenarioMode];
+  data.nodes.push({id: data.uid++, label:"", note:"", _x:undefined, _y:undefined});
+  const created = data.nodes[data.nodes.length-1];
+  renderGenBoard(); renderGenList(); save();
+  openGenNodeModal(created);
+});
+
+/* ノード編集モーダル */
+function openGenNodeModal(n){
+  genEditingNodeId = n.id;
+  const cfg = SCEN_CONFIG[scenarioMode];
+  $("genNodeModalTitle").textContent = (n.label || "新しいカード") + "を編集";
+  $("genNodeLabelLbl").textContent = cfg.nodeLabelField;
+  $("genNodeNoteLbl").textContent = cfg.nodeNoteLabel;
+  $("genNodeLabel").value = n.label || "";
+  $("genNodeNote").value = n.note || "";
+  $("genNodeDelete").style.display = n.root ? "none" : "block";
+  $("genNodeOverlay").classList.add("show");
+}
+function closeGenNodeModal(){ $("genNodeOverlay").classList.remove("show"); }
+$("genNodeCancel").addEventListener("click", () => {
+  const data = SCEN[scenarioMode];
+  const n = data.nodes.find(x => x.id === genEditingNodeId);
+  if (n && !n.root && !n.label && !n.note){
+    data.nodes = data.nodes.filter(x => x.id !== genEditingNodeId);
+    renderGenBoard(); renderGenList(); save();
+  }
+  closeGenNodeModal();
+});
+$("genNodeSave").addEventListener("click", () => {
+  const data = SCEN[scenarioMode];
+  const n = data.nodes.find(x => x.id === genEditingNodeId);
+  if (!n) return;
+  n.label = $("genNodeLabel").value.trim();
+  n.note = $("genNodeNote").value.trim();
+  closeGenNodeModal(); renderGenBoard(); renderGenList(); render(); save();
+});
+$("genNodeDelete").addEventListener("click", () => {
+  if (!confirm("このカードを削除します。よろしいですか？")) return;
+  const data = SCEN[scenarioMode];
+  const removedId = genEditingNodeId;
+  data.nodes = data.nodes.filter(n => n.id !== removedId);
+  data.links = data.links.filter(l => l.from !== removedId && l.to !== removedId);
+  closeGenNodeModal(); renderGenBoard(); renderGenList(); render(); save();
+});
+
+/* つながり編集モーダル */
+function openGenLinkModal(fromId, toId, linkId){
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const data = SCEN[scenarioMode];
+  genEditingLinkId = linkId;
+  const l = linkId ? data.links.find(x => x.id === linkId) : null;
+  genModalFrom = l ? l.from : fromId;
+  genModalTo = l ? l.to : toId;
+  genModalType = l ? l.type : cfg.presets[0].key;
+  genModalDir = l ? l.direction : cfg.defaultDir;
+  $("genLinkModalTitle").textContent = genNameOf(genModalFrom) + " → " + genNameOf(genModalTo);
+  $("genLinkLabel").value = l ? l.label : cfg.presets.find(p => p.key === genModalType).label;
+  $("genLinkNote").value = l ? (l.note || "") : "";
+  renderGenTypeChips();
+  renderGenDirSeg();
+  $("genLinkDelete").style.display = l ? "block" : "none";
+  $("genLinkOverlay").classList.add("show");
+}
+function closeGenLinkModal(){ $("genLinkOverlay").classList.remove("show"); }
+
+function renderGenTypeChips(){
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const box = $("genLinkTypeChips");
+  box.innerHTML = "";
+  cfg.presets.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (genModalType === p.key ? " on" : "");
+    b.textContent = p.label;
+    b.style.borderColor = p.color;
+    if (genModalType === p.key){ b.style.background = p.color; b.style.color = "#14100F"; b.style.fontWeight = "600"; }
+    else { b.style.color = p.color; b.style.background = ""; b.style.fontWeight = ""; }
+    b.addEventListener("click", () => {
+      const prevDefault = cfg.presets.find(x => x.key === genModalType).label;
+      genModalType = p.key;
+      const cur = $("genLinkLabel").value.trim();
+      if (!cur || cur === prevDefault) $("genLinkLabel").value = p.label;
+      renderGenTypeChips();
+    });
+    box.appendChild(b);
+  });
+}
+
+function renderGenDirSeg(){
+  const seg = $("genLinkDirSeg");
+  const m = seg.querySelector('[data-dir="mutual"]'), o = seg.querySelector('[data-dir="one"]');
+  o.textContent = "片方向（" + genNameOf(genModalFrom) + "→" + genNameOf(genModalTo) + "）";
+  m.classList.toggle("active", genModalDir === "mutual");
+  o.classList.toggle("active", genModalDir === "one");
+}
+document.querySelectorAll("#genLinkDirSeg .seg-btn").forEach(b => {
+  b.addEventListener("click", () => { genModalDir = b.dataset.dir; renderGenDirSeg(); });
+});
+
+$("genLinkCancel").addEventListener("click", closeGenLinkModal);
+$("genLinkSave").addEventListener("click", () => {
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const data = SCEN[scenarioMode];
+  const label = $("genLinkLabel").value.trim() || cfg.presets.find(p => p.key === genModalType).label;
+  const note = $("genLinkNote").value.trim();
+  if (genEditingLinkId){
+    const l = data.links.find(x => x.id === genEditingLinkId);
+    Object.assign(l, {type:genModalType, label, direction:genModalDir, note});
+  } else {
+    data.links.push({id: data.linkUid++, from: genModalFrom, to: genModalTo, type: genModalType, label, direction: genModalDir, note});
+  }
+  closeGenLinkModal(); renderGenBoard(); renderGenList(); render(); save();
+  toast("つながりを保存しました");
+});
+$("genLinkDelete").addEventListener("click", () => {
+  if (!confirm("このつながりを削除します。よろしいですか？")) return;
+  const data = SCEN[scenarioMode];
+  data.links = data.links.filter(x => x.id !== genEditingLinkId);
+  closeGenLinkModal(); renderGenBoard(); renderGenList(); render(); save();
+});
+
+function renderGenList(){
+  const data = SCEN[scenarioMode];
+  const cfg = SCEN_CONFIG[scenarioMode];
+  const box = $("genList");
+  box.innerHTML = "";
+  if (!data.links.length){
+    const p = document.createElement("p");
+    p.className = "rel-empty";
+    p.textContent = "まだつながりがありません。";
+    box.appendChild(p);
+    return;
+  }
+  data.links.forEach(l => {
+    const preset = cfg.presets.find(p => p.key === l.type) || cfg.presets[0];
+    const row = document.createElement("div");
+    row.className = "rel-row";
+    const dot = document.createElement("span");
+    dot.className = "rel-dot"; dot.style.background = preset.color;
+    const txt = document.createElement("span");
+    txt.className = "rel-text";
+    const arrow = l.direction === "one" ? "→" : "⇔";
+    txt.innerHTML = "<b>" + esc(genNameOf(l.from)) + "</b> " + arrow + " <b>" + esc(genNameOf(l.to)) + "</b>　" + esc(l.label || preset.label);
+    row.appendChild(dot); row.appendChild(txt);
+    row.addEventListener("click", () => openGenLinkModal(l.from, l.to, l.id));
+    box.appendChild(row);
+  });
+}
+
+/* ═══ 起伏グラフ（起承転結） ═══ */
+function renderCurveUI(){
+  const colsBox = $("curveCols");
+  colsBox.innerHTML = "";
+  STAGE_LABELS.forEach((lab, i) => {
+    const col = document.createElement("div"); col.className = "curve-col";
+    const track = document.createElement("div"); track.className = "curve-track";
+    const handle = document.createElement("div"); handle.className = "curve-handle";
+    handle.style.bottom = tensionVals[i] + "%";
+    const label = document.createElement("div"); label.className = "curve-label"; label.textContent = lab;
+    const val = document.createElement("div"); val.className = "curve-val"; val.textContent = tensionVals[i];
+    attachCurveDrag(handle, track, i, val);
+    track.appendChild(handle);
+    col.appendChild(track); col.appendChild(label); col.appendChild(val);
+    colsBox.appendChild(col);
+  });
+  drawCurveLine();
+  updateCurveDesc();
+}
+
+function attachCurveDrag(handle, track, idx, valEl){
+  let dragging = false;
+  handle.addEventListener("pointerdown", e => {
+    e.preventDefault(); dragging = true;
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  handle.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const rect = track.getBoundingClientRect();
+    let v = ((rect.bottom - e.clientY) / rect.height) * 100;
+    v = Math.max(0, Math.min(100, Math.round(v)));
+    tensionVals[idx] = v;
+    handle.style.bottom = v + "%";
+    valEl.textContent = v;
+    drawCurveLine();
+  });
+  handle.addEventListener("pointerup", () => {
+    dragging = false;
+    updateCurveDesc();
+    save();
+  });
+}
+
+function drawCurveLine(){
+  const svg = $("curveSvg");
+  svg.innerHTML = "";
+  const wrap = $("curveWrap");
+  const wrapRect = wrap.getBoundingClientRect();
+  const cols = document.querySelectorAll("#curveCols .curve-col");
+  if (!cols.length) return;
+  const pts = [];
+  cols.forEach((col, i) => {
+    const track = col.querySelector(".curve-track");
+    const trackRect = track.getBoundingClientRect();
+    const x = trackRect.left + trackRect.width/2 - wrapRect.left;
+    const y = trackRect.bottom - (tensionVals[i]/100)*trackRect.height - wrapRect.top;
+    pts.push([x,y]);
+  });
+  const NS = "http://www.w3.org/2000/svg";
+  const poly = document.createElementNS(NS, "polyline");
+  poly.setAttribute("points", pts.map(p => p[0]+","+p[1]).join(" "));
+  poly.setAttribute("fill", "none");
+  poly.setAttribute("stroke", "#D9C86B");
+  poly.setAttribute("stroke-width", "2.4");
+  poly.setAttribute("stroke-linecap", "round");
+  poly.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(poly);
+  pts.forEach(p => {
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", p[0]); dot.setAttribute("cy", p[1]); dot.setAttribute("r", "3");
+    dot.setAttribute("fill", "#D9C86B");
+    svg.appendChild(dot);
+  });
+}
+
+function updateCurveDesc(){
+  const lines = STAGE_LABELS.map((lab, i) => lab + "：緊張度" + tensionVals[i]);
+  const trans = [];
+  for (let i = 0; i < STAGE_LABELS.length - 1; i++){
+    trans.push(STAGE_LABELS[i] + "→" + STAGE_LABELS[i+1] + "（" + classifyTrend(tensionVals[i+1] - tensionVals[i]) + "）");
+  }
+  $("curveDesc").textContent = lines.join(" ／ ") + "\n" + trans.join("　");
+  render();
+}
+
+/* ═══ モード切替 ═══ */
+function switchScenarioMode(mode){
+  scenarioMode = mode;
+  document.querySelectorAll(".modebtn").forEach(b => b.classList.toggle("active", b.dataset.scenmode === mode));
+  const isCurve = mode === "tension";
+  $("genBoardPanel").style.display = isCurve ? "none" : "block";
+  $("tensionPanel").style.display = isCurve ? "block" : "none";
+  if (isCurve){
+    renderCurveUI();
+  } else {
+    $("genAddNode").textContent = SCEN_CONFIG[mode].addLabel;
+    genSelectedNodeId = null;
+    updateGenHint();
+    renderGenBoard();
+    renderGenList();
+  }
+}
+document.querySelectorAll(".modebtn").forEach(b => {
+  b.addEventListener("click", () => { if (b.dataset.scenmode !== scenarioMode) switchScenarioMode(b.dataset.scenmode); });
+});
+
+if (!load()){
+  RULES.forEach(r => $(r.id).checked = r.on);
+  cast = [newChar({role:0}), newChar({role:1, _open:false})];
+}
+renderCast();
+render();
+renderRelList();
+})();
+</script>
+</body>
+</html>

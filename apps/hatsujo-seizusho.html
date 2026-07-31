@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>発条製図所 — コイルばね自動設計</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d2440; --bg2:#0a1d34;
+  --panel:rgba(16,44,76,.55);
+  --line:rgba(158,198,236,.42); --line-soft:rgba(158,198,236,.22);
+  --grid:rgba(150,190,230,.07); --grid2:rgba(150,190,230,.045);
+  --ink:#e4eff9; --dim:#9fc8ec; --faint:#6d92b8;
+  --acc:#8fd8ff; --seal:#e8604c;
+  --ok:#86e0a8; --warn:#f2c879; --ng:#ff8f83;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'Zen Kaku Gothic New','Hiragino Kaku Gothic ProN',sans-serif;
+  --serif:'Shippori Mincho','Hiragino Mincho ProN',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--sans);color:var(--ink);background:var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--grid2) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid2) 1px,transparent 1px);
+  background-size:96px 96px,96px 96px,16px 16px,16px 16px;
+  min-height:100vh;padding-bottom:calc(48px + env(safe-area-inset-bottom));
+  font-size:15px;line-height:1.65;
+}
+.wrap{max-width:560px;margin:0 auto;padding:0 14px}
+
+header{margin:14px 0;border:1.5px solid var(--line);background:linear-gradient(180deg,rgba(20,52,88,.5),rgba(12,32,58,.5));position:relative}
+header::after{content:'';position:absolute;inset:4px;border:1px solid var(--line-soft);pointer-events:none}
+.tblock{display:flex;align-items:stretch}
+.tmain{flex:1;padding:14px 16px 12px}
+.tmain h1{font-family:var(--serif);font-weight:800;font-size:25px;letter-spacing:.14em;line-height:1.2}
+.tmain .en{font-family:var(--mono);font-size:9.5px;letter-spacing:.32em;color:var(--faint);text-transform:uppercase;margin-top:4px}
+.tside{width:100px;border-left:1px solid var(--line-soft);display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 10px;font-family:var(--mono);font-size:9px;color:var(--dim);line-height:1.5}
+.tside b{color:var(--ink);font-weight:600}
+.tfoot{border-top:1px solid var(--line-soft);padding:6px 16px;font-size:10.5px;color:var(--dim);display:flex;justify-content:space-between;font-family:var(--mono);letter-spacing:.04em}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);border:1.5px solid var(--line);background:rgba(10,28,50,.6)}
+.tabs button{appearance:none;border:0;background:transparent;color:var(--dim);font-family:var(--sans);font-weight:700;font-size:14.5px;letter-spacing:.1em;padding:12px 0 10px;position:relative;cursor:pointer}
+.tabs button+button{border-left:1px solid var(--line-soft)}
+.tabs button small{display:block;font-family:var(--mono);font-weight:400;font-size:8.5px;letter-spacing:.22em;color:var(--faint);margin-top:1px}
+.tabs button.on{color:var(--ink);background:linear-gradient(180deg,rgba(143,216,255,.14),rgba(143,216,255,.04))}
+.tabs button.on::after{content:'';position:absolute;left:14%;right:14%;bottom:0;height:2px;background:var(--acc)}
+
+.modes{display:flex;margin-top:10px;border:1px solid var(--line-soft)}
+.modes button{flex:1;appearance:none;border:0;background:transparent;color:var(--faint);font-family:var(--mono);font-size:11.5px;letter-spacing:.18em;padding:8px 0;cursor:pointer}
+.modes button.on{color:var(--bg2);background:var(--dim);font-weight:600}
+
+.sheet{margin-top:12px;border:1.5px solid var(--line);background:var(--panel)}
+.sheet h2{font-size:12px;font-weight:700;letter-spacing:.2em;color:var(--dim);padding:9px 14px 8px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;gap:8px}
+.sheet h2::before{content:'';width:8px;height:8px;border:1.5px solid var(--acc);transform:rotate(45deg)}
+.fbody{padding:12px 14px 14px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.frow.one{grid-template-columns:1fr}
+.fld{margin-bottom:11px}
+.fld label{display:block;font-size:11px;color:var(--dim);letter-spacing:.08em;margin-bottom:4px}
+.fld label .u{font-family:var(--mono);color:var(--faint);font-size:10px;margin-left:4px}
+.fld input,.fld select{width:100%;appearance:none;background:rgba(6,20,38,.55);color:var(--ink);border:1px solid var(--line-soft);border-radius:0;font-family:var(--mono);font-size:16px;padding:9px 10px}
+.fld input:focus,.fld select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 1px rgba(143,216,255,.35)}
+.fld input::placeholder{color:var(--faint);opacity:.6}
+.fld select{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+.seg{display:flex;border:1px solid var(--line-soft);margin-bottom:11px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;color:var(--faint);font-family:var(--sans);font-size:12.5px;font-weight:500;padding:8px 2px;cursor:pointer;letter-spacing:.02em}
+.seg button+button{border-left:1px solid var(--line-soft)}
+.seg button.on{background:rgba(143,216,255,.16);color:var(--ink);font-weight:700}
+.opt-note{font-size:10.5px;color:var(--faint);margin:-4px 0 10px;letter-spacing:.02em;line-height:1.6}
+.divider{border-top:1px dashed var(--line-soft);margin:6px 0 13px;position:relative}
+.divider span{position:absolute;top:-9px;left:0;background:var(--bg);padding-right:8px;font-size:10px;color:var(--faint);letter-spacing:.16em;font-family:var(--mono)}
+
+.runrow{display:flex;justify-content:center;padding:6px 0 2px}
+.run{appearance:none;cursor:pointer;width:92px;height:92px;border-radius:50%;border:3px double var(--seal);color:var(--seal);background:rgba(232,96,76,.07);font-family:var(--serif);font-weight:800;font-size:21px;letter-spacing:.1em;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;transform:rotate(-4deg);transition:transform .12s ease,background .12s ease;text-shadow:0 0 12px rgba(232,96,76,.35)}
+.run small{font-family:var(--mono);font-size:8px;letter-spacing:.26em;font-weight:400}
+.run:active{transform:rotate(-4deg) scale(.93);background:rgba(232,96,76,.18)}
+.err{color:var(--ng);font-size:12px;text-align:center;padding:6px 0 0;min-height:1em;line-height:1.5}
+
+#results{margin-top:14px}
+.rhead{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--dim);margin:0 2px 8px}
+.sortbar{display:flex;gap:5px;align-items:center;overflow-x:auto;padding:0 0 9px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.sortbar::-webkit-scrollbar{display:none}
+.sortbar .sl{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--faint);flex-shrink:0;padding-right:3px}
+.sortbar .sb{flex-shrink:0;appearance:none;cursor:pointer;border:1px solid var(--line-soft);background:transparent;color:var(--dim);font-family:var(--sans);font-size:11.5px;font-weight:500;padding:5px 10px;white-space:nowrap}
+.sortbar .sb.on{background:var(--dim);color:var(--bg2);border-color:var(--dim);font-weight:700}
+.more{display:block;width:100%;appearance:none;cursor:pointer;margin:2px 0 4px;border:1px dashed var(--line-soft);background:transparent;color:var(--dim);font-family:var(--mono);font-size:11px;letter-spacing:.1em;padding:9px 0}
+.more:active{background:rgba(143,216,255,.1)}
+.cand{border:1px solid var(--line-soft);background:rgba(12,34,60,.55);padding:10px 12px;margin-bottom:8px;cursor:pointer;position:relative}
+.cand.sel{border-color:var(--acc);background:rgba(24,58,96,.6)}
+.cand .no{position:absolute;top:-1px;left:-1px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;background:var(--line-soft);color:var(--ink);padding:1px 7px}
+.cand.best .no{background:var(--seal);color:#fff}
+.cand .main{font-family:var(--mono);font-size:15px;margin:8px 0 3px;color:var(--ink)}
+.cand .main b{font-size:17px;color:var(--acc);font-weight:600}
+.cand .sub{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.chip{font-size:10px;letter-spacing:.04em;padding:2px 7px;border:1px solid;font-weight:500}
+.chip.ok{color:var(--ok);border-color:rgba(134,224,168,.5)}
+.chip.warn{color:var(--warn);border-color:rgba(242,200,121,.55)}
+.chip.ng{color:var(--ng);border-color:rgba(255,143,131,.55)}
+.chip.info{color:var(--dim);border-color:var(--line-soft)}
+
+.detail{border:1.5px solid var(--line);background:var(--panel);margin-top:12px}
+.detail h3{font-size:12px;font-weight:700;letter-spacing:.2em;color:var(--dim);padding:9px 14px 8px;border-bottom:1px solid var(--line-soft);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.detail h3 .cp{appearance:none;border:1px solid var(--line-soft);background:transparent;color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:4px 9px;cursor:pointer;flex-shrink:0}
+.detail h3 .cp:active{background:rgba(143,216,255,.15)}
+.vtabs{display:flex;border-bottom:1px solid var(--line-soft)}
+.vtabs button{flex:1;appearance:none;border:0;background:transparent;color:var(--faint);font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;padding:7px 0;cursor:pointer}
+.vtabs button+button{border-left:1px solid var(--line-soft)}
+.vtabs button.on{color:var(--ink);background:rgba(143,216,255,.1)}
+.draw{padding:10px 6px 2px;display:flex;justify-content:center}
+.draw svg{width:100%;max-width:380px;height:auto}
+.wire{stroke:var(--ink);fill:none;stroke-linecap:round}
+.plate{stroke:var(--dim);stroke-width:2}
+.dline{stroke:#9fc4e8;stroke-width:1;fill:none}
+.dtext{font-family:var(--mono);font-size:10.5px;fill:#bcd9f2}
+.axis{stroke:rgba(158,198,236,.35);stroke-width:.8;stroke-dasharray:7 3 1.5 3}
+.gax{stroke:rgba(158,198,236,.5);stroke-width:1;fill:none}
+.ggrid{stroke:rgba(158,198,236,.13);stroke-width:.8}
+.gline{stroke:var(--acc);stroke-width:2;fill:none}
+.glim{stroke:var(--ng);stroke-width:1;stroke-dasharray:5 3;fill:none}
+.gwarn{stroke:var(--warn);stroke-width:1;stroke-dasharray:5 3;fill:none}
+.gtext{font-family:var(--mono);font-size:9.5px;fill:#bcd9f2}
+.spec{padding:6px 14px 14px}
+.spec .grp{font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;color:var(--faint);margin:13px 0 4px;border-bottom:1px solid var(--line-soft);padding-bottom:2px}
+.srow{display:flex;align-items:baseline;font-size:13px;padding:3.5px 0;border-bottom:1px dotted rgba(158,198,236,.18)}
+.srow .k{color:var(--dim);flex-shrink:0}
+.srow .dots{flex:1;margin:0 8px}
+.srow .v{font-family:var(--mono);font-size:13.5px;text-align:right;color:var(--ink)}
+.srow .v small{color:var(--faint);font-size:10.5px;margin-left:3px}
+.srow .v.ok{color:var(--ok)}.srow .v.warn{color:var(--warn)}.srow .v.ng{color:var(--ng)}
+.note{font-size:10.5px;color:var(--faint);line-height:1.75;padding:10px 14px 12px;border-top:1px dashed var(--line-soft)}
+.seg.s4 button{font-size:11px;padding:8px 1px;letter-spacing:0}
+details.adv{border:1px dashed var(--line-soft);margin:2px 0 12px}
+details.adv summary{list-style:none;cursor:pointer;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;color:var(--dim);padding:9px 11px}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::before{content:'▸ '}
+details.adv[open] summary::before{content:'▾ '}
+details.adv .abody{padding:4px 11px 2px;border-top:1px dashed var(--line-soft)}
+details.adv .fld{margin-bottom:9px}
+.frow.three{grid-template-columns:1fr 1fr 1fr;gap:7px}
+.hidden{display:none!important}
+footer{margin-top:22px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--faint);line-height:2}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="tblock">
+    <div class="tmain">
+      <h1>発条製図所</h1>
+      <div class="en">Coil Spring Drafting Bureau</div>
+    </div>
+    <div class="tside">
+      <div>図番 <b>SPR-002</b></div>
+      <div>尺度 <b>N.T.S.</b></div>
+      <div>単位 <b>mm·N·MPa</b></div>
+    </div>
+  </div>
+  <div class="tfoot"><span>AUTO SPECIFICATION</span><span>JIS B 2704 / Shigley</span></div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-t="comp" class="on">圧縮<small>COMPRESSION</small></button>
+  <button data-t="ext">引張<small>EXTENSION</small></button>
+  <button data-t="tor">ねじり<small>TORSION</small></button>
+</nav>
+
+<div class="modes" id="modes">
+  <button data-m="design" class="on">自動設計</button>
+  <button data-m="verify">検算</button>
+</div>
+
+<!-- ================= 圧縮 自動設計 ================= -->
+<section class="sheet pane" id="pane-comp-design">
+  <h2>設計条件 記入欄 — 圧縮コイルばね</h2>
+  <div class="fbody">
+
+    <div class="divider"><span>ばね定数の指定</span></div>
+    <div class="seg s4" data-seg="comp-in">
+      <button data-v="pd" class="on">荷重×たわみ</button>
+      <button data-v="pl">荷重×長さ</button>
+      <button data-v="k">定数</button>
+      <button data-v="two">二点</button>
+    </div>
+    <div id="comp-in-pd">
+      <div class="frow">
+        <div class="fld"><label>荷重 P₁<span class="u">N</span></label><input id="comp-P1" type="text" inputmode="decimal" placeholder="50"></div>
+        <div class="fld"><label>P₁時のたわみ δ₁<span class="u">mm</span></label><input id="comp-d1" type="text" inputmode="decimal" placeholder="10"></div>
+      </div>
+    </div>
+    <div id="comp-in-pl" class="hidden">
+      <div class="opt-note">指定荷重時の「ばねの長さ」で入力します。自由長 L₀ の指定が必要です。</div>
+      <div class="frow">
+        <div class="fld"><label>荷重 P₁<span class="u">N</span></label><input id="comp-plP1" type="text" inputmode="decimal" placeholder="50"></div>
+        <div class="fld"><label>P₁時のばね長さ L₁<span class="u">mm</span></label><input id="comp-plL1" type="text" inputmode="decimal" placeholder="36"></div>
+      </div>
+    </div>
+    <div id="comp-in-k" class="hidden">
+      <div class="frow one"><div class="fld"><label>ばね定数 k<span class="u">N/mm</span></label><input id="comp-k" type="text" inputmode="decimal" placeholder="5.0"></div></div>
+    </div>
+    <div id="comp-in-two" class="hidden">
+      <div class="opt-note">取付長・最圧縮長と各荷重から k・自由長 L₀・δmax を一意に決めます。</div>
+      <div class="frow">
+        <div class="fld"><label>取付長 L₁<span class="u">mm</span></label><input id="comp-L1" type="text" inputmode="decimal" placeholder="40"></div>
+        <div class="fld"><label>L₁時の荷重 P₁<span class="u">N</span></label><input id="comp-tP1" type="text" inputmode="decimal" placeholder="30"></div>
+      </div>
+      <div class="frow">
+        <div class="fld"><label>最圧縮長 L₂<span class="u">mm</span></label><input id="comp-L2" type="text" inputmode="decimal" placeholder="25"></div>
+        <div class="fld"><label>L₂時の荷重 P₂<span class="u">N</span></label><input id="comp-tP2" type="text" inputmode="decimal" placeholder="105"></div>
+      </div>
+    </div>
+
+    <div id="comp-l0blk">
+      <div class="divider"><span>自由長 L₀</span></div>
+      <div class="seg" data-seg="comp-l0">
+        <button data-v="auto" class="on">自動決定</button>
+        <button data-v="fix">指定</button>
+      </div>
+      <div class="frow one hidden" id="comp-l0fix-row">
+        <div class="fld"><label>自由長 L₀<span class="u">mm</span></label><input id="comp-l0fix" type="text" inputmode="decimal" placeholder="46"></div>
+      </div>
+    </div>
+
+    <div id="comp-maxblk">
+      <div class="divider"><span>最大圧縮位置</span></div>
+      <div class="seg" data-seg="comp-max">
+        <button data-v="d" class="on">たわみ δmax</button>
+        <button data-v="l">ばね長さ L₂</button>
+      </div>
+      <div class="frow one" id="comp-max-d">
+        <div class="fld"><label>最大使用たわみ δmax<span class="u">mm</span></label><input id="comp-dmax" type="text" inputmode="decimal" placeholder="15"></div>
+      </div>
+      <div class="frow one hidden" id="comp-max-l">
+        <div class="fld"><label>最圧縮時のばね長さ L₂<span class="u">mm</span></label><input id="comp-lmax" type="text" inputmode="decimal" placeholder="31"></div>
+      </div>
+    </div>
+
+    <div class="divider"><span>材料・端末</span></div>
+    <div class="frow one">
+      <div class="fld"><label>材料</label><select id="comp-mat"></select></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>端部形状</label>
+        <select id="comp-end">
+          <option value="cg">クローズド・研削</option>
+          <option value="c">クローズド・無研削</option>
+          <option value="og">オープン・研削</option>
+          <option value="o">オープン・無研削</option>
+        </select>
+      </div>
+      <div class="fld"><label>端末支持（座屈 α）</label>
+        <select id="comp-alpha">
+          <option value="0.5">両端固定 α=0.5</option>
+          <option value="0.707">片端ピボット α=0.707</option>
+          <option value="1">両端ピボット α=1.0</option>
+          <option value="2">片端自由 α=2.0</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider"><span>荷重条件</span></div>
+    <div class="seg" data-seg="comp-load">
+      <button data-v="static" class="on">静荷重</button>
+      <button data-v="fatigue">繰返し荷重</button>
+    </div>
+    <div id="comp-fat" class="hidden">
+      <div class="seg" data-seg="comp-min">
+        <button data-v="d" class="on">最小たわみ δmin</button>
+        <button data-v="l">取付長 L₁</button>
+      </div>
+      <div class="frow">
+        <div class="fld" id="comp-min-d"><label>最小作動たわみ δmin<span class="u">mm</span></label><input id="comp-dmin" type="text" inputmode="decimal" placeholder="5"></div>
+        <div class="fld hidden" id="comp-min-l"><label>取付長 L₁<span class="u">mm</span></label><input id="comp-lmin" type="text" inputmode="decimal" placeholder="41"></div>
+        <div class="fld"><label>要求寿命</label>
+          <select id="comp-life"><option value="1e5">10⁵ 回</option><option value="1e6" selected>10⁶ 回</option><option value="1e7">10⁷ 回</option></select>
+        </div>
+      </div>
+      <div class="seg" data-seg="comp-peen">
+        <button data-v="unp" class="on">ピーニング無</button>
+        <button data-v="pnd">ショットピーニング有</button>
+      </div>
+      <div class="frow one">
+        <div class="fld"><label>要求 疲労安全率 nf（下限）</label><input id="comp-nf" type="text" inputmode="decimal" placeholder="1.2"></div>
+      </div>
+    </div>
+
+    <details class="adv">
+      <summary>拘束条件・探索範囲（任意）</summary>
+      <div class="abody">
+        <div class="frow">
+          <div class="fld"><label>コイル外径 上限<span class="u">mm</span></label><input id="comp-odmax" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>コイル内径 下限<span class="u">mm</span></label><input id="comp-idmin" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>自由長 上限<span class="u">mm</span></label><input id="comp-l0max" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>密着すきま率<span class="u">% of δmax</span></label><input id="comp-gap" type="text" inputmode="decimal" placeholder="20"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>ばね指数 c 下限</label><input id="comp-cmin" type="text" inputmode="decimal" placeholder="4"></div>
+          <div class="fld"><label>ばね指数 c 上限</label><input id="comp-cmax" type="text" inputmode="decimal" placeholder="12"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>有効巻数 Na 下限</label><input id="comp-namin" type="text" inputmode="decimal" placeholder="3"></div>
+          <div class="fld"><label>有効巻数 Na 上限</label><input id="comp-namax" type="text" inputmode="decimal" placeholder="25"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>線径 下限<span class="u">mm</span></label><input id="comp-dwmin" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>線径 上限<span class="u">mm</span></label><input id="comp-dwmax" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+      </div>
+    </details>
+
+    <div class="runrow"><button class="run" data-run="comp-design">設計<small>EXECUTE</small></button></div>
+    <div class="err" id="err-comp-design"></div>
+  </div>
+</section>
+
+<!-- ================= 引張 自動設計 ================= -->
+<section class="sheet pane hidden" id="pane-ext-design">
+  <h2>設計条件 記入欄 — 引張コイルばね</h2>
+  <div class="fbody">
+
+    <div class="divider"><span>ばね定数の指定</span></div>
+    <div class="seg s4" data-seg="ext-in">
+      <button data-v="pd" class="on">荷重×たわみ</button>
+      <button data-v="pl">荷重×長さ</button>
+      <button data-v="k">定数</button>
+      <button data-v="two">二点</button>
+    </div>
+    <div id="ext-in-pd">
+      <div class="opt-note">P₁ は初張力を含む全荷重として扱います。</div>
+      <div class="frow">
+        <div class="fld"><label>荷重 P₁<span class="u">N</span></label><input id="ext-P1" type="text" inputmode="decimal" placeholder="30"></div>
+        <div class="fld"><label>P₁時のたわみ δ₁<span class="u">mm</span></label><input id="ext-d1" type="text" inputmode="decimal" placeholder="8"></div>
+      </div>
+    </div>
+    <div id="ext-in-pl" class="hidden">
+      <div class="opt-note">指定荷重時の「ばね全長」で入力します。自由長 L₀ の指定が必要です。</div>
+      <div class="frow">
+        <div class="fld"><label>荷重 P₁<span class="u">N</span></label><input id="ext-plP1" type="text" inputmode="decimal" placeholder="30"></div>
+        <div class="fld"><label>P₁時のばね長さ L₁<span class="u">mm</span></label><input id="ext-plL1" type="text" inputmode="decimal" placeholder="53"></div>
+      </div>
+    </div>
+    <div id="ext-in-k" class="hidden">
+      <div class="frow one"><div class="fld"><label>ばね定数 k<span class="u">N/mm</span></label><input id="ext-k" type="text" inputmode="decimal" placeholder="3.0"></div></div>
+    </div>
+    <div id="ext-in-two" class="hidden">
+      <div class="opt-note">二点の（たわみ, 荷重）から k と初張力 Pi を一意に決めます。</div>
+      <div class="frow">
+        <div class="fld"><label>たわみ δ₁<span class="u">mm</span></label><input id="ext-td1" type="text" inputmode="decimal" placeholder="4"></div>
+        <div class="fld"><label>荷重 P₁<span class="u">N</span></label><input id="ext-tP1" type="text" inputmode="decimal" placeholder="17"></div>
+      </div>
+      <div class="frow">
+        <div class="fld"><label>たわみ δ₂<span class="u">mm</span></label><input id="ext-td2" type="text" inputmode="decimal" placeholder="12"></div>
+        <div class="fld"><label>荷重 P₂<span class="u">N</span></label><input id="ext-tP2" type="text" inputmode="decimal" placeholder="41"></div>
+      </div>
+    </div>
+
+    <div id="ext-l0blk">
+      <div class="divider"><span>自由長 L₀（フック含む全長）</span></div>
+      <div class="seg" data-seg="ext-l0">
+        <button data-v="auto" class="on">自動決定</button>
+        <button data-v="fix">指定</button>
+      </div>
+      <div class="frow hidden" id="ext-l0fix-row">
+        <div class="fld"><label>自由長 L₀<span class="u">mm</span></label><input id="ext-l0fix" type="text" inputmode="decimal" placeholder="45"></div>
+        <div class="fld"><label>許容差<span class="u">±%</span></label><input id="ext-l0tol" type="text" inputmode="decimal" placeholder="10"></div>
+      </div>
+    </div>
+
+    <div id="ext-maxblk">
+      <div class="divider"><span>最大伸び位置</span></div>
+      <div class="seg" data-seg="ext-max">
+        <button data-v="d" class="on">たわみ δmax</button>
+        <button data-v="l">ばね長さ L₂</button>
+      </div>
+      <div class="frow one" id="ext-max-d">
+        <div class="fld"><label>最大使用たわみ δmax<span class="u">mm</span></label><input id="ext-dmax" type="text" inputmode="decimal" placeholder="12"></div>
+      </div>
+      <div class="frow one hidden" id="ext-max-l">
+        <div class="fld"><label>最大伸び時のばね長さ L₂<span class="u">mm</span></label><input id="ext-lmax" type="text" inputmode="decimal" placeholder="57"></div>
+      </div>
+    </div>
+
+    <div class="divider"><span>材料・初張力</span></div>
+    <div class="frow one">
+      <div class="fld"><label>材料</label><select id="ext-mat"></select></div>
+    </div>
+    <div id="ext-pi-block">
+      <div class="seg" data-seg="ext-pimode">
+        <button data-v="auto" class="on">初張力 自動推定</button>
+        <button data-v="man">初張力 指定</button>
+      </div>
+      <div class="frow one hidden" id="ext-pii">
+        <div class="fld"><label>初張力 Pi<span class="u">N</span></label><input id="ext-pi" type="text" inputmode="decimal" placeholder="5"></div>
+      </div>
+    </div>
+
+    <div class="divider"><span>荷重条件</span></div>
+    <div class="seg" data-seg="ext-load">
+      <button data-v="static" class="on">静荷重</button>
+      <button data-v="fatigue">繰返し荷重</button>
+    </div>
+    <div id="ext-fat" class="hidden">
+      <div class="seg" data-seg="ext-min">
+        <button data-v="d" class="on">最小たわみ δmin</button>
+        <button data-v="l">取付長 L₁</button>
+      </div>
+      <div class="frow">
+        <div class="fld" id="ext-min-d"><label>最小作動たわみ δmin<span class="u">mm</span></label><input id="ext-dmin" type="text" inputmode="decimal" placeholder="4"></div>
+        <div class="fld hidden" id="ext-min-l"><label>取付長 L₁<span class="u">mm</span></label><input id="ext-lmin" type="text" inputmode="decimal" placeholder="49"></div>
+        <div class="fld"><label>要求寿命</label>
+          <select id="ext-life"><option value="1e5">10⁵ 回</option><option value="1e6" selected>10⁶ 回</option><option value="1e7">10⁷ 回</option></select>
+        </div>
+      </div>
+      <div class="frow one">
+        <div class="fld"><label>要求 疲労安全率 nf（下限）</label><input id="ext-nf" type="text" inputmode="decimal" placeholder="1.2"></div>
+      </div>
+    </div>
+
+    <details class="adv">
+      <summary>拘束条件・探索範囲（任意）</summary>
+      <div class="abody">
+        <div class="frow">
+          <div class="fld"><label>コイル外径 上限<span class="u">mm</span></label><input id="ext-odmax" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>コイル内径 下限<span class="u">mm</span></label><input id="ext-idmin" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="frow one">
+          <div class="fld"><label>自由長 上限<span class="u">mm</span></label><input id="ext-l0max" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>ばね指数 c 下限</label><input id="ext-cmin" type="text" inputmode="decimal" placeholder="4"></div>
+          <div class="fld"><label>ばね指数 c 上限</label><input id="ext-cmax" type="text" inputmode="decimal" placeholder="12"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>有効巻数 Na 下限</label><input id="ext-namin" type="text" inputmode="decimal" placeholder="3"></div>
+          <div class="fld"><label>有効巻数 Na 上限</label><input id="ext-namax" type="text" inputmode="decimal" placeholder="40"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>線径 下限<span class="u">mm</span></label><input id="ext-dwmin" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>線径 上限<span class="u">mm</span></label><input id="ext-dwmax" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+      </div>
+    </details>
+
+    <div class="runrow"><button class="run" data-run="ext-design">設計<small>EXECUTE</small></button></div>
+    <div class="err" id="err-ext-design"></div>
+  </div>
+</section>
+
+<!-- ================= ねじり 自動設計 ================= -->
+<section class="sheet pane hidden" id="pane-tor-design">
+  <h2>設計条件 記入欄 — ねじりコイルばね</h2>
+  <div class="fbody">
+
+    <div class="divider"><span>ばね定数の指定</span></div>
+    <div class="seg" data-seg="tor-in">
+      <button data-v="ma" class="on">トルク×角度</button>
+      <button data-v="k">定数</button>
+      <button data-v="two">二点</button>
+    </div>
+    <div id="tor-in-ma">
+      <div class="frow">
+        <div class="fld"><label>トルク M₁<span class="u">N·mm</span></label><input id="tor-M1" type="text" inputmode="decimal" placeholder="200"></div>
+        <div class="fld"><label>M₁時のねじれ角 θ₁<span class="u">deg</span></label><input id="tor-t1" type="text" inputmode="decimal" placeholder="45"></div>
+      </div>
+    </div>
+    <div id="tor-in-k" class="hidden">
+      <div class="frow one"><div class="fld"><label>ばね定数 kT<span class="u">N·mm/deg</span></label><input id="tor-k" type="text" inputmode="decimal" placeholder="4.0"></div></div>
+    </div>
+    <div id="tor-in-two" class="hidden">
+      <div class="opt-note">二点の（角度, トルク）から kT と初期トルク M₀ を決めます。</div>
+      <div class="frow">
+        <div class="fld"><label>角度 θ₁<span class="u">deg</span></label><input id="tor-tt1" type="text" inputmode="decimal" placeholder="20"></div>
+        <div class="fld"><label>トルク M₁<span class="u">N·mm</span></label><input id="tor-tM1" type="text" inputmode="decimal" placeholder="90"></div>
+      </div>
+      <div class="frow">
+        <div class="fld"><label>角度 θ₂<span class="u">deg</span></label><input id="tor-tt2" type="text" inputmode="decimal" placeholder="60"></div>
+        <div class="fld"><label>トルク M₂<span class="u">N·mm</span></label><input id="tor-tM2" type="text" inputmode="decimal" placeholder="270"></div>
+      </div>
+    </div>
+
+    <div class="divider"><span>角度の基準</span></div>
+    <div class="seg" data-seg="tor-ang">
+      <button data-v="rel" class="on">自由状態からの相対角</button>
+      <button data-v="abs">絶対角（自由角を指定）</button>
+    </div>
+    <div class="frow one hidden" id="tor-th0-row">
+      <div class="fld"><label>自由角 θ₀（無負荷時の腕の角度）<span class="u">deg</span></label><input id="tor-th0" type="text" inputmode="decimal" placeholder="90"></div>
+    </div>
+
+    <div class="frow one" id="tor-tmax-row">
+      <div class="fld"><label>最大ねじれ角 θmax<span class="u">deg</span></label><input id="tor-tmax" type="text" inputmode="decimal" placeholder="60"></div>
+    </div>
+
+    <div class="divider"><span>材料・腕</span></div>
+    <div class="frow one">
+      <div class="fld"><label>材料</label><select id="tor-mat"></select></div>
+    </div>
+    <div class="opt-note">腕の曲げ変形は有効巻数に加算されます（Ne = Nb + (L₁+L₂)/(3πD)）。</div>
+    <div class="frow">
+      <div class="fld"><label>腕長さ L₁<span class="u">mm</span></label><input id="tor-leg1" type="text" inputmode="decimal" placeholder="0"></div>
+      <div class="fld"><label>腕長さ L₂<span class="u">mm</span></label><input id="tor-leg2" type="text" inputmode="decimal" placeholder="0"></div>
+    </div>
+
+    <div class="divider"><span>荷重条件</span></div>
+    <div class="seg" data-seg="tor-load">
+      <button data-v="static" class="on">静荷重</button>
+      <button data-v="fatigue">繰返し荷重</button>
+    </div>
+    <div id="tor-fat" class="hidden">
+      <div class="frow">
+        <div class="fld"><label>最小作動角 θmin<span class="u">deg</span></label><input id="tor-tmin" type="text" inputmode="decimal" placeholder="20"></div>
+        <div class="fld"><label>要求寿命</label>
+          <select id="tor-life"><option value="1e5">10⁵ 回</option><option value="1e6" selected>10⁶ 回</option><option value="1e7">10⁷ 回</option></select>
+        </div>
+      </div>
+      <div class="seg" data-seg="tor-peen">
+        <button data-v="unp" class="on">ピーニング無</button>
+        <button data-v="pnd">ショットピーニング有</button>
+      </div>
+      <div class="frow one">
+        <div class="fld"><label>要求 疲労安全率 nf（下限）</label><input id="tor-nf" type="text" inputmode="decimal" placeholder="1.2"></div>
+      </div>
+    </div>
+
+    <details class="adv">
+      <summary>拘束条件・探索範囲（任意）</summary>
+      <div class="abody">
+        <div class="frow">
+          <div class="fld"><label>コイル外径 上限<span class="u">mm</span></label><input id="tor-odmax" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>心金（軸）径<span class="u">mm</span></label><input id="tor-arbor" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="frow one">
+          <div class="fld"><label>胴長 上限<span class="u">mm</span></label><input id="tor-lbmax" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>ばね指数 c 下限</label><input id="tor-cmin" type="text" inputmode="decimal" placeholder="4"></div>
+          <div class="fld"><label>ばね指数 c 上限</label><input id="tor-cmax" type="text" inputmode="decimal" placeholder="12"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>巻数 Nb 下限</label><input id="tor-namin" type="text" inputmode="decimal" placeholder="2"></div>
+          <div class="fld"><label>巻数 Nb 上限</label><input id="tor-namax" type="text" inputmode="decimal" placeholder="40"></div>
+        </div>
+        <div class="frow">
+          <div class="fld"><label>線径 下限<span class="u">mm</span></label><input id="tor-dwmin" type="text" inputmode="decimal" placeholder="—"></div>
+          <div class="fld"><label>線径 上限<span class="u">mm</span></label><input id="tor-dwmax" type="text" inputmode="decimal" placeholder="—"></div>
+        </div>
+      </div>
+    </details>
+
+    <div class="runrow"><button class="run" data-run="tor-design">設計<small>EXECUTE</small></button></div>
+    <div class="err" id="err-tor-design"></div>
+  </div>
+</section>
+
+<!-- ================= 検算 ================= -->
+<section class="sheet pane hidden" id="pane-comp-verify">
+  <h2>検算 記入欄 — 圧縮コイルばね</h2>
+  <div class="fbody">
+    <div class="frow">
+      <div class="fld"><label>線径 d<span class="u">mm</span></label><input id="vc-d" type="text" inputmode="decimal" placeholder="1.6"></div>
+      <div class="fld"><label>コイル外径 OD<span class="u">mm</span></label><input id="vc-od" type="text" inputmode="decimal" placeholder="14"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>有効巻数 Na</label><input id="vc-na" type="text" inputmode="decimal" placeholder="8"></div>
+      <div class="fld"><label>自由長 L₀（空欄=自動）<span class="u">mm</span></label><input id="vc-l0" type="text" inputmode="decimal" placeholder="—"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>端部形状</label>
+        <select id="vc-end">
+          <option value="cg">クローズド・研削</option>
+          <option value="c">クローズド・無研削</option>
+          <option value="og">オープン・研削</option>
+          <option value="o">オープン・無研削</option>
+        </select>
+      </div>
+      <div class="fld"><label>端末支持 α</label>
+        <select id="vc-alpha">
+          <option value="0.5">両端固定 α=0.5</option>
+          <option value="0.707">片端ピボット α=0.707</option>
+          <option value="1">両端ピボット α=1.0</option>
+          <option value="2">片端自由 α=2.0</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow one">
+      <div class="fld"><label>材料</label><select id="vc-mat"></select></div>
+    </div>
+    <div class="divider"><span>最大圧縮位置</span></div>
+    <div class="seg" data-seg="vc-max">
+      <button data-v="d" class="on">たわみ δmax</button>
+      <button data-v="l">ばね長さ L₂</button>
+    </div>
+    <div class="frow one" id="vc-max-d">
+      <div class="fld"><label>最大たわみ δmax<span class="u">mm</span></label><input id="vc-dl" type="text" inputmode="decimal" placeholder="10"></div>
+    </div>
+    <div class="frow one hidden" id="vc-max-l">
+      <div class="fld"><label>最圧縮長 L₂（要 L₀ 指定）<span class="u">mm</span></label><input id="vc-lmax" type="text" inputmode="decimal" placeholder="—"></div>
+    </div>
+    <div class="divider"><span>荷重条件</span></div>
+    <div class="seg" data-seg="vc-load">
+      <button data-v="static" class="on">静荷重</button>
+      <button data-v="fatigue">繰返し荷重</button>
+    </div>
+    <div id="vc-fat" class="hidden">
+      <div class="frow">
+        <div class="fld"><label>最小たわみ δmin<span class="u">mm</span></label><input id="vc-dmin" type="text" inputmode="decimal" placeholder="5"></div>
+        <div class="fld"><label>要求寿命</label>
+          <select id="vc-life"><option value="1e5">10⁵ 回</option><option value="1e6" selected>10⁶ 回</option><option value="1e7">10⁷ 回</option></select>
+        </div>
+      </div>
+      <div class="seg" data-seg="vc-peen">
+        <button data-v="unp" class="on">ピーニング無</button>
+        <button data-v="pnd">ピーニング有</button>
+      </div>
+    </div>
+    <div class="runrow"><button class="run" data-run="comp-verify">検算<small>CHECK</small></button></div>
+    <div class="err" id="err-comp-verify"></div>
+  </div>
+</section>
+
+<section class="sheet pane hidden" id="pane-ext-verify">
+  <h2>検算 記入欄 — 引張コイルばね</h2>
+  <div class="fbody">
+    <div class="frow">
+      <div class="fld"><label>線径 d<span class="u">mm</span></label><input id="ve-d" type="text" inputmode="decimal" placeholder="1.2"></div>
+      <div class="fld"><label>コイル外径 OD<span class="u">mm</span></label><input id="ve-od" type="text" inputmode="decimal" placeholder="10"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>有効巻数 Na</label><input id="ve-na" type="text" inputmode="decimal" placeholder="20"></div>
+      <div class="fld"><label>初張力 Pi（0可）<span class="u">N</span></label><input id="ve-pi" type="text" inputmode="decimal" placeholder="3"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>材料</label><select id="ve-mat"></select></div>
+      <div class="fld"><label>自由長 L₀（空欄=自動）<span class="u">mm</span></label><input id="ve-l0" type="text" inputmode="decimal" placeholder="—"></div>
+    </div>
+    <div class="divider"><span>最大伸び位置</span></div>
+    <div class="seg" data-seg="ve-max">
+      <button data-v="d" class="on">たわみ δmax</button>
+      <button data-v="l">ばね長さ L₂</button>
+    </div>
+    <div class="frow one" id="ve-max-d">
+      <div class="fld"><label>最大たわみ δmax<span class="u">mm</span></label><input id="ve-dl" type="text" inputmode="decimal" placeholder="8"></div>
+    </div>
+    <div class="frow one hidden" id="ve-max-l">
+      <div class="fld"><label>最大伸び時の長さ L₂（要 L₀ 指定）<span class="u">mm</span></label><input id="ve-lmax" type="text" inputmode="decimal" placeholder="—"></div>
+    </div>
+    <div class="divider"><span>荷重条件</span></div>
+    <div class="seg" data-seg="ve-load">
+      <button data-v="static" class="on">静荷重</button>
+      <button data-v="fatigue">繰返し荷重</button>
+    </div>
+    <div id="ve-fat" class="hidden">
+      <div class="frow">
+        <div class="fld"><label>最小たわみ δmin<span class="u">mm</span></label><input id="ve-dmin" type="text" inputmode="decimal" placeholder="3"></div>
+        <div class="fld"><label>要求寿命</label>
+          <select id="ve-life"><option value="1e5">10⁵ 回</option><option value="1e6" selected>10⁶ 回</option><option value="1e7">10⁷ 回</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="runrow"><button class="run" data-run="ext-verify">検算<small>CHECK</small></button></div>
+    <div class="err" id="err-ext-verify"></div>
+  </div>
+</section>
+
+<section class="sheet pane hidden" id="pane-tor-verify">
+  <h2>検算 記入欄 — ねじりコイルばね</h2>
+  <div class="fbody">
+    <div class="frow">
+      <div class="fld"><label>線径 d<span class="u">mm</span></label><input id="vt-d" type="text" inputmode="decimal" placeholder="1.0"></div>
+      <div class="fld"><label>コイル外径 OD<span class="u">mm</span></label><input id="vt-od" type="text" inputmode="decimal" placeholder="9"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>body巻数 Nb</label><input id="vt-na" type="text" inputmode="decimal" placeholder="6"></div>
+      <div class="fld"><label>最大ねじれ角 θmax<span class="u">deg</span></label><input id="vt-th" type="text" inputmode="decimal" placeholder="60"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>腕長さ L₁<span class="u">mm</span></label><input id="vt-leg1" type="text" inputmode="decimal" placeholder="0"></div>
+      <div class="fld"><label>腕長さ L₂<span class="u">mm</span></label><input id="vt-leg2" type="text" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <div class="frow">
+      <div class="fld"><label>材料</label><select id="vt-mat"></select></div>
+      <div class="fld"><label>自由角 θ₀（任意）<span class="u">deg</span></label><input id="vt-th0" type="text" inputmode="decimal" placeholder="—"></div>
+    </div>
+    <div class="divider"><span>荷重条件</span></div>
+    <div class="seg" data-seg="vt-load">
+      <button data-v="static" class="on">静荷重</button>
+      <button data-v="fatigue">繰返し荷重</button>
+    </div>
+    <div id="vt-fat" class="hidden">
+      <div class="frow">
+        <div class="fld"><label>最小作動角 θmin<span class="u">deg</span></label><input id="vt-tmin" type="text" inputmode="decimal" placeholder="20"></div>
+        <div class="fld"><label>要求寿命</label>
+          <select id="vt-life"><option value="1e5">10⁵ 回</option><option value="1e6" selected>10⁶ 回</option><option value="1e7">10⁷ 回</option></select>
+        </div>
+      </div>
+      <div class="seg" data-seg="vt-peen">
+        <button data-v="unp" class="on">ピーニング無</button>
+        <button data-v="pnd">ピーニング有</button>
+      </div>
+    </div>
+    <div class="runrow"><button class="run" data-run="tor-verify">検算<small>CHECK</small></button></div>
+    <div class="err" id="err-tor-verify"></div>
+  </div>
+</section>
+
+<div id="results"></div>
+
+<footer>HATSUJO DRAFTING BUREAU<br>REF. JIS B 2704 / SHIGLEY 10th / ZIMMERLI</footer>
+</div>
+<script>
+'use strict';
+/* ===================== 材料 ===================== */
+const MAT = {
+  'SWP-B'      : {name:'ピアノ線 SWP-B',           G:78500, E:206000, A:2211, m:0.145, dmin:0.08, dmax:7.0,  tauF:0.45, sigF:0.75, rho:7.85e-3},
+  'SW-C'       : {name:'硬鋼線 SW-C',              G:78500, E:206000, A:1783, m:0.190, dmin:0.5,  dmax:12.0, tauF:0.45, sigF:0.70, rho:7.85e-3},
+  'SWOSC-V'    : {name:'オイルテンパー線 SWOSC-V',  G:78500, E:206000, A:1974, m:0.108, dmin:0.5,  dmax:10.0, tauF:0.50, sigF:0.75, rho:7.85e-3},
+  'SUS304-WPB' : {name:'ステンレス SUS304-WPB',     G:68500, E:186000, A:1867, m:0.146, dmin:0.08, dmax:10.0, tauF:0.40, sigF:0.65, rho:7.93e-3},
+};
+const STD_D=[0.2,0.23,0.26,0.29,0.32,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.8,0.9,1.0,1.2,1.4,1.6,1.8,2.0,2.3,2.6,2.9,3.2,3.5,4.0,4.5,5.0,5.5,6.0,6.5,7.0,8.0,9.0,10.0];
+
+const sigB  = (mt,d)=> mt.A*Math.pow(d,-mt.m);        // 引張強さ近似 σB [MPa]
+const wahl  = c => (4*c-1)/(4*c-4)+0.615/c;           // Wahl（静的・ねじり）
+const KB    = c => (4*c+2)/(4*c-3);                   // Bergsträsser（疲労・ねじり）
+const kbend = c => (4*c*c-c-1)/(4*c*(c-1));           // 曲げ・コイル内側
+
+/* ===================== 端部形状（Shigley Table 10-1） ===================== */
+const END = {
+  cg:{label:'クローズド・研削',  ground:true,  closed:true,  nt:Na=>Na+2, solid:(Na,d)=>d*(Na+2), pitch:(L0,Na,d)=>(L0-2*d)/Na},
+  c :{label:'クローズド・無研削',ground:false, closed:true,  nt:Na=>Na+2, solid:(Na,d)=>d*(Na+3), pitch:(L0,Na,d)=>(L0-3*d)/Na},
+  og:{label:'オープン・研削',    ground:true,  closed:false, nt:Na=>Na+1, solid:(Na,d)=>d*(Na+1), pitch:(L0,Na,d)=>L0/(Na+1)},
+  o :{label:'オープン・無研削',  ground:false, closed:false, nt:Na=>Na,   solid:(Na,d)=>d*(Na+1), pitch:(L0,Na,d)=>(L0-d)/Na},
+};
+const ALPHA_LABEL={'0.5':'両端固定・平面座','0.707':'片端固定・片端ピボット','1':'両端ピボット','2':'片端固定・片端自由'};
+
+/* ===================== 座屈（Shigley 式 10-11/10-12） ===================== */
+function buckling(mt,L0,D,alpha,dmax,dsolid){
+  const C1=mt.E/(2*(mt.E-mt.G));
+  const C2=2*Math.PI*Math.PI*(mt.E-mt.G)/(2*mt.G+mt.E);
+  const lam=alpha*L0/D;                       // 有効細長比
+  const lamCr=Math.sqrt(C2);                  // これ未満なら絶対安定
+  if(lam<lamCr) return {lam,lamCr,abs:true,dcr:Infinity,ratio:Infinity,ok:true};
+  const dcr=L0*C1*(1-Math.sqrt(1-C2/(lam*lam)));
+  const ratio=dcr/dmax;
+  return {lam,lamCr,abs:false,dcr,ratio,ok:dcr>dmax,solidOk:dcr>dsolid};
+}
+
+/* ===================== 疲労（修正グッドマン） ===================== */
+/* 圧縮: Zimmerli データ（ねじり・10⁶回・鋼ばね線） */
+const ZIMM={unp:{Ssa:241,Ssm:379}, pnd:{Ssa:398,Ssm:534}};
+/* 引張: Shigley Table 10-10 — 繰返し応力Sr（σB比） */
+const EXT_SR={'1e5':{body:0.36,hook:0.34}, '1e6':{body:0.33,hook:0.30}, '1e7':{body:0.30,hook:0.28}};
+/* ねじり: Shigley Table 10-9 相当 — 曲げSr（σB比） */
+const TOR_SR={'1e5':{unp:0.53,pnd:0.62}, '1e6':{unp:0.50,pnd:0.60}, '1e7':{unp:0.47,pnd:0.58}};
+
+/* 修正グッドマン: 原点負荷線の安全率 */
+function goodman(sa,sm,Se,Su){
+  if(sa<=0) return {nf:Infinity,Se,Su};
+  const nf=1/(sa/Se+sm/Su);
+  return {nf,Se,Su};
+}
+/* 繰返し応力Sr（r=0）→ 完全両振り相当の耐久限 Se */
+function seFromSr(Sr,Su){ const h=Sr/2; return h/(1-h/Su); }
+
+/* ===================== 汎用 ===================== */
+const $=id=>document.getElementById(id);
+function num(id){const e=$(id); if(!e) return null; const v=e.value.replace(/[，,]/g,'').trim(); if(v==='')return null; const n=Number(v); return isFinite(n)?n:NaN;}
+function fmt(x,dg){
+  if(x==null||!isFinite(x)) return '∞';
+  const a=Math.abs(x);
+  const n=dg!=null?dg:(a>=1000?0:a>=100?1:a>=10?2:a>=1?2:3);
+  return x.toLocaleString('ja-JP',{minimumFractionDigits:0,maximumFractionDigits:n});
+}
+function useCls(u){ return u<=0.9?'ok':u<=1.0?'warn':'ng'; }
+function nfCls(n,req){ req=req||1.2; return n>=req?'ok':n>=1?'warn':'ng'; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ===================== 圧縮ばね ===================== */
+function compSpec(matKey,d,D,Na,endKey,alpha,dmax,L0given,fat,gapPct){
+  const mt=MAT[matKey], E=END[endKey]||END.cg;
+  const gp=(gapPct==null?20:gapPct)/100;
+  const c=D/d, OD=D+d, ID=D-d;
+  const k=mt.G*Math.pow(d,4)/(8*Na*Math.pow(D,3));
+  const Nt=E.nt(Na), Hs=E.solid(Na,d);
+  const L0=(L0given!=null)?L0given:Hs+dmax*(1+gp);
+  const dsolid=L0-Hs;
+  const P=k*dmax, Ps=k*dsolid;
+  const K=wahl(c);
+  const coef=8*D/(Math.PI*Math.pow(d,3));
+  const tau=K*coef*P;
+  const sB=sigB(mt,d), tauA=mt.tauF*sB, Ssu=0.67*sB;
+  const tauSolid=K*coef*Ps;
+  const p=E.pitch(L0,Na,d);
+  const pitchAng=Math.atan(p/(Math.PI*D))*180/Math.PI;
+  const buck=buckling(mt,L0,D,alpha,dmax,dsolid);
+  const freq=3.56e5*d/(Na*D*D)*Math.sqrt(mt.G/78500);
+  const mass=Math.PI*d*d/4*Math.PI*D*Nt*mt.rho;
+  const s={type:'comp',matKey,mt,d,D,OD,ID,c,Na,Nt,endKey,endLabel:E.label,ground:E.ground,closed:E.closed,
+    alpha,Hs,L0,dsolid,p,pitchAng,k,dl:dmax,P,Ps,K,tau,sB,tauA,Ssu,use:tau/tauA,tauSolid,
+    useSolid:tauSolid/tauA,buck,freq,mass,gapPct:(gapPct==null?20:gapPct),
+    Lmax:L0-dmax, gap:L0-dmax-Hs,
+    tauAllowP:tauA/(K*coef)};        // 許容応力に達する荷重
+  if(fat&&fat.on){
+    const dmin=Math.max(0,fat.dmin||0);
+    const Pmin=k*dmin, Pmax=P;
+    const Fa=(Pmax-Pmin)/2, Fm=(Pmax+Pmin)/2;
+    const kb=KB(c);
+    const ta=kb*coef*Fa, tm=kb*coef*Fm;
+    const z=ZIMM[fat.peen||'unp'];
+    const Sse=z.Ssa/(1-z.Ssm/Ssu);
+    const g=goodman(ta,tm,Sse,Ssu);
+    s.fat={on:true,dmin,Pmin,Pmax,Fa,Fm,KB:kb,ta,tm,Sse,Ssu,nf:g.nf,life:fat.life,peen:fat.peen,req:fat.nfReq||1.2,
+           basis:'Zimmerli（10⁶回・ねじり）'};
+  } else s.fat={on:false};
+  return s;
+}
+function designComp(inp){
+  const mt=MAT[inp.mat], out=[], seen=new Set();
+  const cmin=inp.cmin||4, cmax=inp.cmax||12;
+  const namin=inp.namin||3, namax=inp.namax||25;
+  const gapPct=(inp.gapPct==null?20:inp.gapPct);
+  const wmin=Math.max(mt.dmin, inp.dwmin||0), wmax=Math.min(mt.dmax, inp.dwmax||1e9);
+  for(const d of STD_D){
+    if(d<wmin-1e-9||d>wmax+1e-9) continue;
+    for(let c0=cmin;c0<=cmax+1e-9;c0+=0.125){
+      let Na=mt.G*Math.pow(d,4)/(8*inp.k*Math.pow(c0*d,3));
+      Na=Math.round(Na*4)/4;
+      if(Na<namin||Na>namax) continue;
+      let D=Math.cbrt(mt.G*Math.pow(d,4)/(8*inp.k*Na));
+      D=Math.round(D*20)/20;
+      const c=D/d;
+      if(c<cmin*0.95||c>cmax*1.05) continue;
+      if(inp.odmax&&(D+d)>inp.odmax) continue;
+      if(inp.idmin&&(D-d)<inp.idmin) continue;
+      const key=d+'|'+D+'|'+Na;
+      if(seen.has(key)) continue;
+      const s=compSpec(inp.mat,d,D,Na,inp.endKey,inp.alpha,inp.dmax,inp.L0fix||null,inp.fat,gapPct);
+      if(s.gap < inp.dmax*gapPct/100 - 1e-9) continue;     // 密着すきま不足
+      if(!inp.L0fix && inp.l0max && s.L0>inp.l0max) continue;
+      if(s.use>1) continue;
+      if(s.p<=d*1.02) continue;
+      if(!s.buck.ok) continue;
+      if(s.fat.on && s.fat.nf<s.fat.req) continue;
+      seen.add(key);
+      s.kTgt=inp.k; s.kerr=(s.k-inp.k)/inp.k;
+      let sc=Math.abs(s.c-(cmin+cmax)/2)*0.8+Math.abs(s.use*100-70)*0.06
+            +Math.cbrt(s.OD*s.OD*s.L0)*0.06+Math.abs(s.kerr)*60;
+      if(s.pitchAng>12) sc+=1.5;
+      if(s.buck.ratio<1.25) sc+=2;
+      if(s.Na<3.5) sc+=1;
+      if(s.fat.on) sc+=Math.max(0,s.fat.req*1.25-s.fat.nf)*8;
+      s.score=sc;
+      out.push(s);
+    }
+  }
+  out.sort((a,b)=>a.score-b.score);
+  return out.slice(0,60);
+}
+
+/* ===================== 引張ばね ===================== */
+function extSpec(matKey,d,D,Na,Pi,dmax,fat){
+  const mt=MAT[matKey];
+  const c=D/d, OD=D+d, ID=D-d;
+  const k=mt.G*Math.pow(d,4)/(8*Na*Math.pow(D,3));
+  const Lb=(Na+1)*d, hookL=ID, L0=Lb+2*hookL;
+  const P=Pi+k*dmax;
+  const K=wahl(c), Kh=kbend(c);
+  const coefT=8*D/(Math.PI*Math.pow(d,3));
+  const coefB=16*D/(Math.PI*Math.pow(d,3));
+  const tau=K*coefT*P;
+  const sB=sigB(mt,d), Ssu=0.67*sB;
+  const tauA=0.8*mt.tauF*sB, sigA=mt.sigF*sB;
+  const taui=coefT*Pi;
+  const tauiMid=231*Math.exp(-0.105*c), tauiTol=Math.max(3,6.9*(4-c/6.5));
+  const sigHook=Kh*coefB*P+4*P/(Math.PI*d*d);
+  const mass=Math.PI*d*d/4*Math.PI*D*(Na+2)*mt.rho;
+  const s={type:'ext',matKey,mt,d,D,OD,ID,c,Na,Lb,hookL,L0,k,Pi,dl:dmax,P,K,Kh,tau,sB,tauA,Ssu,use:tau/tauA,
+    taui,tauiMid,tauiTol,sigHook,sigA,useHook:sigHook/sigA,mass,Lmax:L0+dmax,
+    tauAllowP:tauA/(K*coefT)};
+  if(fat&&fat.on){
+    const dmin=Math.max(0,fat.dmin||0);
+    const Pmin=Pi+k*dmin, Pmax=P;
+    const Fa=(Pmax-Pmin)/2, Fm=(Pmax+Pmin)/2;
+    const kb=KB(c);
+    const ta=kb*coefT*Fa, tm=kb*coefT*Fm;                  // 胴部ねじり
+    const ha=Kh*coefB*Fa+4*Fa/(Math.PI*d*d);               // フック曲げ
+    const hm=Kh*coefB*Fm+4*Fm/(Math.PI*d*d);
+    const T=EXT_SR[fat.life||'1e6'];
+    const SseB=seFromSr(T.body*sB,Ssu);
+    const SeH =seFromSr(T.hook*sB,sB);
+    const gb=goodman(ta,tm,SseB,Ssu), gh=goodman(ha,hm,SeH,sB);
+    s.fat={on:true,dmin,Pmin,Pmax,Fa,Fm,KB:kb,ta,tm,ha,hm,SseB,SeH,Ssu,Su:sB,
+           nfBody:gb.nf,nfHook:gh.nf,nf:Math.min(gb.nf,gh.nf),life:fat.life,req:fat.nfReq||1.2,
+           basis:'Shigley Table 10-10'};
+  } else s.fat={on:false};
+  return s;
+}
+function designExt(inp){
+  const mt=MAT[inp.mat], out=[], seen=new Set();
+  const cmin=inp.cmin||4, cmax=inp.cmax||12;
+  const namin=inp.namin||3, namax=inp.namax||40;
+  const wmin=Math.max(mt.dmin, inp.dwmin||0), wmax=Math.min(mt.dmax, inp.dwmax||1e9);
+  const l0t=inp.l0fix||null, tol=(inp.l0tol==null?10:inp.l0tol)/100;
+  for(const d of STD_D){
+    if(d<wmin-1e-9||d>wmax+1e-9) continue;
+    for(let c0=cmin;c0<=cmax+1e-9;c0+=0.125){
+      let Na=mt.G*Math.pow(d,4)/(8*inp.k*Math.pow(c0*d,3));
+      Na=Math.round(Na*4)/4;
+      if(Na<namin||Na>namax) continue;
+      let D=Math.cbrt(mt.G*Math.pow(d,4)/(8*inp.k*Na));
+      D=Math.round(D*20)/20;
+      const c=D/d;
+      if(c<cmin*0.95||c>cmax*1.05) continue;
+      if(inp.odmax&&(D+d)>inp.odmax) continue;
+      if(inp.idmin&&(D-d)<inp.idmin) continue;
+      const key=d+'|'+D+'|'+Na;
+      if(seen.has(key)) continue;
+      const Pi=(inp.piMode==='man')?inp.pi:Math.PI*Math.pow(d,3)*231*Math.exp(-0.105*c)/(8*D);
+      const s=extSpec(inp.mat,d,D,Na,Pi,inp.dmax,inp.fat);
+      if(l0t && Math.abs(s.L0-l0t)>l0t*tol) continue;      // 自由長 目標±許容差
+      if(inp.l0max&&s.L0>inp.l0max) continue;
+      if(s.use>1||s.useHook>1) continue;
+      if(s.fat.on && s.fat.nf<s.fat.req) continue;
+      seen.add(key);
+      s.kTgt=inp.k; s.kerr=(s.k-inp.k)/inp.k;
+      s.L0tgt=l0t;
+      let sc=Math.abs(s.c-(cmin+cmax)/2)*0.8+Math.abs(s.use*100-70)*0.06
+            +Math.cbrt(s.OD*s.OD*s.L0)*0.06+Math.abs(s.kerr)*60;
+      if(l0t) sc+=Math.abs(s.L0-l0t)/l0t*40;
+      if(s.taui>s.tauiMid+s.tauiTol) sc+=2;
+      if(s.fat.on) sc+=Math.max(0,s.fat.req*1.25-s.fat.nf)*8;
+      s.score=sc;
+      out.push(s);
+    }
+  }
+  out.sort((a,b)=>a.score-b.score);
+  return out.slice(0,60);
+}
+
+/* ===================== ねじりばね ===================== */
+/* kT = E·d⁴ / (10.8·360·D·Ne)  [N·mm/deg],  Ne = Nb + (L1+L2)/(3πD) */
+const TOR_C=3888;
+function torSpec(matKey,d,D,Nb,thmax,leg1,leg2,M0,fat,th0){
+  const mt=MAT[matKey];
+  const c=D/d, OD=D+d, ID=D-d;
+  const legN=(leg1+leg2)/(3*Math.PI*D);
+  const Ne=Nb+legN;
+  const kT=mt.E*Math.pow(d,4)/(TOR_C*D*Ne);
+  const M=(M0||0)+kT*thmax;
+  const Kb=kbend(c);
+  const coefB=32/(Math.PI*Math.pow(d,3));
+  const sig=Kb*coefB*M;
+  const sB=sigB(mt,d), sigA=mt.sigF*sB;
+  const Lb=d*(Nb+1), LbDef=d*(Nb+1+thmax/360);
+  const Ddef=D*Nb/(Nb+thmax/360), IDdef=Ddef-d, arbor=IDdef*0.9;
+  const mass=Math.PI*d*d/4*(Math.PI*D*Nb+leg1+leg2)*mt.rho;
+  const s={type:'tor',matKey,mt,d,D,OD,ID,c,Nb,Na:Nb,legN,Ne,leg1,leg2,kT,M0:M0||0,th:thmax,M,Kb,sig,sB,sigA,
+    use:sig/sigA,Lb,LbDef,Ddef,IDdef,arbor,mass,th0:(th0||0),
+    MAllow:sigA/(Kb*coefB)};
+  if(fat&&fat.on){
+    const thmin=Math.max(0,fat.thmin||0);
+    const Mmin=(M0||0)+kT*thmin, Mmax=M;
+    const Ma=(Mmax-Mmin)/2, Mm=(Mmax+Mmin)/2;
+    const sa=Kb*coefB*Ma, sm=Kb*coefB*Mm;
+    const Sr=TOR_SR[fat.life||'1e6'][fat.peen||'unp']*sB;
+    const Se=seFromSr(Sr,sB);
+    const g=goodman(sa,sm,Se,sB);
+    s.fat={on:true,thmin,Mmin,Mmax,Ma,Mm,sa,sm,Se,Su:sB,nf:g.nf,life:fat.life,peen:fat.peen,req:fat.nfReq||1.2,
+           basis:'Shigley 曲げSr表'};
+  } else s.fat={on:false};
+  return s;
+}
+function designTor(inp){
+  const mt=MAT[inp.mat], out=[], seen=new Set();
+  const legs=(inp.leg1||0)+(inp.leg2||0);
+  const cmin=inp.cmin||4, cmax=inp.cmax||12;
+  const namin=inp.namin||2, namax=inp.namax||40;
+  const wmin=Math.max(mt.dmin, inp.dwmin||0), wmax=Math.min(mt.dmax, inp.dwmax||1e9);
+  for(const d of STD_D){
+    if(d<wmin-1e-9||d>wmax+1e-9) continue;
+    for(let c0=cmin;c0<=cmax+1e-9;c0+=0.125){
+      const D0=c0*d;
+      let Ne0=mt.E*Math.pow(d,4)/(TOR_C*D0*inp.kT);
+      let Nb=Math.round((Ne0-legs/(3*Math.PI*D0))*4)/4;
+      if(Nb<namin||Nb>namax) continue;
+      let D=D0;
+      for(let it=0;it<40;it++){
+        const Dn=mt.E*Math.pow(d,4)/(TOR_C*inp.kT*(Nb+legs/(3*Math.PI*D)));
+        D=D+(Dn-D)*0.6;
+        if(!(D>0)||!isFinite(D)) break;
+      }
+      D=Math.round(D*20)/20;
+      const c=D/d;
+      if(!(c>=cmin*0.95&&c<=cmax*1.05)) continue;
+      if(inp.odmax&&(D+d)>inp.odmax) continue;
+      const key=d+'|'+D+'|'+Nb;
+      if(seen.has(key)) continue;
+      const s=torSpec(inp.mat,d,D,Nb,inp.tmax,inp.leg1||0,inp.leg2||0,inp.M0||0,inp.fat,inp.th0||0);
+      if(inp.arbor && s.IDdef < inp.arbor) continue;        // 作動時に心金へ食い込む
+      if(inp.lbmax && s.LbDef > inp.lbmax) continue;
+      if(s.use>1) continue;
+      if(s.fat.on && s.fat.nf<s.fat.req) continue;
+      seen.add(key);
+      s.kTgt=inp.kT; s.kerr=(s.kT-inp.kT)/inp.kT;
+      s.arborTgt=inp.arbor||null;
+      if(Math.abs(s.kerr)>0.15) continue;
+      let sc=Math.abs(s.c-(cmin+cmax)/2)*0.8+Math.abs(s.use*100-70)*0.06
+            +Math.cbrt(s.OD*s.OD*Math.max(s.Lb,4))*0.06+Math.abs(s.kerr)*60;
+      if(s.fat.on) sc+=Math.max(0,s.fat.req*1.25-s.fat.nf)*8;
+      s.score=sc;
+      out.push(s);
+    }
+  }
+  out.sort((a,b)=>a.score-b.score);
+  return out.slice(0,60);
+}
+
+/* ===================== 外形図 ===================== */
+const AR='<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0L10 5L2 10z" fill="#9fc4e8"/></marker></defs>';
+const dimV=(x,y1,y2,t)=>`<line class="dline" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" marker-start="url(#ar)" marker-end="url(#ar)"/><text class="dtext" x="${x+6}" y="${(y1+y2)/2+3}">${t}</text>`;
+const dimH=(y,x1,x2,t)=>`<line class="dline" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" marker-start="url(#ar)" marker-end="url(#ar)"/><text class="dtext" x="${(x1+x2)/2}" y="${y-6}" text-anchor="middle">${t}</text>`;
+const ext_=(x1,y1,x2,y2)=>`<line class="dline" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" opacity=".55"/>`;
+function helixPath(cx,top,R,L,turns,steps){
+  let p='';
+  for(let i=0;i<=steps;i++){const t=i/steps,a=t*turns*2*Math.PI-Math.PI/2;
+    p+=(i?'L':'M')+(cx+R*Math.sin(a)).toFixed(1)+' '+(top+t*L).toFixed(1);}
+  return p;
+}
+function svgComp(s){
+  const W=340,H=270,mL=52,mR=94,mT=40,mB=20;
+  const sc=Math.min((H-mT-mB)/s.L0,(W-mL-mR)/s.OD);
+  const L=s.L0*sc,R=s.D/2*sc,sw=Math.max(1.6,Math.min(9,s.d*sc));
+  const cx=mL+(W-mL-mR)/2, top=mT+((H-mT-mB)-L)/2, bot=top+L, half=R+sw/2;
+  let g=`<line class="axis" x1="${cx}" y1="${top-14}" x2="${cx}" y2="${bot+14}"/>`;
+  g+=`<path class="wire" stroke-width="${sw}" d="${helixPath(cx,top+sw/2,R,L-sw,s.Nt,Math.max(80,Math.round(s.Nt*26)))}"/>`;
+  if(s.ground){
+    g+=`<line class="plate" x1="${cx-half-4}" y1="${top}" x2="${cx+half+4}" y2="${top}"/>`;
+    g+=`<line class="plate" x1="${cx-half-4}" y1="${bot}" x2="${cx+half+4}" y2="${bot}"/>`;
+  }
+  g+=ext_(cx-half,top,cx-half,mT-18)+ext_(cx+half,top,cx+half,mT-18)+dimH(mT-12,cx-half,cx+half,'φ'+fmt(s.OD));
+  const dx=cx+half+22;
+  g+=ext_(cx+half,top,dx+4,top)+ext_(cx+half,bot,dx+4,bot)+dimV(dx,top,bot,'L0='+fmt(s.L0));
+  const py=top+(1.5/s.Nt)*L, px=cx+R*Math.sin(1.5*2*Math.PI-Math.PI/2);
+  g+=ext_(px,py,mL-26,py-14)+`<text class="dtext" x="${mL-28}" y="${py-18}">d=${fmt(s.d)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}">${AR}${g}</svg>`;
+}
+function svgExt(s){
+  const W=340,H=270,mL=52,mR=94,mT=40,mB=20;
+  const sc=Math.min((H-mT-mB)/s.L0,(W-mL-mR)/s.OD);
+  const L=s.L0*sc,R=s.D/2*sc,sw=Math.max(1.4,Math.min(8,s.d*sc));
+  const hk=s.hookL*sc, rh=Math.min(R*0.8,hk/2);
+  const cx=mL+(W-mL-mR)/2, top=mT+((H-mT-mB)-L)/2, bot=top+L;
+  const bTop=top+hk,bBot=bot-hk,half=R+sw/2;
+  let g=`<line class="axis" x1="${cx}" y1="${top-14}" x2="${cx}" y2="${bot+14}"/>`;
+  g+=`<circle class="wire" stroke-width="${sw}" cx="${cx}" cy="${top+rh}" r="${rh}"/>`;
+  g+=`<circle class="wire" stroke-width="${sw}" cx="${cx}" cy="${bot-rh}" r="${rh}"/>`;
+  g+=`<path class="wire" stroke-width="${sw}" d="${helixPath(cx,bTop,R,bBot-bTop,Math.max(4,Math.round(s.Na)),Math.max(80,Math.round(s.Na*22)))}"/>`;
+  g+=ext_(cx-half,bTop,cx-half,mT-18)+ext_(cx+half,bTop,cx+half,mT-18)+dimH(mT-12,cx-half,cx+half,'φ'+fmt(s.OD));
+  const dx=cx+half+22;
+  g+=ext_(cx,top,dx+4,top)+ext_(cx,bot,dx+4,bot)+dimV(dx,top,bot,'L0≈'+fmt(s.L0));
+  return `<svg viewBox="0 0 ${W} ${H}">${AR}${g}</svg>`;
+}
+function svgTor(s){
+  const W=340,H=250,mT=44,cx=140,cy=mT+82;
+  const sc=70/(s.OD/2), R=s.D/2*sc, sw=Math.max(1.6,Math.min(8,s.d*sc));
+  const loops=Math.min(5,Math.max(2,Math.round(s.Nb)));
+  const steps=loops*40; let p='';
+  for(let i=0;i<=steps;i++){
+    const t=i/steps,a=t*loops*2*Math.PI+Math.PI/2;
+    const rr=R-t*sw*1.25*(loops>1?loops-1:0);
+    p+=(i?'L':'M')+(cx+rr*Math.cos(a)).toFixed(1)+' '+(cy+rr*Math.sin(a)).toFixed(1);
+  }
+  let g=`<line class="axis" x1="${cx-R-24}" y1="${cy}" x2="${cx+R+24}" y2="${cy}"/>`;
+  g+=`<line class="axis" x1="${cx}" y1="${cy-R-24}" x2="${cx}" y2="${cy+R+24}"/>`;
+  g+=`<path class="wire" stroke-width="${sw}" d="${p}"/>`;
+  const l1=Math.max(R*0.9,Math.min(R*2.0,(s.leg1||R/sc*0.9)*sc));
+  const l2=Math.max(R*0.9,Math.min(R*2.0,(s.leg2||R/sc*0.9)*sc));
+  g+=`<line class="wire" stroke-width="${sw}" x1="${cx}" y1="${cy+R}" x2="${cx+l1}" y2="${cy+R}"/>`;
+  const Rin=R-sw*1.25*(loops>1?loops-1:0);
+  const a=(90+Math.min(150,s.th))*Math.PI/180;
+  g+=`<line class="wire" stroke-width="${sw}" x1="${cx+Rin*Math.cos(a)}" y1="${cy+Rin*Math.sin(a)}" x2="${cx+(Rin+l2)*Math.cos(a)}" y2="${cy+(Rin+l2)*Math.sin(a)}"/>`;
+  const ra=R+16;
+  g+=`<path class="dline" d="M ${cx} ${cy+ra} A ${ra} ${ra} 0 0 1 ${cx+ra*Math.cos(a)} ${cy+ra*Math.sin(a)}" marker-end="url(#ar)"/>`;
+  g+=`<text class="dtext" x="${cx+ra+6}" y="${cy+ra*0.55}">θmax=${fmt(s.th)}°</text>`;
+  g+=ext_(cx-R-sw/2,cy,cx-R-sw/2,mT-18)+ext_(cx+R+sw/2,cy,cx+R+sw/2,mT-18)+dimH(mT-12,cx-R-sw/2,cx+R+sw/2,'φ'+fmt(s.OD));
+  g+=`<text class="dtext" x="${cx+R+26}" y="${cy-14}">d=${fmt(s.d)}</text>`;
+  if(s.leg1||s.leg2) g+=`<text class="dtext" x="${cx+8}" y="${cy+R+18}">腕 L₁=${fmt(s.leg1)} / L₂=${fmt(s.leg2)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}">${AR}${g}</svg>`;
+}
+
+/* ===================== 荷重–たわみ線図 ===================== */
+function chart(s){
+  const W=340,H=225,mL=46,mR=16,mT=16,mB=34;
+  const px=W-mL-mR, py=H-mT-mB;
+  const isTor=s.type==='tor';
+  const xLab=isTor?'ねじれ角 θ [deg]':'たわみ δ [mm]';
+  const yLab=isTor?'M [N·mm]':'P [N]';
+  // 軸範囲
+  let xMax, yAt;
+  if(isTor){ xMax=s.th*1.25; yAt=x=>s.M0+s.kT*x; }
+  else if(s.type==='comp'){ xMax=Math.max(s.dsolid,s.dl)*1.05; yAt=x=>s.k*x; }
+  else { xMax=s.dl*1.25; yAt=x=>s.Pi+s.k*x; }
+  const yLim=isTor?s.MAllow:s.tauAllowP;
+  let yMax=Math.max(yAt(xMax), yLim*1.05);
+  const nice=v=>{const e=Math.pow(10,Math.floor(Math.log10(v)));const m=v/e;return (m<=1?1:m<=2?2:m<=5?5:10)*e;};
+  const xs=nice(xMax/4), ys=nice(yMax/4);
+  xMax=Math.ceil(xMax/xs)*xs; yMax=Math.ceil(yMax/ys)*ys;
+  const X=v=>mL+v/xMax*px, Y=v=>mT+py-v/yMax*py;
+  let g='';
+  for(let v=0;v<=xMax+1e-9;v+=xs){
+    g+=`<line class="ggrid" x1="${X(v)}" y1="${mT}" x2="${X(v)}" y2="${mT+py}"/>`;
+    g+=`<text class="gtext" x="${X(v)}" y="${mT+py+14}" text-anchor="middle">${fmt(v,v<10?1:0)}</text>`;
+  }
+  for(let v=0;v<=yMax+1e-9;v+=ys){
+    g+=`<line class="ggrid" x1="${mL}" y1="${Y(v)}" x2="${mL+px}" y2="${Y(v)}"/>`;
+    g+=`<text class="gtext" x="${mL-5}" y="${Y(v)+3}" text-anchor="end">${fmt(v,v<10?1:0)}</text>`;
+  }
+  g+=`<line class="gax" x1="${mL}" y1="${mT}" x2="${mL}" y2="${mT+py}"/><line class="gax" x1="${mL}" y1="${mT+py}" x2="${mL+px}" y2="${mT+py}"/>`;
+  g+=`<text class="gtext" x="${mL+px}" y="${H-4}" text-anchor="end">${xLab}</text>`;
+  g+=`<text class="gtext" x="${mL-38}" y="${mT-4}">${yLab}</text>`;
+  // 許容応力ライン
+  if(yLim<=yMax) g+=`<line class="glim" x1="${mL}" y1="${Y(yLim)}" x2="${mL+px}" y2="${Y(yLim)}"/>`+
+    `<text class="gtext" x="${mL+px-2}" y="${Y(yLim)-4}" text-anchor="end" fill="#ff8f83">許容応力</text>`;
+  // 特性線
+  g+=`<line class="gline" x1="${X(0)}" y1="${Y(yAt(0))}" x2="${X(xMax)}" y2="${Y(Math.min(yAt(xMax),yMax))}"/>`;
+  const dot=(x,y,c,t,dy)=>`<circle cx="${X(x)}" cy="${Y(y)}" r="3.5" fill="${c}"/><text class="gtext" x="${X(x)+6}" y="${Y(y)+(dy||-6)}" fill="${c}">${t}</text>`;
+  if(s.fat&&s.fat.on){
+    const xm=isTor?s.fat.thmin:s.fat.dmin;
+    g+=dot(xm,yAt(xm),'#f2c879','min',12);
+  }
+  const xw=isTor?s.th:s.dl;
+  g+=dot(xw,yAt(xw),'#8fd8ff','max');
+  if(s.type==='comp'){
+    g+=`<line class="gwarn" x1="${X(s.dsolid)}" y1="${mT}" x2="${X(s.dsolid)}" y2="${mT+py}"/>`;
+    g+=`<text class="gtext" x="${X(s.dsolid)-4}" y="${mT+10}" text-anchor="end" fill="#f2c879">密着</text>`;
+    if(s.buck && !s.buck.abs && s.buck.dcr<xMax){
+      g+=`<line class="glim" x1="${X(s.buck.dcr)}" y1="${mT}" x2="${X(s.buck.dcr)}" y2="${mT+py}"/>`;
+      g+=`<text class="gtext" x="${X(s.buck.dcr)-4}" y="${mT+24}" text-anchor="end" fill="#ff8f83">座屈</text>`;
+    }
+  }
+  if(s.type==='ext'&&s.Pi>0){
+    g+=`<circle cx="${X(0)}" cy="${Y(s.Pi)}" r="3" fill="#9fc8ec"/><text class="gtext" x="${X(0)+6}" y="${Y(s.Pi)-6}">Pi</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+
+/* ===================== 判定チップ ===================== */
+function chipsOf(s){
+  const c=[];
+  const u=s.use;
+  if(u<=0.7) c.push(['ok','静的応力 '+Math.round(u*100)+'%']);
+  else if(u<=0.9) c.push(['ok','静的応力 '+Math.round(u*100)+'%']);
+  else if(u<=1.0) c.push(['warn','静的応力 '+Math.round(u*100)+'%']);
+  else c.push(['ng','静的応力 超過 '+Math.round(u*100)+'%']);
+  if(s.fat&&s.fat.on){
+    const n=s.fat.nf, r=s.fat.req;
+    c.push([n>=r?'ok':n>=1?'warn':'ng','疲労 nf='+fmt(n,2)]);
+  }
+  if(s.c>=5&&s.c<=9) c.push(['ok','指数 c 良']);
+  else if(s.c>=4&&s.c<=12) c.push(['info','指数 c 可']);
+  else c.push(['warn','指数 c 範囲外']);
+  if(s.type==='comp'){
+    if(!s.closed) c.push(['info','オープン端']);
+    if(s.buck.abs) c.push(['ok','座屈 絶対安定']);
+    else if(s.buck.ok) c.push([s.buck.ratio<1.25?'warn':'ok','座屈余裕 '+fmt(s.buck.ratio,2)+'倍']);
+    else c.push(['ng','座屈 発生']);
+    if(s.pitchAng>12) c.push(['warn','ピッチ角 '+fmt(s.pitchAng,1)+'°']);
+    if(s.p<=s.d*1.05) c.push(['ng','ピッチ不足']);
+    if(s.useSolid>1) c.push(['warn','密着時 応力超']);
+    if(s.gap<=0) c.push(['ng','密着すきま無']);
+    else if(s.gap<s.dl*0.1) c.push(['warn','密着すきま僅少']);
+  }
+  if(s.type==='ext'){
+    if(s.taui>s.tauiMid+s.tauiTol) c.push(['warn','初張力 過大']);
+    if(s.useHook>1) c.push(['ng','フック応力 超過']);
+    else if(s.useHook>0.9) c.push(['warn','フック応力 上限近傍']);
+  }
+  if(s.type==='ext'&&s.L0tgt) c.push([Math.abs(s.L0-s.L0tgt)<=s.L0tgt*0.03?'ok':'info','L0 '+fmt(s.L0)+' / 目標 '+fmt(s.L0tgt)]);
+  if(s.type==='tor'&&s.arborTgt) c.push([s.IDdef>=s.arborTgt?'ok':'ng','心金 φ'+fmt(s.arborTgt)]);
+  if(s.kerr!=null&&Math.abs(s.kerr)>0.03) c.push(['warn','k誤差 '+fmt(s.kerr*100,1)+'%']);
+  return c;
+}
+const chipHtml=l=>'<div class="chips">'+l.map(x=>`<span class="chip ${x[0]}">${esc(x[1])}</span>`).join('')+'</div>';
+
+/* ===================== 諸元表 ===================== */
+const row=(k,v,cls,u)=>`<div class="srow"><span class="k">${k}</span><span class="dots"></span><span class="v ${cls||''}">${v}${u?`<small>${u}</small>`:''}</span></div>`;
+const grp=t=>`<div class="grp">${t}</div>`;
+const LIFE_LABEL={'1e5':'10⁵ 回','1e6':'10⁶ 回','1e7':'10⁷ 回'};
+
+function sheetComp(s){
+  let h=grp('材料');
+  h+=row('材質',esc(s.mt.name));
+  h+=row('横弾性係数 G',fmt(s.mt.G,0),'','N/mm²');
+  h+=row('引張強さ σB(近似)',fmt(s.sB,0),'','MPa');
+  h+=grp('形状');
+  h+=row('線径 d',fmt(s.d),'','mm');
+  h+=row('コイル平均径 D',fmt(s.D),'','mm');
+  h+=row('コイル外径 / 内径',fmt(s.OD)+' / '+fmt(s.ID),'','mm');
+  h+=row('ばね指数 c=D/d',fmt(s.c,2),(s.c>=4&&s.c<=12)?'':'warn');
+  h+=row('有効巻数 Na / 総巻数 Nt',fmt(s.Na,2)+' / '+fmt(s.Nt,2));
+  h+=row('端部',esc(s.endLabel));
+  h+=row('自由長 L0',fmt(s.L0),'','mm');
+  h+=row('密着長 Hs',fmt(s.Hs),'','mm');
+  h+=row('最圧縮時の長さ L₂',fmt(s.Lmax),'','mm');
+  h+=row('密着すきま (L₂−Hs)',fmt(s.gap)+` <small>(δmax比 ${fmt(s.gap/s.dl*100,0)}%)</small>`,s.gap<=0?'ng':(s.gap<s.dl*0.1?'warn':'ok'),'mm');
+  h+=row('ピッチ p',fmt(s.p),s.p<=s.d*1.05?'ng':'','mm');
+  h+=row('ピッチ角',fmt(s.pitchAng,1),s.pitchAng>12?'warn':'','deg');
+  h+=grp('特性');
+  h+=row('ばね定数 k',fmt(s.k,3),'','N/mm');
+  if(s.kTgt!=null) h+=row('目標kとの差',fmt(s.kerr*100,2)+' %',Math.abs(s.kerr)>0.03?'warn':'ok');
+  h+=row('最大たわみ δmax',fmt(s.dl),'','mm');
+  h+=row('最大荷重 Pmax',fmt(s.P,2),'','N');
+  if(s.fat.on) h+=row('取付長 L₁ / 荷重 P₁',fmt(s.L0-s.fat.dmin)+' / '+fmt(s.fat.Pmin,1),'','mm / N');
+  h+=row('密着たわみ / 荷重',fmt(s.dsolid)+' / '+fmt(s.Ps,1),'','mm / N');
+  h+=grp('静的強度');
+  h+=row('応力修正係数 K (Wahl)',fmt(s.K,3));
+  h+=row('ねじり応力 τ',fmt(s.tau,0),'','MPa');
+  h+=row('許容ねじり応力 τa',fmt(s.tauA,0),'','MPa');
+  h+=row('静的利用率 τ/τa',Math.round(s.use*100)+' %',useCls(s.use));
+  h+=row('密着時 応力',fmt(s.tauSolid,0),s.useSolid>1?'warn':'','MPa');
+  if(s.fat.on){
+    const f=s.fat;
+    h+=grp('疲労強度（修正グッドマン）');
+    h+=row('要求寿命',LIFE_LABEL[f.life]+'／'+(f.peen==='pnd'?'ピーニング有':'ピーニング無'));
+    h+=row('作動範囲 δ',fmt(f.dmin)+' → '+fmt(s.dl),'','mm');
+    h+=row('荷重範囲 P',fmt(f.Pmin,1)+' → '+fmt(f.Pmax,1),'','N');
+    h+=row('修正係数 KB (Bergsträsser)',fmt(f.KB,3));
+    h+=row('応力振幅 τa',fmt(f.ta,0),'','MPa');
+    h+=row('平均応力 τm',fmt(f.tm,0),'','MPa');
+    h+=row('ねじり耐久限 Sse',fmt(f.Sse,0),'','MPa');
+    h+=row('ねじり極限 Ssu (0.67σB)',fmt(f.Ssu,0),'','MPa');
+    h+=row('疲労安全率 nf',fmt(f.nf,2)+` <small>(要求 ${fmt(f.req,2)})</small>`,nfCls(f.nf,f.req));
+  }
+  h+=grp('座屈・振動');
+  h+=row('端末支持',ALPHA_LABEL[String(s.alpha)]+' (α='+s.alpha+')');
+  h+=row('有効細長比 λ=αL0/D',fmt(s.buck.lam,2)+` <small>(安定限界 ${fmt(s.buck.lamCr,2)})</small>`);
+  if(s.buck.abs) h+=row('座屈判定','絶対安定','ok');
+  else{
+    h+=row('座屈限界たわみ δcr',fmt(s.buck.dcr),'','mm');
+    h+=row('座屈余裕 δcr/δmax',fmt(s.buck.ratio,2)+' 倍',s.buck.ok?(s.buck.ratio<1.25?'warn':'ok'):'ng');
+  }
+  h+=row('サージング周波数',fmt(s.freq,0),'','Hz');
+  h+=row('概算質量',fmt(s.mass,2),'','g');
+  return h;
+}
+function sheetExt(s){
+  let h=grp('材料');
+  h+=row('材質',esc(s.mt.name));
+  h+=row('横弾性係数 G',fmt(s.mt.G,0),'','N/mm²');
+  h+=row('引張強さ σB(近似)',fmt(s.sB,0),'','MPa');
+  h+=grp('形状');
+  h+=row('線径 d',fmt(s.d),'','mm');
+  h+=row('コイル平均径 D',fmt(s.D),'','mm');
+  h+=row('コイル外径 / 内径',fmt(s.OD)+' / '+fmt(s.ID),'','mm');
+  h+=row('ばね指数 c=D/d',fmt(s.c,2),(s.c>=4&&s.c<=12)?'':'warn');
+  h+=row('有効巻数 Na',fmt(s.Na,2));
+  h+=row('胴長 Lb',fmt(s.Lb),'','mm');
+  h+=row('フック',`丸フック両端（片側≈${fmt(s.hookL)}mm）`);
+  h+=row('自由長 L0(目安)',fmt(s.L0)+(s.L0tgt?` <small>(目標 ${fmt(s.L0tgt)})</small>`:''),'','mm');
+  h+=row('最大伸び時の長さ L₂',fmt(s.Lmax),'','mm');
+  h+=grp('特性');
+  h+=row('ばね定数 k',fmt(s.k,3),'','N/mm');
+  if(s.kTgt!=null) h+=row('目標kとの差',fmt(s.kerr*100,2)+' %',Math.abs(s.kerr)>0.03?'warn':'ok');
+  h+=row('初張力 Pi',fmt(s.Pi,2),'','N');
+  h+=row('初応力 τi',fmt(s.taui,1)+` <small>(適正 ${fmt(Math.max(0,s.tauiMid-s.tauiTol),0)}–${fmt(s.tauiMid+s.tauiTol,0)})</small>`,s.taui>s.tauiMid+s.tauiTol?'warn':'','MPa');
+  h+=row('最大たわみ δmax',fmt(s.dl),'','mm');
+  h+=row('最大荷重 Pmax',fmt(s.P,2),'','N');
+  if(s.fat.on) h+=row('取付長 L₁ / 荷重 P₁',fmt(s.L0+s.fat.dmin)+' / '+fmt(s.fat.Pmin,1),'','mm / N');
+  h+=grp('静的強度');
+  h+=row('応力修正係数 K (Wahl)',fmt(s.K,3));
+  h+=row('胴部 ねじり応力 τ',fmt(s.tau,0),'','MPa');
+  h+=row('胴部 許容応力 (0.8低減)',fmt(s.tauA,0),'','MPa');
+  h+=row('胴部 利用率',Math.round(s.use*100)+' %',useCls(s.use));
+  h+=row('フック 曲げ応力 σA',fmt(s.sigHook,0),'','MPa');
+  h+=row('フック 許容応力',fmt(s.sigA,0),'','MPa');
+  h+=row('フック 利用率',Math.round(s.useHook*100)+' %',useCls(s.useHook));
+  if(s.fat.on){
+    const f=s.fat;
+    h+=grp('疲労強度（修正グッドマン）');
+    h+=row('要求寿命',LIFE_LABEL[f.life]);
+    h+=row('作動範囲 δ',fmt(f.dmin)+' → '+fmt(s.dl),'','mm');
+    h+=row('荷重範囲 P',fmt(f.Pmin,1)+' → '+fmt(f.Pmax,1),'','N');
+    h+=row('胴部 τa / τm',fmt(f.ta,0)+' / '+fmt(f.tm,0),'','MPa');
+    h+=row('胴部 耐久限 Sse',fmt(f.SseB,0),'','MPa');
+    h+=row('胴部 安全率',fmt(f.nfBody,2),nfCls(f.nfBody,f.req));
+    h+=row('フック σa / σm',fmt(f.ha,0)+' / '+fmt(f.hm,0),'','MPa');
+    h+=row('フック 耐久限 Se',fmt(f.SeH,0),'','MPa');
+    h+=row('フック 安全率',fmt(f.nfHook,2),nfCls(f.nfHook,f.req));
+    h+=row('疲労安全率 nf (最小)',fmt(f.nf,2)+` <small>(要求 ${fmt(f.req,2)})</small>`,nfCls(f.nf,f.req));
+  }
+  h+=grp('参考');
+  h+=row('概算質量',fmt(s.mass,2),'','g');
+  return h;
+}
+function sheetTor(s){
+  let h=grp('材料');
+  h+=row('材質',esc(s.mt.name));
+  h+=row('縦弾性係数 E',fmt(s.mt.E,0),'','N/mm²');
+  h+=row('引張強さ σB(近似)',fmt(s.sB,0),'','MPa');
+  h+=grp('形状');
+  h+=row('線径 d',fmt(s.d),'','mm');
+  h+=row('コイル平均径 D',fmt(s.D),'','mm');
+  h+=row('コイル外径 / 内径',fmt(s.OD)+' / '+fmt(s.ID),'','mm');
+  h+=row('ばね指数 c=D/d',fmt(s.c,2),(s.c>=4&&s.c<=12)?'':'warn');
+  h+=row('body巻数 Nb',fmt(s.Nb,2));
+  h+=row('腕長さ L₁ / L₂',fmt(s.leg1)+' / '+fmt(s.leg2),'','mm');
+  h+=row('腕の等価巻数 Ne_leg',fmt(s.legN,3));
+  h+=row('有効巻数 Ne = Nb + Ne_leg',fmt(s.Ne,3));
+  h+=row('胴長（自由 / 最大作動）',fmt(s.Lb)+' / '+fmt(s.LbDef),'','mm');
+  h+=grp('特性');
+  h+=row('ばね定数 kT',fmt(s.kT,3),'','N·mm/deg');
+  if(s.kTgt!=null) h+=row('目標kTとの差',fmt(s.kerr*100,2)+' %',Math.abs(s.kerr)>0.03?'warn':'ok');
+  if(s.M0) h+=row('初期トルク M₀',fmt(s.M0,1),'','N·mm');
+  if(s.th0) h+=row('自由角 θ₀',fmt(s.th0,1),'','deg');
+  h+=row('最大ねじれ角 θmax'+(s.th0?'（相対）':''),fmt(s.th,1),'','deg');
+  if(s.th0) h+=row('最大時の絶対角',fmt(s.th0+s.th,1),'','deg');
+  h+=row('最大トルク Mmax',fmt(s.M,1),'','N·mm');
+  h+=grp('静的強度');
+  h+=row('応力修正係数 Kb (内側)',fmt(s.Kb,3));
+  h+=row('曲げ応力 σ',fmt(s.sig,0),'','MPa');
+  h+=row('許容曲げ応力 σa',fmt(s.sigA,0),'','MPa');
+  h+=row('静的利用率 σ/σa',Math.round(s.use*100)+' %',useCls(s.use));
+  if(s.fat.on){
+    const f=s.fat;
+    h+=grp('疲労強度（修正グッドマン）');
+    h+=row('要求寿命',LIFE_LABEL[f.life]+'／'+(f.peen==='pnd'?'ピーニング有':'ピーニング無'));
+    h+=row('作動範囲 θ',fmt(f.thmin,1)+' → '+fmt(s.th,1),'','deg');
+    h+=row('トルク範囲 M',fmt(f.Mmin,1)+' → '+fmt(f.Mmax,1),'','N·mm');
+    h+=row('応力振幅 σa',fmt(f.sa,0),'','MPa');
+    h+=row('平均応力 σm',fmt(f.sm,0),'','MPa');
+    h+=row('曲げ耐久限 Se',fmt(f.Se,0),'','MPa');
+    h+=row('疲労安全率 nf',fmt(f.nf,2)+` <small>(要求 ${fmt(f.req,2)})</small>`,nfCls(f.nf,f.req));
+  }
+  h+=grp('作動時・参考');
+  h+=row('作動時コイル内径',fmt(s.IDdef),s.arborTgt&&s.IDdef<s.arborTgt?'ng':'','mm');
+  h+=row('推奨心金径 (≦)',fmt(s.arbor)+(s.arborTgt?` <small>(指定 ${fmt(s.arborTgt)})</small>`:''),'','mm');
+  h+=row('使用方向','巻締め方向を推奨');
+  h+=row('概算質量',fmt(s.mass,2),'','g');
+  return h;
+}
+const SHEET={comp:sheetComp,ext:sheetExt,tor:sheetTor};
+const SVGF={comp:svgComp,ext:svgExt,tor:svgTor};
+
+/* ===================== 表示 ===================== */
+const TYPE_NAME={comp:'圧縮コイルばね',ext:'引張コイルばね',tor:'ねじりコイルばね'};
+const SORTS={
+  comp:[
+    {k:'score', l:'推奨順',   f:(a,b)=>a.score-b.score},
+    {k:'ka',    l:'k 小さい', f:(a,b)=>a.k-b.k},
+    {k:'kd',    l:'k 大きい', f:(a,b)=>b.k-a.k},
+    {k:'kerr',  l:'k 誤差小', f:(a,b)=>Math.abs(a.kerr)-Math.abs(b.kerr)},
+    {k:'l0',    l:'自由長 短',f:(a,b)=>a.L0-b.L0},
+    {k:'od',    l:'外径 小',  f:(a,b)=>a.OD-b.OD},
+    {k:'da',    l:'線径 細',  f:(a,b)=>a.d-b.d},
+    {k:'dd',    l:'線径 太',  f:(a,b)=>b.d-a.d},
+    {k:'use',   l:'応力余裕', f:(a,b)=>a.use-b.use},
+    {k:'nf',    l:'疲労余裕', f:(a,b)=>(b.fat.nf||0)-(a.fat.nf||0)},
+    {k:'buck',  l:'座屈余裕', f:(a,b)=>b.buck.ratio-a.buck.ratio},
+    {k:'na',    l:'巻数 少',  f:(a,b)=>a.Na-b.Na},
+    {k:'mass',  l:'軽量',     f:(a,b)=>a.mass-b.mass},
+  ],
+  ext:[
+    {k:'score', l:'推奨順',   f:(a,b)=>a.score-b.score},
+    {k:'ka',    l:'k 小さい', f:(a,b)=>a.k-b.k},
+    {k:'kd',    l:'k 大きい', f:(a,b)=>b.k-a.k},
+    {k:'kerr',  l:'k 誤差小', f:(a,b)=>Math.abs(a.kerr)-Math.abs(b.kerr)},
+    {k:'l0',    l:'自由長 短',f:(a,b)=>a.L0-b.L0},
+    {k:'od',    l:'外径 小',  f:(a,b)=>a.OD-b.OD},
+    {k:'da',    l:'線径 細',  f:(a,b)=>a.d-b.d},
+    {k:'pi',    l:'初張力 小',f:(a,b)=>a.Pi-b.Pi},
+    {k:'use',   l:'応力余裕', f:(a,b)=>a.use-b.use},
+    {k:'nf',    l:'疲労余裕', f:(a,b)=>(b.fat.nf||0)-(a.fat.nf||0)},
+    {k:'mass',  l:'軽量',     f:(a,b)=>a.mass-b.mass},
+  ],
+  tor:[
+    {k:'score', l:'推奨順',    f:(a,b)=>a.score-b.score},
+    {k:'ka',    l:'kT 小さい', f:(a,b)=>a.kT-b.kT},
+    {k:'kd',    l:'kT 大きい', f:(a,b)=>b.kT-a.kT},
+    {k:'kerr',  l:'kT 誤差小', f:(a,b)=>Math.abs(a.kerr)-Math.abs(b.kerr)},
+    {k:'lb',    l:'胴長 短',   f:(a,b)=>a.Lb-b.Lb},
+    {k:'od',    l:'外径 小',   f:(a,b)=>a.OD-b.OD},
+    {k:'da',    l:'線径 細',   f:(a,b)=>a.d-b.d},
+    {k:'use',   l:'応力余裕',  f:(a,b)=>a.use-b.use},
+    {k:'nf',    l:'疲労余裕',  f:(a,b)=>(b.fat.nf||0)-(a.fat.nf||0)},
+    {k:'na',    l:'巻数 少',   f:(a,b)=>a.Nb-b.Nb},
+    {k:'mass',  l:'軽量',      f:(a,b)=>a.mass-b.mass},
+  ],
+};
+const PAGE=12;
+const NOTE='※ 引張強さは線径依存の近似式(A/dᵐ)、静的許容応力は常温・非腐食環境の概算です。疲労は修正グッドマン線図＋Zimmerli／Shigley表による推定で、対象材（ピアノ線・SUS302系）以外では誤差が出ます。セッチング・表面処理・へたりは未考慮。量産前に実測とJIS B 2704で検証してください。';
+let state={type:'comp',mode:'design',cands:[],sel:null,sort:'score',limit:PAGE,view:'draw'};
+
+const sortedCands=()=>{
+  const defs=SORTS[state.type];
+  const def=defs.find(x=>x.k===state.sort)||defs[0];
+  return state.cands.slice().sort(def.f);
+};
+function detailHtml(s,title){
+  const svg=state.view==='draw'?SVGF[s.type](s):chart(s);
+  return `<div class="detail">
+    <h3><span>${title}</span><button class="cp" id="btn-copy">諸元をコピー</button></h3>
+    <div class="vtabs">
+      <button data-v="draw" class="${state.view==='draw'?'on':''}">外形図</button>
+      <button data-v="chart" class="${state.view==='chart'?'on':''}">${s.type==='tor'?'トルク–角度線図':'荷重–たわみ線図'}</button>
+    </div>
+    <div class="draw">${svg}</div>
+    <div class="spec">${SHEET[s.type](s)}</div>
+    <div class="note">${NOTE}</div>
+  </div>`;
+}
+function bindDetail(box){
+  box.querySelectorAll('.vtabs button').forEach(b=>b.addEventListener('click',()=>{
+    state.view=b.dataset.v; (state.mode==='design'?renderResults:()=>renderVerify(state.sel))();
+  }));
+  const cp=$('btn-copy');
+  if(cp) cp.addEventListener('click',async()=>{
+    try{ await navigator.clipboard.writeText(copyText(state.sel)); cp.textContent='コピー済'; }
+    catch(e){ cp.textContent='コピー不可'; }
+    setTimeout(()=>cp.textContent='諸元をコピー',1400);
+  });
+}
+function renderResults(){
+  const box=$('results');
+  if(!state.cands.length){ box.innerHTML=''; return; }
+  const list=sortedCands();
+  const best=state.cands.reduce((a,b)=>a.score<=b.score?a:b);
+  if(!state.sel||list.indexOf(state.sel)<0) state.sel=list[0];
+  const defs=SORTS[state.type];
+  let h=`<div class="rhead">CANDIDATES — 適合候補 ${state.cands.length} 件</div>`;
+  h+='<div class="sortbar"><span class="sl">並替</span>'+
+     defs.map(x=>`<button class="sb ${x.k===state.sort?'on':''}" data-s="${x.k}">${esc(x.l)}</button>`).join('')+'</div>';
+  list.slice(0,state.limit).forEach((s,i)=>{
+    const dims=s.type==='tor'?`<b>d${fmt(s.d)}</b> × φ${fmt(s.OD)} × Nb ${fmt(s.Nb,2)}`
+                             :`<b>d${fmt(s.d)}</b> × φ${fmt(s.OD)} × L${fmt(s.L0)}`;
+    const kl=s.type==='tor'?`kT=${fmt(s.kT,3)} N·mm/deg ／ c=${fmt(s.c,1)}`
+                           :`k=${fmt(s.k,3)} N/mm ／ c=${fmt(s.c,1)} ／ Na=${fmt(s.Na,2)}`;
+    h+=`<div class="cand ${s===state.sel?'sel':''} ${s===best?'best':''}" data-i="${state.cands.indexOf(s)}">
+      <span class="no">${s===best?'★ 推奨':'No.'+(i+1)}</span>
+      <div class="main">${dims}</div><div class="sub">${kl}</div>${chipHtml(chipsOf(s))}</div>`;
+  });
+  if(list.length>state.limit)
+    h+=`<button class="more" id="btn-more">さらに表示（残り ${list.length-state.limit} 件）</button>`;
+  h+=detailHtml(state.sel,'外形図・諸元表');
+  box.innerHTML=h;
+  box.querySelectorAll('.cand').forEach(el=>el.addEventListener('click',()=>{
+    state.sel=state.cands[+el.dataset.i]; renderResults();
+  }));
+  box.querySelectorAll('.sb').forEach(el=>el.addEventListener('click',()=>{
+    state.sort=el.dataset.s; state.limit=PAGE; state.sel=null; renderResults();
+  }));
+  const m=$('btn-more');
+  if(m) m.addEventListener('click',()=>{ state.limit+=PAGE; renderResults(); });
+  bindDetail(box);
+}
+function renderVerify(s){
+  state.sel=s;
+  const box=$('results');
+  box.innerHTML=chipHtml(chipsOf(s)).replace('class="chips"','class="chips" style="margin:0 0 8px"')+
+    detailHtml(s,'検算結果 — '+TYPE_NAME[s.type]);
+  bindDetail(box);
+}
+function copyText(s){
+  const tmp=document.createElement('div');
+  tmp.innerHTML=SHEET[s.type](s);
+  let out='【'+TYPE_NAME[s.type]+' 諸元】\n';
+  tmp.querySelectorAll('.grp,.srow').forEach(el=>{
+    if(el.classList.contains('grp')) out+='\n--- '+el.textContent+' ---\n';
+    else out+=el.querySelector('.k').textContent+' : '+el.querySelector('.v').textContent.replace(/\s+/g,' ').trim()+'\n';
+  });
+  return out+'\n(発条製図所 概算値 — 量産前に実測とJIS B 2704で要検証)';
+}
+
+/* ===================== 入力 ===================== */
+const seg={'comp-in':'pd','ext-in':'pd','tor-in':'ma','ext-pimode':'auto',
+  'comp-l0':'auto','ext-l0':'auto','comp-max':'d','ext-max':'d','comp-min':'d','ext-min':'d',
+  'tor-ang':'rel',
+  'comp-load':'static','ext-load':'static','tor-load':'static',
+  'comp-peen':'unp','tor-peen':'unp',
+  'vc-load':'static','ve-load':'static','vt-load':'static','vc-peen':'unp','vt-peen':'unp',
+  'vc-max':'d','ve-max':'d'};
+const showErr=(id,m)=>{ $(id).textContent=m||''; };
+const pos=v=>v!=null&&isFinite(v)&&v>0;
+
+function fatOf(pfx,kind){
+  const on=seg[pfx+'-load']==='fatigue';
+  if(!on) return {on:false};
+  const f={on:true,life:$(pfx+'-life').value,peen:$(pfx+'-peen')?seg[pfx+'-peen']:'unp'};
+  const nfEl=$(pfx+'-nf');
+  f.nfReq=nfEl&&pos(num(pfx+'-nf'))?num(pfx+'-nf'):1.2;
+  if(kind==='tor') f.thmin=num(pfx+'-tmin')||0;
+  else f.dmin=num(pfx+'-dmin')||0;
+  return f;
+}
+
+const RUN={
+  'comp-design'(){
+    showErr('err-comp-design');
+    const E=m=>{showErr('err-comp-design',m);};
+    const mode=seg['comp-in'];
+    const gapPct=num('comp-gap')!=null&&isFinite(num('comp-gap'))?num('comp-gap'):20;
+    let k,dmax,L0=null;
+
+    if(mode==='two'){
+      const L1=num('comp-L1'),P1=num('comp-tP1'),L2=num('comp-L2'),P2=num('comp-tP2');
+      if(![L1,P1,L2,P2].every(pos)) return E('取付長・最圧縮長と各荷重を入力してください');
+      if(L2>=L1) return E('最圧縮長 L₂ は取付長 L₁ より短くしてください');
+      if(P2<=P1) return E('P₂ は P₁ より大きくしてください');
+      k=(P2-P1)/(L1-L2); L0=L1+P1/k; dmax=L0-L2;
+    } else {
+      // 自由長
+      if(seg['comp-l0']==='fix'||mode==='pl'){
+        L0=num('comp-l0fix');
+        if(!pos(L0)) return E('自由長 L₀ を入力してください');
+      }
+      // ばね定数
+      if(mode==='pd'){
+        const P=num('comp-P1'),d1=num('comp-d1');
+        if(!pos(P)||!pos(d1)) return E('荷重とたわみを入力してください');
+        k=P/d1;
+      } else if(mode==='pl'){
+        const P=num('comp-plP1'),L1=num('comp-plL1');
+        if(!pos(P)||!pos(L1)) return E('荷重とばね長さを入力してください');
+        if(L1>=L0) return E('P₁時の長さ L₁ は自由長 L₀ より短くしてください');
+        k=P/(L0-L1);
+      } else {
+        k=num('comp-k');
+        if(!pos(k)) return E('ばね定数を入力してください');
+      }
+      // 最大圧縮位置
+      if(seg['comp-max']==='l'){
+        if(L0==null) return E('長さで指定するには自由長 L₀ の指定が必要です');
+        const L2=num('comp-lmax');
+        if(!pos(L2)) return E('最圧縮時のばね長さ L₂ を入力してください');
+        if(L2>=L0) return E('L₂ は自由長 L₀ より短くしてください');
+        dmax=L0-L2;
+      } else {
+        dmax=num('comp-dmax');
+        if(!pos(dmax)) return E('最大使用たわみ δmax を入力してください');
+        if(L0!=null&&dmax>=L0) return E('δmax が自由長 L₀ 以上です');
+      }
+    }
+
+    // 疲労
+    const fat={on:seg['comp-load']==='fatigue'};
+    if(fat.on){
+      fat.life=$('comp-life').value; fat.peen=seg['comp-peen'];
+      fat.nfReq=pos(num('comp-nf'))?num('comp-nf'):1.2;
+      if(seg['comp-min']==='l'){
+        if(L0==null) return E('取付長で指定するには自由長 L₀ の指定が必要です');
+        const L1=num('comp-lmin');
+        if(!pos(L1)) return E('取付長 L₁ を入力してください');
+        if(L1>L0) return E('取付長 L₁ が自由長 L₀ を超えています');
+        fat.dmin=L0-L1;
+      } else {
+        fat.dmin=num('comp-dmin')||0;
+      }
+      if(mode==='two'&&!fat.dmin) fat.dmin=L0-num('comp-L1');
+      if(fat.dmin>=dmax) return E('最小位置が最大位置と同じか逆転しています');
+    }
+
+    finish(designComp({k,dmax,L0fix:L0,gapPct,mat:$('comp-mat').value,
+      endKey:$('comp-end').value,alpha:Number($('comp-alpha').value),fat,
+      odmax:num('comp-odmax'),idmin:num('comp-idmin'),l0max:num('comp-l0max'),
+      cmin:num('comp-cmin'),cmax:num('comp-cmax'),namin:num('comp-namin'),namax:num('comp-namax'),
+      dwmin:num('comp-dwmin'),dwmax:num('comp-dwmax')}),'err-comp-design');
+  },
+
+  'ext-design'(){
+    showErr('err-ext-design');
+    const E=m=>{showErr('err-ext-design',m);};
+    const mode=seg['ext-in'];
+    let k,dmax,L0=null,piMode=seg['ext-pimode'],pi=0;
+    const cons={odmax:num('ext-odmax'),idmin:num('ext-idmin'),l0max:num('ext-l0max'),
+      cmin:num('ext-cmin'),cmax:num('ext-cmax'),namin:num('ext-namin'),namax:num('ext-namax'),
+      dwmin:num('ext-dwmin'),dwmax:num('ext-dwmax')};
+
+    if(mode==='two'){
+      const d1=num('ext-td1'),P1=num('ext-tP1'),d2=num('ext-td2'),P2=num('ext-tP2');
+      if(![d1,P1,d2,P2].every(x=>x!=null&&isFinite(x)&&x>=0)) return E('二点の たわみ・荷重 を入力してください');
+      if(d2<=d1) return E('δ₂ は δ₁ より大きくしてください');
+      if(P2<=P1) return E('P₂ は P₁ より大きくしてください');
+      k=(P2-P1)/(d2-d1); pi=P1-k*d1;
+      if(pi<0) return E('初張力が負になります（二点が直線上にありません）');
+      piMode='man'; dmax=d2;
+    } else {
+      if(seg['ext-l0']==='fix'||mode==='pl'){
+        L0=num('ext-l0fix');
+        if(!pos(L0)) return E('自由長 L₀ を入力してください');
+      }
+      if(piMode==='man'){
+        pi=num('ext-pi');
+        if(pi==null||!isFinite(pi)||pi<0) return E('初張力 Pi を入力してください');
+      }
+      // 最大伸び位置
+      if(seg['ext-max']==='l'){
+        if(L0==null) return E('長さで指定するには自由長 L₀ の指定が必要です');
+        const L2=num('ext-lmax');
+        if(!pos(L2)) return E('最大伸び時のばね長さ L₂ を入力してください');
+        if(L2<=L0) return E('L₂ は自由長 L₀ より長くしてください');
+        dmax=L2-L0;
+      } else {
+        dmax=num('ext-dmax');
+        if(!pos(dmax)) return E('最大使用たわみ δmax を入力してください');
+      }
+      // ばね定数
+      let d1=null,P=null;
+      if(mode==='pd'){
+        P=num('ext-P1'); d1=num('ext-d1');
+        if(!pos(P)||!pos(d1)) return E('荷重とたわみを入力してください');
+      } else if(mode==='pl'){
+        P=num('ext-plP1'); const L1=num('ext-plL1');
+        if(!pos(P)||!pos(L1)) return E('荷重とばね長さを入力してください');
+        if(L1<=L0) return E('P₁時の長さ L₁ は自由長 L₀ より長くしてください');
+        d1=L1-L0;
+      } else {
+        k=num('ext-k');
+        if(!pos(k)) return E('ばね定数を入力してください');
+      }
+      if(d1!=null){
+        if(piMode==='man'){
+          k=(P-pi)/d1;
+          if(!(k>0)) return E('P₁ が初張力以下です');
+        } else {
+          k=P/d1;
+          const pre=designExt(Object.assign({k,dmax,mat:$('ext-mat').value,piMode,pi:0,fat:{on:false}},cons));
+          if(pre.length){ const k2=(P-pre[0].Pi)/d1; if(k2>0) k=k2; }
+        }
+      }
+    }
+
+    const fat={on:seg['ext-load']==='fatigue'};
+    if(fat.on){
+      fat.life=$('ext-life').value; fat.nfReq=pos(num('ext-nf'))?num('ext-nf'):1.2;
+      if(seg['ext-min']==='l'){
+        if(L0==null) return E('取付長で指定するには自由長 L₀ の指定が必要です');
+        const L1=num('ext-lmin');
+        if(!pos(L1)) return E('取付長 L₁ を入力してください');
+        fat.dmin=Math.max(0,L1-L0);
+      } else fat.dmin=num('ext-dmin')||0;
+      if(fat.dmin>=dmax) return E('最小位置が最大位置と同じか逆転しています');
+    }
+
+    finish(designExt(Object.assign({k,dmax,mat:$('ext-mat').value,piMode,pi,fat,
+      l0fix:L0,l0tol:num('ext-l0tol')},cons)),'err-ext-design');
+  },
+
+  'tor-design'(){
+    showErr('err-tor-design');
+    const E=m=>{showErr('err-tor-design',m);};
+    const mode=seg['tor-in'];
+    const th0=(seg['tor-ang']==='abs')?(num('tor-th0')||0):0;
+    let kT,tmax,M0=0;
+    if(mode==='two'){
+      let t1=num('tor-tt1'),M1=num('tor-tM1'),t2=num('tor-tt2'),M2=num('tor-tM2');
+      if(![t1,M1,t2,M2].every(x=>x!=null&&isFinite(x)&&x>=0)) return E('二点の 角度・トルク を入力してください');
+      t1-=th0; t2-=th0;
+      if(t1<0||t2<=t1) return E('角度が自由角 θ₀ より小さい、または θ₂≤θ₁ です');
+      if(M2<=M1) return E('M₂ は M₁ より大きくしてください');
+      kT=(M2-M1)/(t2-t1); M0=M1-kT*t1; tmax=t2;
+    } else if(mode==='ma'){
+      const M=num('tor-M1'); let t1=num('tor-t1');
+      if(!pos(M)||!pos(t1)) return E('トルクと角度を入力してください');
+      t1-=th0;
+      if(!(t1>0)) return E('θ₁ が自由角 θ₀ 以下です');
+      kT=M/t1; tmax=(num('tor-tmax')||0)-th0;
+    } else {
+      kT=num('tor-k');
+      if(!pos(kT)) return E('ばね定数を入力してください');
+      tmax=(num('tor-tmax')||0)-th0;
+    }
+    if(mode!=='two'){
+      if(!pos(tmax)) return E('最大ねじれ角 θmax を入力してください'+(th0?'（自由角より大きい絶対角で）':''));
+    }
+
+    const fat={on:seg['tor-load']==='fatigue'};
+    if(fat.on){
+      fat.life=$('tor-life').value; fat.peen=seg['tor-peen'];
+      fat.nfReq=pos(num('tor-nf'))?num('tor-nf'):1.2;
+      fat.thmin=Math.max(0,(num('tor-tmin')||0)-th0);
+      if(fat.thmin>=tmax) return E('θmin は θmax より小さくしてください');
+    }
+
+    finish(designTor({kT,tmax,M0,th0,mat:$('tor-mat').value,
+      leg1:num('tor-leg1')||0,leg2:num('tor-leg2')||0,fat,
+      odmax:num('tor-odmax'),arbor:num('tor-arbor'),lbmax:num('tor-lbmax'),
+      cmin:num('tor-cmin'),cmax:num('tor-cmax'),namin:num('tor-namin'),namax:num('tor-namax'),
+      dwmin:num('tor-dwmin'),dwmax:num('tor-dwmax')}),'err-tor-design');
+  },
+
+  'comp-verify'(){
+    showErr('err-comp-verify');
+    const E=m=>{showErr('err-comp-verify',m);};
+    const d=num('vc-d'),od=num('vc-od'),na=num('vc-na');
+    if(![d,od,na].every(pos)) return E('線径・外径・巻数を入力してください');
+    const D=od-d;
+    if(!(D>d*2)) return E('外径が線径に対して小さすぎます');
+    const L0=num('vc-l0');
+    let dl;
+    if(seg['vc-max']==='l'){
+      if(!pos(L0)) return E('最圧縮長で指定するには自由長 L₀ が必要です');
+      const L2=num('vc-lmax');
+      if(!pos(L2)||L2>=L0) return E('最圧縮長 L₂ を（L₀ より短く）入力してください');
+      dl=L0-L2;
+    } else {
+      dl=num('vc-dl');
+      if(!pos(dl)) return E('最大たわみ δmax を入力してください');
+    }
+    renderVerify(compSpec($('vc-mat').value,d,D,na,$('vc-end').value,Number($('vc-alpha').value),dl,
+      pos(L0)?L0:null,fatOf('vc'),20));
+  },
+  'ext-verify'(){
+    showErr('err-ext-verify');
+    const E=m=>{showErr('err-ext-verify',m);};
+    const d=num('ve-d'),od=num('ve-od'),na=num('ve-na'),pi=num('ve-pi')||0;
+    if(![d,od,na].every(pos)) return E('線径・外径・巻数を入力してください');
+    const D=od-d;
+    if(!(D>d*2)) return E('外径が線径に対して小さすぎます');
+    const L0=num('ve-l0');
+    let dl;
+    if(seg['ve-max']==='l'){
+      if(!pos(L0)) return E('最大伸び長で指定するには自由長 L₀ が必要です');
+      const L2=num('ve-lmax');
+      if(!pos(L2)||L2<=L0) return E('L₂ を（L₀ より長く）入力してください');
+      dl=L2-L0;
+    } else {
+      dl=num('ve-dl');
+      if(!pos(dl)) return E('最大たわみ δmax を入力してください');
+    }
+    const s=extSpec($('ve-mat').value,d,D,na,pi,dl,fatOf('ve'));
+    if(pos(L0)){ s.L0tgt=s.L0; s.L0=L0; s.Lmax=L0+dl; }
+    renderVerify(s);
+  },
+  'tor-verify'(){
+    showErr('err-tor-verify');
+    const E=m=>{showErr('err-tor-verify',m);};
+    const d=num('vt-d'),od=num('vt-od'),nb=num('vt-na'),th=num('vt-th');
+    if(![d,od,nb,th].every(pos)) return E('線径・外径・巻数・角度を入力してください');
+    const D=od-d;
+    if(!(D>d*2)) return E('外径が線径に対して小さすぎます');
+    renderVerify(torSpec($('vt-mat').value,d,D,nb,th,num('vt-leg1')||0,num('vt-leg2')||0,0,
+      fatOf('vt','tor'),num('vt-th0')||0));
+  },
+};
+function finish(cands,errId){
+  if(!cands.length){
+    showErr(errId,'条件を満たす解が見つかりません。拘束・疲労安全率・材料・端末支持を見直してください');
+    state.cands=[]; $('results').innerHTML=''; return;
+  }
+  state.cands=cands; state.sel=null; state.sort='score'; state.limit=PAGE;
+  renderResults();
+  $('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ===================== 配線 ===================== */
+function forceSeg(key,v){
+  const sg=document.querySelector(`.seg[data-seg="${key}"]`);
+  if(!sg) return;
+  sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  seg[key]=v;
+  if(key==='comp-l0') $('comp-l0fix-row').classList.toggle('hidden',v!=='fix');
+  if(key==='ext-l0')  $('ext-l0fix-row').classList.toggle('hidden',v!=='fix');
+}
+function showPane(){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.add('hidden'));
+  $(`pane-${state.type}-${state.mode}`).classList.remove('hidden');
+  $('results').innerHTML='';
+  state.cands=[]; state.sel=null; state.sort='score'; state.limit=PAGE; state.view='draw';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const opts=Object.keys(MAT).map(k=>`<option value="${k}">${MAT[k].name}</option>`).join('');
+  ['comp-mat','ext-mat','tor-mat','vc-mat','ve-mat','vt-mat'].forEach(id=>{ if($(id)) $(id).innerHTML=opts; });
+
+  $('tabs').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
+    state.type=b.dataset.t; showPane();
+  });
+  $('modes').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));
+    state.mode=b.dataset.m; showPane();
+  });
+  document.querySelectorAll('.seg').forEach(sg=>{
+    sg.addEventListener('click',e=>{
+      const b=e.target.closest('button'); if(!b) return;
+      sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      const key=sg.dataset.seg, v=b.dataset.v;
+      seg[key]=v;
+      if(key==='comp-in'){
+        ['pd','pl','k','two'].forEach(m=>$('comp-in-'+m).classList.toggle('hidden',m!==v));
+        $('comp-l0blk').classList.toggle('hidden',v==='two');
+        $('comp-maxblk').classList.toggle('hidden',v==='two');
+        if(v==='pl') forceSeg('comp-l0','fix');
+      }
+      if(key==='ext-in'){
+        ['pd','pl','k','two'].forEach(m=>$('ext-in-'+m).classList.toggle('hidden',m!==v));
+        $('ext-l0blk').classList.toggle('hidden',v==='two');
+        $('ext-maxblk').classList.toggle('hidden',v==='two');
+        $('ext-pi-block').classList.toggle('hidden',v==='two');
+        if(v==='pl') forceSeg('ext-l0','fix');
+      }
+      if(key==='tor-in'){
+        ['ma','k','two'].forEach(m=>$('tor-in-'+m).classList.toggle('hidden',m!==v));
+        $('tor-tmax-row').classList.toggle('hidden',v==='two');
+      }
+      if(key==='comp-l0') $('comp-l0fix-row').classList.toggle('hidden',v!=='fix');
+      if(key==='ext-l0')  $('ext-l0fix-row').classList.toggle('hidden',v!=='fix');
+      if(key==='tor-ang') $('tor-th0-row').classList.toggle('hidden',v!=='abs');
+      if(key==='comp-max'){ $('comp-max-d').classList.toggle('hidden',v!=='d'); $('comp-max-l').classList.toggle('hidden',v!=='l'); }
+      if(key==='ext-max'){ $('ext-max-d').classList.toggle('hidden',v!=='d'); $('ext-max-l').classList.toggle('hidden',v!=='l'); }
+      if(key==='comp-min'){ $('comp-min-d').classList.toggle('hidden',v!=='d'); $('comp-min-l').classList.toggle('hidden',v!=='l'); }
+      if(key==='ext-min'){ $('ext-min-d').classList.toggle('hidden',v!=='d'); $('ext-min-l').classList.toggle('hidden',v!=='l'); }
+      if(key==='vc-max'){ $('vc-max-d').classList.toggle('hidden',v!=='d'); $('vc-max-l').classList.toggle('hidden',v!=='l'); }
+      if(key==='ve-max'){ $('ve-max-d').classList.toggle('hidden',v!=='d'); $('ve-max-l').classList.toggle('hidden',v!=='l'); }
+      if(key==='ext-pimode') $('ext-pii').classList.toggle('hidden',v!=='man');
+      const m=key.match(/^(comp|ext|tor|vc|ve|vt)-load$/);
+      if(m) $(m[1]+'-fat').classList.toggle('hidden',v!=='fatigue');
+    });
+  });
+  document.querySelectorAll('.run').forEach(b=>b.addEventListener('click',()=>{ const f=RUN[b.dataset.run]; if(f) f(); }));
+});
+</script>
+</body>
+</html>
