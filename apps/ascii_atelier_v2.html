@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>文字影絵 — 写真をアスキーアートに</title>
+<style>
+:root{
+  --ink:#161209; --ink2:#1f1a0e; --ink3:#2a2212;
+  --amber:#f0a832; --amber-dim:#8a6a2e; --amber-faint:#4a3a1c;
+  --paper:#efe6d0; --line:#3a3020;
+  --line-green:#06c755;
+  --sa-b:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--ink);color:var(--paper);
+  font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  -webkit-text-size-adjust:100%;overscroll-behavior-y:none}
+body{min-height:100dvh;padding-bottom:calc(24px + var(--sa-b))}
+
+header{padding:22px 18px 14px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:10px;letter-spacing:.35em;color:var(--amber-dim);text-transform:uppercase}
+h1{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:26px;font-weight:600;
+  letter-spacing:.14em;margin-top:6px}
+h1 span{color:var(--amber)}
+.sub{font-size:11px;color:var(--amber-dim);margin-top:6px;letter-spacing:.06em}
+
+main{padding:16px 14px;max-width:700px;margin:0 auto}
+
+.drop{border:1px dashed var(--amber-dim);border-radius:10px;min-height:132px;
+  display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;
+  color:var(--amber-dim);font-size:13px;letter-spacing:.08em;background:var(--ink2);
+  cursor:pointer;user-select:none;-webkit-user-select:none;text-align:center;padding:12px}
+.drop:active,.drop.over{background:var(--ink3);border-color:var(--amber)}
+.drop .glyph{font-size:22px;color:var(--amber);line-height:1}
+.drop.small{min-height:0;flex-direction:row;gap:12px}
+.drop.small .glyph{font-size:15px}
+.hint{font-size:10px;color:var(--amber-faint);letter-spacing:.05em}
+
+/* ── 出力：琥珀ブラウン管 ── */
+.stage{margin-top:14px;display:none}
+.stage.on{display:block}
+.crt{position:relative;border:1px solid var(--line);border-radius:10px;background:#0d0b06;overflow:hidden}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);
+  mix-blend-mode:multiply}
+@media (prefers-reduced-motion:no-preference){
+  .crt::before{content:"";position:absolute;left:0;right:0;top:0;height:60px;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(240,168,50,.06),transparent);
+    animation:sweep 7s linear infinite;will-change:transform}
+  @keyframes sweep{from{transform:translateY(-60px)}to{transform:translateY(120vh)}}
+}
+pre#out{padding:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  color:var(--amber);text-shadow:0 0 6px rgba(240,168,50,.3);
+  line-height:1;font-family:inherit;white-space:pre;position:relative;z-index:1}
+.meta{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;
+  border-top:1px solid var(--line);font-size:10px;color:var(--amber-dim);letter-spacing:.1em}
+
+/* ── LINEプレビュー（実際の見え方の検証） ── */
+.linebox{display:none;border-radius:10px;background:#8ba3b8;padding:14px;border:1px solid var(--line)}
+.linebox.on{display:block}
+.bubble{background:var(--line-green);color:#fff;border-radius:16px;padding:10px 12px;
+  max-width:min(300px,100%);margin-left:auto;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.bubble pre{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+  font-size:13px;line-height:1.45;white-space:pre;margin:0}
+.linenote{font-size:10px;color:#22303c;margin-top:8px;letter-spacing:.05em;
+  font-family:"Hiragino Sans",sans-serif;text-align:right}
+.warn{margin-top:10px;padding:9px 11px;border-radius:8px;border:1px solid var(--amber-dim);
+  background:rgba(240,168,50,.08);color:var(--amber);font-size:11px;line-height:1.6;display:none}
+.warn.on{display:block}
+
+/* ── 調整卓 ── */
+.panel{margin-top:18px;display:none}
+.panel.on{display:block}
+.group{border-top:1px solid var(--line);padding-top:16px;margin-top:16px}
+.group:first-child{border-top:0;margin-top:0;padding-top:0}
+.gtitle{font-size:10px;letter-spacing:.3em;color:var(--amber-dim);margin-bottom:10px}
+.row{margin-top:6px}
+.row label{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:11px;letter-spacing:.12em;color:var(--amber-dim);margin-bottom:2px}
+.row label b{color:var(--amber);font-weight:400;font-size:12px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:40px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--amber-faint);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  background:var(--ink);border:2px solid var(--amber);margin-top:-12px}
+input[type=range]:disabled::-webkit-slider-thumb{border-color:var(--amber-faint)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line);
+  background:var(--ink2);color:var(--paper);font-size:13px;letter-spacing:.04em;
+  font-family:inherit;display:inline-flex;align-items:center;cursor:pointer}
+.chip[aria-pressed=true]{border-color:var(--amber);color:var(--amber);background:var(--ink3)}
+.chip[hidden]{display:none}
+.chip:disabled{opacity:.35;cursor:not-allowed}
+.chip:focus-visible,.drop:focus-visible,.act:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#customSet{width:100%;min-height:44px;margin-top:10px;background:var(--ink2);border:1px solid var(--line);
+  border-radius:8px;color:var(--paper);font-family:inherit;font-size:14px;padding:10px;display:none}
+#customSet.on{display:block}
+
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}
+.act{min-height:48px;border-radius:8px;border:1px solid var(--amber-dim);background:transparent;
+  color:var(--amber);font-family:inherit;font-size:13px;letter-spacing:.1em;cursor:pointer}
+.act.primary{background:var(--amber);color:var(--ink);border-color:var(--amber);font-weight:700}
+.act.quiet{border-color:var(--line);color:var(--paper)}
+.act:active{opacity:.75}
+.act.wide{grid-column:1/-1}
+
+/* ── トリミング ── */
+.modal{position:fixed;inset:0;background:rgba(10,8,4,.94);z-index:20;display:none;
+  flex-direction:column;padding:16px;padding-bottom:calc(16px + var(--sa-b))}
+.modal.on{display:flex}
+.mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.mhead h2{font-size:13px;letter-spacing:.2em;color:var(--amber);font-weight:400}
+.cropwrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+.cropstage{position:relative;touch-action:none;max-width:100%;max-height:100%}
+.cropstage canvas{display:block;max-width:100%;max-height:100%;border-radius:6px}
+.crect{position:absolute;border:1px solid var(--amber);box-shadow:0 0 0 9999px rgba(10,8,4,.6);
+  cursor:move}
+.hnd{position:absolute;width:34px;height:34px}
+.hnd::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--amber);
+  background:var(--ink)}
+.hnd.tl{left:-17px;top:-17px}.hnd.tl::after{left:10px;top:10px}
+.hnd.tr{right:-17px;top:-17px}.hnd.tr::after{right:10px;top:10px}
+.hnd.bl{left:-17px;bottom:-17px}.hnd.bl::after{left:10px;bottom:10px}
+.hnd.br{right:-17px;bottom:-17px}.hnd.br::after{right:10px;bottom:10px}
+
+.toast{position:fixed;left:50%;bottom:calc(26px + var(--sa-b));transform:translateX(-50%) translateY(20px);
+  background:var(--amber);color:var(--ink);padding:10px 18px;border-radius:8px;font-size:13px;
+  letter-spacing:.06em;opacity:0;transition:.25s;pointer-events:none;z-index:30;max-width:88vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">photo → text mosaic</div>
+  <h1>文字<span>影絵</span></h1>
+  <div class="sub">写真を文字の濃淡で写しとる道具</div>
+</header>
+
+<main>
+  <div class="drop" id="drop" role="button" tabindex="0" aria-label="写真を選ぶ">
+    <div class="glyph">▓▒░</div>
+    <div>
+      <div>タップして写真を選ぶ</div>
+      <div class="hint" id="dropHint">ドラッグ&amp;ドロップ / ⌘V貼り付けも可</div>
+    </div>
+  </div>
+  <input type="file" id="file" accept="image/*">
+
+  <div class="stage" id="stage">
+    <div class="crt" id="crt">
+      <pre id="out" aria-label="変換結果"></pre>
+      <div class="meta"><span id="mDim">—</span><span id="mMode">AMBER CRT</span></div>
+    </div>
+
+    <div class="linebox" id="linebox">
+      <div class="bubble"><pre id="lineOut"></pre></div>
+      <div class="linenote">LINEでの見え方（実フォント・実行間で再現）</div>
+    </div>
+
+    <div class="warn" id="warn"></div>
+  </div>
+
+  <div class="panel" id="panel">
+
+    <div class="group">
+      <div class="gtitle">送り先</div>
+      <div class="chips">
+        <button class="chip" id="mNormal" aria-pressed="true">通常（等幅）</button>
+        <button class="chip" id="mLine" aria-pressed="false">LINE安全</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gtitle">文字セット</div>
+      <div class="chips" id="charsets"></div>
+      <input type="text" id="customSet" placeholder="濃い→薄い順に入力（例: @#*:. ）" autocomplete="off">
+    </div>
+
+    <div class="group">
+      <div class="gtitle">写しとり</div>
+      <div class="row">
+        <label>解像度（横の文字数） <b id="vCols">80</b></label>
+        <input type="range" id="cols" min="16" max="180" step="1" value="80">
+      </div>
+      <div class="row">
+        <label>輪郭を立てる <b id="vEdge">切</b></label>
+        <input type="range" id="edge" min="0" max="100" step="1" value="0">
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gtitle">濃淡</div>
+      <div class="chips" style="margin-bottom:6px">
+        <button class="chip" id="auto" aria-pressed="true">自動補正</button>
+        <button class="chip" id="invert" aria-pressed="false">明暗反転</button>
+        <button class="chip" id="color" aria-pressed="false">カラー</button>
+      </div>
+      <div class="row">
+        <label>ガンマ <b id="vGam">1.0</b></label>
+        <input type="range" id="gam" min="0.5" max="2.2" step="0.05" value="1">
+      </div>
+      <div class="row">
+        <label>コントラスト <b id="vCon">1.0</b></label>
+        <input type="range" id="con" min="0.4" max="2.6" step="0.05" value="1">
+      </div>
+      <div class="row">
+        <label>明るさ <b id="vBri">0</b></label>
+        <input type="range" id="bri" min="-80" max="80" step="2" value="0">
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gtitle">表示</div>
+      <div class="chips">
+        <button class="chip" id="fFit" aria-pressed="true">幅に合わせる</button>
+        <button class="chip" id="fReal" aria-pressed="false">原寸（横スクロール）</button>
+        <button class="chip" id="cropBtn">トリミング</button>
+      </div>
+    </div>
+
+    <div class="acts">
+      <button class="act" id="copy">文字をコピー</button>
+      <button class="act" id="share">共有</button>
+      <button class="act primary" id="png">PNG保存（等倍）</button>
+      <button class="act" id="png2">PNG保存（2倍）</button>
+      <button class="act quiet wide" id="reset">別の写真を選ぶ</button>
+    </div>
+  </div>
+</main>
+
+<!-- トリミング -->
+<div class="modal" id="modal" role="dialog" aria-label="トリミング">
+  <div class="mhead">
+    <h2>トリミング</h2>
+    <button class="chip" id="cropClose">閉じる</button>
+  </div>
+  <div class="cropwrap">
+    <div class="cropstage" id="cropstage">
+      <canvas id="cropCv"></canvas>
+      <div class="crect" id="crect">
+        <div class="hnd tl" data-h="tl"></div><div class="hnd tr" data-h="tr"></div>
+        <div class="hnd bl" data-h="bl"></div><div class="hnd br" data-h="br"></div>
+      </div>
+    </div>
+  </div>
+  <div class="acts">
+    <button class="act quiet" id="cropAll">全体に戻す</button>
+    <button class="act primary" id="cropApply">この範囲で写す</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const FW_SPACE = "\u3000";
+
+/* ────────────────────────────────────────────
+   文字セット
+   w:'half' = 半角等幅前提 / 'full' = 全角のみ（LINE安全）
+   ──────────────────────────────────────────── */
+const SETS = [
+  {id:"std",   name:"標準",     w:"half", chars:"@%#*+=-:. "},
+  {id:"fine",  name:"精密",     w:"half", chars:"$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. "},
+  {id:"block", name:"ブロック", w:"half", chars:"█▓▒░ "},
+  {id:"fw",    name:"全角記号", w:"full", chars:"＠＃＆＄％＊＋＝－：．"+FW_SPACE},
+  {id:"kanji", name:"漢字",     w:"full", chars:"鬱纏織諸通波沖汁小ヽ・"+FW_SPACE},
+  {id:"kana",  name:"かな",     w:"full", chars:"艶麗響護画国田口はをぬあめすくしこイトリー・"+FW_SPACE},
+  {id:"free",  name:"自由",     w:"half", chars:"@#*:. ", custom:true},
+];
+const EDGE_HALF = ["-","\\","|","/"];
+const EDGE_FULL = ["ー","＼","｜","／"];
+
+const state = {
+  mode:"normal", set:0, cols:80, edge:0,
+  auto:true, inv:false, color:false,
+  gam:1, con:1, bri:0, fit:true,
+};
+
+let img = null;          // 元画像
+let cache = null;        // トリミング適用済みの中間キャンバス
+let crop = {x:0,y:0,w:1,h:1};
+let grid = null;         // 直近の結果 {lines, colors, cols, rows, full}
+
+/* ────────────────────────────────────────────
+   セル比（1文字の 幅/高さ）— 行数の算出に使う
+   ──────────────────────────────────────────── */
+const EM_HALF = 0.6;                  // 等幅フォントの1文字幅（em）
+function cellAspect(){
+  const s = SETS[state.set];
+  if (state.mode === "line") return 1 / 1.45;   // LINEの行間1.45を織り込む
+  return s.w === "full" ? 1.0 : EM_HALF;        // 等幅・行間1.0
+}
+function emWidth(){ return SETS[state.set].w === "full" ? 1.0 : EM_HALF; }
+
+/* 半角→全角（LINE安全モードでの自由セット用） */
+const toFull = s => s
+  .replace(/[!-~]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0))
+  .replace(/ /g, FW_SPACE);
+
+function activeChars(){
+  const s = SETS[state.set];
+  let c = s.chars;
+  if (state.mode === "line" && s.w === "half") c = toFull(c);
+  return [...c];
+}
+
+/* ────────────────────────────────────────────
+   UI 生成
+   ──────────────────────────────────────────── */
+const chipsBox = $("charsets");
+SETS.forEach((s,i) => {
+  const b = document.createElement("button");
+  b.className = "chip"; b.textContent = s.name; b.dataset.i = i;
+  b.setAttribute("aria-pressed", i===0 ? "true" : "false");
+  b.addEventListener("click", () => selectSet(i));
+  chipsBox.appendChild(b);
+});
+function selectSet(i){
+  state.set = i;
+  [...chipsBox.children].forEach(c => c.setAttribute("aria-pressed", +c.dataset.i===i ? "true":"false"));
+  $("customSet").classList.toggle("on", !!SETS[i].custom);
+  render();
+}
+function syncSetChips(){
+  // LINE安全モードでは半角専用セット（ブロックは幅が環境依存）を隠す
+  [...chipsBox.children].forEach(c => {
+    const s = SETS[+c.dataset.i];
+    const hide = state.mode==="line" && (s.id==="block");
+    c.hidden = hide;
+  });
+  if (state.mode==="line" && SETS[state.set].id==="block") selectSet(3);
+}
+
+$("customSet").addEventListener("input", e => {
+  const v = e.target.value;
+  if (v.length >= 2){ SETS[6].chars = /\s$/.test(v) ? v : v + " "; if (state.set===6) render(); }
+});
+
+function toggle(id, key, onChange){
+  $(id).addEventListener("click", e => {
+    state[key] = !state[key];
+    e.currentTarget.setAttribute("aria-pressed", state[key]);
+    if (onChange) onChange();
+    render();
+  });
+}
+toggle("auto","auto",   () => setEnabled());
+toggle("invert","inv");
+toggle("color","color");
+
+function bindRange(id, key, out, fmt){
+  $(id).addEventListener("input", e => {
+    state[key] = parseFloat(e.target.value);
+    $(out).textContent = fmt(state[key]);
+    render();
+  });
+}
+bindRange("cols","cols","vCols", v => v|0);
+bindRange("gam","gam","vGam", v => v.toFixed(2));
+bindRange("con","con","vCon", v => v.toFixed(2));
+bindRange("bri","bri","vBri", v => (v>0?"+":"") + v);
+bindRange("edge","edge","vEdge", v => v===0 ? "切" : v);
+
+function setEnabled(){
+  const off = state.auto;
+  $("con").disabled = off; $("bri").disabled = off;
+  $("con").style.opacity = $("bri").style.opacity = off ? .4 : 1;
+}
+setEnabled();
+
+/* 送り先モード */
+$("mNormal").addEventListener("click", () => setMode("normal"));
+$("mLine").addEventListener("click", () => setMode("line"));
+function setMode(m){
+  state.mode = m;
+  $("mNormal").setAttribute("aria-pressed", m==="normal");
+  $("mLine").setAttribute("aria-pressed", m==="line");
+  $("crt").style.display   = m==="line" ? "none" : "";
+  $("linebox").classList.toggle("on", m==="line");
+  $("mMode").textContent = "AMBER CRT";
+  if (m === "line"){
+    // LINEの吹き出し幅で折り返さない範囲へ
+    state.cols = clamp(state.cols, 12, 28);
+    if (state.cols > 24) state.cols = 20;
+    $("cols").min = 12; $("cols").max = 28;
+    state.color = false;
+    $("color").setAttribute("aria-pressed","false"); $("color").disabled = true;
+    if (SETS[state.set].w === "half" && !SETS[state.set].custom) selectSet(3);
+  } else {
+    $("cols").min = 16; $("cols").max = 180;
+    $("color").disabled = false;
+  }
+  $("cols").value = state.cols; $("vCols").textContent = state.cols;
+  syncSetChips();
+  render();
+}
+
+/* 表示モード */
+$("fFit").addEventListener("click", () => setFit(true));
+$("fReal").addEventListener("click", () => setFit(false));
+function setFit(v){
+  state.fit = v;
+  $("fFit").setAttribute("aria-pressed", v);
+  $("fReal").setAttribute("aria-pressed", !v);
+  render();
+}
+
+/* ────────────────────────────────────────────
+   取り込み（選択・D&D・貼り付け）
+   ──────────────────────────────────────────── */
+$("drop").addEventListener("click", () => $("file").click());
+$("drop").addEventListener("keydown", e => {
+  if (e.key==="Enter" || e.key===" "){ e.preventDefault(); $("file").click(); }
+});
+$("file").addEventListener("change", e => { const f=e.target.files&&e.target.files[0]; if(f) load(f); e.target.value=""; });
+$("reset").addEventListener("click", () => $("file").click());
+
+["dragenter","dragover"].forEach(t => $("drop").addEventListener(t, e => {
+  e.preventDefault(); $("drop").classList.add("over");
+}));
+["dragleave","drop"].forEach(t => $("drop").addEventListener(t, e => {
+  e.preventDefault(); $("drop").classList.remove("over");
+}));
+$("drop").addEventListener("drop", e => {
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f && /^image\//.test(f.type)) load(f); else if (f) toast("画像ファイルを入れてください");
+});
+window.addEventListener("paste", e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const it of items){
+    if (it.type && it.type.startsWith("image/")){ const f = it.getAsFile(); if (f) load(f); break; }
+  }
+});
+
+function load(file){
+  if (!/^image\//.test(file.type)){ toast("画像ファイルを選んでください"); return; }
+  const url = URL.createObjectURL(file);
+  const im = new Image();
+  im.onload = () => {
+    URL.revokeObjectURL(url);
+    img = im;
+    crop = {x:0,y:0,w:1,h:1};
+    buildCache();
+    $("stage").classList.add("on");
+    $("panel").classList.add("on");
+    $("drop").classList.add("small");
+    $("dropHint").textContent = "写真を差し替える";
+    render();
+    $("stage").scrollIntoView({behavior:"smooth", block:"start"});
+  };
+  im.onerror = () => { URL.revokeObjectURL(url); toast("画像を読み込めません"); };
+  im.src = url;
+}
+
+/* ────────────────────────────────────────────
+   段階縮小キャッシュ（画質の要）
+   4000px→80px を一発で落とすとディテールが飛ぶので、
+   半分ずつ縮めて中間キャッシュ(長辺720px)を作る。
+   ──────────────────────────────────────────── */
+function buildCache(){
+  if (!img) return;
+  const sw = img.naturalWidth, sh = img.naturalHeight;
+  const cx = Math.round(crop.x*sw), cy = Math.round(crop.y*sh);
+  const cw = Math.max(1, Math.round(crop.w*sw)), ch = Math.max(1, Math.round(crop.h*sh));
+
+  const TARGET = 720;
+  const scale = Math.min(1, TARGET / Math.max(cw, ch));
+  let tw = Math.max(2, Math.round(cw*scale)), th = Math.max(2, Math.round(ch*scale));
+
+  let cur = document.createElement("canvas");
+  cur.width = cw; cur.height = ch;
+  let cctx = cur.getContext("2d");
+  cctx.imageSmoothingEnabled = true; cctx.imageSmoothingQuality = "high";
+  cctx.drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch);
+
+  while (cur.width/2 >= tw && cur.height/2 >= th && cur.width > 2){
+    const nx = document.createElement("canvas");
+    nx.width = Math.max(1, cur.width>>1); nx.height = Math.max(1, cur.height>>1);
+    const nc = nx.getContext("2d");
+    nc.imageSmoothingEnabled = true; nc.imageSmoothingQuality = "high";
+    nc.drawImage(cur, 0, 0, nx.width, nx.height);
+    cur = nx;
+  }
+  const fin = document.createElement("canvas");
+  fin.width = tw; fin.height = th;
+  const fc = fin.getContext("2d");
+  fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = "high";
+  fc.drawImage(cur, 0, 0, tw, th);
+  cache = fin;
+}
+
+/* ────────────────────────────────────────────
+   変換
+   ──────────────────────────────────────────── */
+const cvA = document.createElement("canvas");           // セル格子（色・輝度）
+const ctxA = cvA.getContext("2d", {willReadFrequently:true});
+const cvB = document.createElement("canvas");           // 2倍格子（輪郭検出用）
+const ctxB = cvB.getContext("2d", {willReadFrequently:true});
+
+function render(){
+  if (!img || !cache) return;
+
+  const chars = activeChars();
+  const ramp = state.inv ? [...chars].reverse() : chars;
+  const n = ramp.length;
+  const full = SETS[state.set].w === "full" || state.mode === "line";
+  const edgeChars = full ? EDGE_FULL : EDGE_HALF;
+
+  const cols = state.cols|0;
+  const rows = Math.max(2, Math.round(cols * (cache.height/cache.width) * cellAspect()));
+
+  // ── セル格子
+  cvA.width = cols; cvA.height = rows;
+  ctxA.imageSmoothingEnabled = true; ctxA.imageSmoothingQuality = "high";
+  ctxA.drawImage(cache, 0, 0, cols, rows);
+  let A;
+  try { A = ctxA.getImageData(0,0,cols,rows).data; }
+  catch(e){ toast("この画像は処理できません"); return; }
+
+  const N = cols*rows;
+  const lum = new Float32Array(N);
+  for (let i=0; i<N; i++){
+    const p = i*4;
+    lum[i] = 0.2126*A[p] + 0.7152*A[p+1] + 0.0722*A[p+2];
+  }
+
+  // ── 自動レベル補正（下2%/上98%で伸長）
+  if (state.auto){
+    const hist = new Uint32Array(256);
+    for (let i=0;i<N;i++) hist[lum[i]|0]++;
+    const lo = pct(hist, N, 0.02), hi = pct(hist, N, 0.98);
+    if (hi - lo > 4){
+      const k = 255/(hi-lo);
+      for (let i=0;i<N;i++) lum[i] = clamp((lum[i]-lo)*k, 0, 255);
+    }
+  }
+  // ── ガンマ → コントラスト → 明るさ
+  const g = 1/state.gam;
+  for (let i=0;i<N;i++){
+    let v = 255 * Math.pow(lum[i]/255, g);
+    if (!state.auto) v = (v-128)*state.con + 128 + state.bri;
+    lum[i] = clamp(v, 0, 255);
+  }
+
+  // ── 輪郭（2倍格子でSobel → セルごとに最大勾配）
+  let emag = null, eang = null;
+  if (state.edge > 0){
+    const C2 = cols*2, R2 = rows*2;
+    cvB.width = C2; cvB.height = R2;
+    ctxB.imageSmoothingEnabled = true; ctxB.imageSmoothingQuality = "high";
+    ctxB.drawImage(cache, 0, 0, C2, R2);
+    const B = ctxB.getImageData(0,0,C2,R2).data;
+    const g2 = new Float32Array(C2*R2);
+    for (let i=0;i<C2*R2;i++){
+      const p=i*4; g2[i] = 0.2126*B[p] + 0.7152*B[p+1] + 0.0722*B[p+2];
+    }
+    emag = new Float32Array(N); eang = new Float32Array(N);
+    const at = (x,y) => g2[clamp(y,0,R2-1)*C2 + clamp(x,0,C2-1)];
+    for (let cy=0; cy<rows; cy++) for (let cx=0; cx<cols; cx++){
+      let best = 0, bang = 0;
+      for (let dy=0; dy<2; dy++) for (let dx=0; dx<2; dx++){
+        const x = cx*2+dx, y = cy*2+dy;
+        const gx = (at(x+1,y-1)+2*at(x+1,y)+at(x+1,y+1)) - (at(x-1,y-1)+2*at(x-1,y)+at(x-1,y+1));
+        const gy = (at(x-1,y+1)+2*at(x,y+1)+at(x+1,y+1)) - (at(x-1,y-1)+2*at(x,y-1)+at(x+1,y-1));
+        const m = Math.hypot(gx,gy);
+        if (m > best){ best = m; bang = Math.atan2(gy,gx); }
+      }
+      const i = cy*cols+cx;
+      emag[i] = best; eang[i] = bang;
+    }
+  }
+  const thr = 1020 * (1 - state.edge/100) * 0.5 + 20;   // スライダー → 勾配しきい値
+
+  // ── 文字割り当て
+  const lines = [], colors = state.color ? [] : null;
+  for (let y=0; y<rows; y++){
+    let line = "";
+    const crow = colors ? [] : null;
+    for (let x=0; x<cols; x++){
+      const i = y*cols+x;
+      let ch;
+      if (emag && emag[i] > thr){
+        // 稜線の向き＝勾配の直交（画面座標はy下向き）
+        let a = eang[i] + Math.PI/2;
+        a = ((a % Math.PI) + Math.PI) % Math.PI;
+        ch = edgeChars[Math.round(a / (Math.PI/4)) % 4];
+      } else {
+        const idx = Math.min(n-1, Math.round((1 - lum[i]/255) * (n-1)));
+        ch = ramp[idx];
+      }
+      line += ch;
+      if (crow){
+        const p = i*4;
+        crow.push("#" + hex(A[p]) + hex(A[p+1]) + hex(A[p+2]));
+      }
+    }
+    lines.push(line);
+    if (colors) colors.push(crow);
+  }
+
+  grid = {lines, colors, cols, rows, full};
+  paint();
+}
+function pct(hist, total, p){
+  let acc = 0, t = total*p;
+  for (let i=0;i<256;i++){ acc += hist[i]; if (acc >= t) return i; }
+  return 255;
+}
+const hex = v => v.toString(16).padStart(2,"0");
+
+/* ────────────────────────────────────────────
+   描画
+   ──────────────────────────────────────────── */
+function paint(){
+  if (!grid) return;
+  const {lines, colors, cols, rows, full} = grid;
+
+  if (state.mode === "line"){
+    const pre = $("lineOut");
+    pre.textContent = lines.join("\n");
+    const over = cols > 24;
+    $("warn").classList.toggle("on", over);
+    if (over) $("warn").innerHTML =
+      "横 " + cols + " 字は吹き出し幅を超えて<b>折り返す恐れ</b>があります。20字前後が安全です。";
+    return;
+  }
+
+  const pre = $("out");
+  const em = emWidth();
+  const boxW = $("crt").clientWidth - 28;
+  let fs;
+  if (state.fit){
+    fs = clamp(boxW / (cols * em), 3, 16);
+    pre.style.overflowX = "hidden";
+  } else {
+    fs = full ? 13 : 11;
+    pre.style.overflowX = "auto";
+  }
+  pre.style.fontSize = fs + "px";
+
+  if (colors){
+    // 同色の連続をまとめてspan数を圧縮
+    let html = "";
+    for (let y=0; y<rows; y++){
+      const row = colors[y], ln = lines[y];
+      let run = "", c = row[0];
+      for (let x=0; x<cols; x++){
+        if (row[x] !== c){
+          html += '<span style="color:'+c+'">' + esc(run) + "</span>";
+          run = ""; c = row[x];
+        }
+        run += ln[x];
+      }
+      html += '<span style="color:'+c+'">' + esc(run) + "</span>\n";
+    }
+    pre.innerHTML = html;
+    pre.style.textShadow = "none";
+  } else {
+    pre.textContent = lines.join("\n");
+    pre.style.textShadow = "0 0 6px rgba(240,168,50,.3)";
+    pre.style.color = "var(--amber)";
+  }
+
+  $("mDim").textContent = cols + " × " + rows + " 字";
+  $("warn").classList.remove("on");
+}
+const esc = s => s.replace(/[&<>]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+
+/* ────────────────────────────────────────────
+   書き出し
+   ──────────────────────────────────────────── */
+$("copy").addEventListener("click", async () => {
+  if (!grid) return;
+  const text = grid.lines.join("\n");
+  try { await navigator.clipboard.writeText(text); }
+  catch(e){
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+  }
+  toast(state.mode==="line" ? "コピーしました。LINEに貼り付けてください" : "コピーしました");
+});
+
+function toCanvas(scale){
+  const {lines, colors, full} = grid;
+  const fs = (full ? 14 : 12) * scale;
+  const cw = fs * (full ? 1.0 : EM_HALF);
+  const lh = fs * (full ? 1.15 : 1.0);
+  const pad = fs*1.6;
+  const c = document.createElement("canvas");
+  c.width  = Math.ceil(lines[0].length*cw + pad*2);
+  c.height = Math.ceil(lines.length*lh + pad*2);
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#0d0b06"; ctx.fillRect(0,0,c.width,c.height);
+  ctx.font = fs + 'px ui-monospace,"Hiragino Sans",Menlo,monospace';
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#f0a832";
+  lines.forEach((ln,y) => {
+    for (let x=0; x<ln.length; x++){
+      if (colors) ctx.fillStyle = colors[y][x];
+      ctx.fillText(ln[x], pad + x*cw, pad + y*lh);
+    }
+  });
+  return c;
+}
+function savePNG(scale){
+  if (!grid) return;
+  toCanvas(scale).toBlob(b => {
+    if (!b){ toast("書き出しに失敗しました"); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "mojikagee" + (scale>1 ? "@2x" : "") + ".png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast("PNGを保存しました");
+  }, "image/png");
+}
+$("png").addEventListener("click", () => savePNG(1));
+$("png2").addEventListener("click", () => savePNG(2));
+
+$("share").addEventListener("click", () => {
+  if (!grid) return;
+  toCanvas(2).toBlob(async b => {
+    if (!b) return;
+    const file = new File([b], "mojikagee.png", {type:"image/png"});
+    if (navigator.canShare && navigator.canShare({files:[file]})){
+      try { await navigator.share({files:[file], title:"文字影絵"}); } catch(e){}
+    } else {
+      try { await navigator.share({text: grid.lines.join("\n").slice(0,4000)}); }
+      catch(e){ toast("この端末では共有できません"); }
+    }
+  }, "image/png");
+});
+
+/* ────────────────────────────────────────────
+   トリミング
+   ──────────────────────────────────────────── */
+const modal = $("modal"), cropCv = $("cropCv"), crect = $("crect"), cstage = $("cropstage");
+let cbox = {x:0,y:0,w:0,h:0};     // 画面px（cropCv基準）
+
+$("cropBtn").addEventListener("click", openCrop);
+$("cropClose").addEventListener("click", () => modal.classList.remove("on"));
+$("cropAll").addEventListener("click", () => {
+  cbox = {x:0, y:0, w:cropCv.clientWidth, h:cropCv.clientHeight}; drawRect();
+});
+$("cropApply").addEventListener("click", () => {
+  const W = cropCv.clientWidth, H = cropCv.clientHeight;
+  crop = {x:cbox.x/W, y:cbox.y/H, w:cbox.w/W, h:cbox.h/H};
+  buildCache(); render();
+  modal.classList.remove("on");
+  toast("この範囲で写しました");
+});
+
+function openCrop(){
+  if (!img) return;
+  const maxW = Math.min(window.innerWidth - 32, 560);
+  const maxH = window.innerHeight - 220;
+  const r = Math.min(maxW/img.naturalWidth, maxH/img.naturalHeight);
+  cropCv.width = Math.round(img.naturalWidth*r);
+  cropCv.height = Math.round(img.naturalHeight*r);
+  cropCv.style.width = cropCv.width + "px";
+  cropCv.style.height = cropCv.height + "px";
+  const ct = cropCv.getContext("2d");
+  ct.imageSmoothingQuality = "high";
+  ct.drawImage(img, 0, 0, cropCv.width, cropCv.height);
+  cbox = {
+    x: crop.x*cropCv.width, y: crop.y*cropCv.height,
+    w: crop.w*cropCv.width, h: crop.h*cropCv.height
+  };
+  drawRect();
+  modal.classList.add("on");
+}
+function drawRect(){
+  crect.style.left = cbox.x + "px"; crect.style.top = cbox.y + "px";
+  crect.style.width = cbox.w + "px"; crect.style.height = cbox.h + "px";
+}
+
+let drag = null;
+cstage.addEventListener("pointerdown", e => {
+  const h = e.target.dataset && e.target.dataset.h;
+  const inRect = e.target === crect || h;
+  if (!inRect) return;
+  drag = {mode: h || "move", sx:e.clientX, sy:e.clientY, box:{...cbox}};
+  cstage.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+cstage.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const W = cropCv.clientWidth, H = cropCv.clientHeight;
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  const b = {...drag.box};
+  const MIN = 32;
+  if (drag.mode === "move"){
+    b.x = clamp(b.x + dx, 0, W - b.w);
+    b.y = clamp(b.y + dy, 0, H - b.h);
+  } else {
+    const l = drag.mode[1] === "l", t = drag.mode[0] === "t";
+    if (l){ const nx = clamp(b.x+dx, 0, b.x+b.w-MIN); b.w += b.x-nx; b.x = nx; }
+    else  { b.w = clamp(b.w+dx, MIN, W-b.x); }
+    if (t){ const ny = clamp(b.y+dy, 0, b.y+b.h-MIN); b.h += b.y-ny; b.y = ny; }
+    else  { b.h = clamp(b.h+dy, MIN, H-b.y); }
+  }
+  cbox = b; drawRect();
+});
+["pointerup","pointercancel"].forEach(t =>
+  cstage.addEventListener(t, () => { drag = null; })
+);
+
+/* ──────────────────────────────────────────── */
+let raf = null;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(paint);
+});
+
+let tt;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 2000);
+}
+})();
+</script>
+</body>
+</html>

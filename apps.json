@@ -1,8 +1,71 @@
 {
-  "generated": "2026-07-31T16:47:02.467Z",
-  "count": 0,
-  "totalBytes": 0,
-  "categories": [],
-  "apps": [],
-  "nextNo": 1
+  "generated": "2026-07-31T16:50:53.807Z",
+  "count": 5,
+  "totalBytes": 1233023,
+  "categories": [
+    "未分類"
+  ],
+  "apps": [
+    {
+      "no": "001",
+      "file": "apps/ascii_atelier_v2.html",
+      "name": "文字影絵",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-07-31T16:50:50.954Z",
+      "bytes": 34986
+    },
+    {
+      "no": "002",
+      "file": "apps/dbd_master_manual.html",
+      "name": "Dead by Daylight 完全攻略マニュアル【統合版】",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-07-31T16:50:50.961Z",
+      "bytes": 963799
+    },
+    {
+      "no": "003",
+      "file": "apps/gikyokusouchiv2.html",
+      "name": "戯曲装置",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-07-31T16:50:50.959Z",
+      "bytes": 106764
+    },
+    {
+      "no": "004",
+      "file": "apps/hatsujo-seizusho.html",
+      "name": "発条製図所",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-07-31T16:50:50.957Z",
+      "bytes": 100862
+    },
+    {
+      "no": "005",
+      "file": "apps/steamsaleichiba.html",
+      "name": "蒸気特売市",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-07-31T16:50:50.952Z",
+      "bytes": 26612
+    }
+  ],
+  "nextNo": 6
 }

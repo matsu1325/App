@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>蒸気特売市 — Steamセール棚卸し</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Noto+Sans+JP:wght@400;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FAF3E0; --card:#FFFDF6; --ink:#1A1A1A; --sumi-2:#5C5750;
+    --beni:#D7263D; --ki:#F2D64B; --ai:#1F4E79;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"Zen Kaku Gothic New","Noto Sans JP",system-ui,sans-serif;
+    font-size:15px;line-height:1.6;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:0 14px}
+
+  header{background:var(--ki);border-bottom:3px solid var(--ink);
+    padding:calc(14px + env(safe-area-inset-top)) 0 12px;position:relative;overflow:hidden}
+  header::after{content:"";position:absolute;inset:auto 0 0 0;height:8px;
+    background:repeating-linear-gradient(-45deg,var(--beni) 0 10px,transparent 10px 20px)}
+  .banner{display:flex;align-items:center;gap:10px}
+  .banner h1{margin:0;font-family:"Noto Sans JP",sans-serif;font-weight:900;
+    font-size:29px;letter-spacing:.06em;line-height:1.1}
+  .banner h1 em{font-style:normal;color:var(--beni)}
+  .banner .lead{margin:4px 0 0;font-size:12px;font-weight:700;color:#4a3f14;letter-spacing:.04em}
+  .sticker{margin-left:auto;flex:none;width:60px;height:60px;border-radius:50%;
+    background:var(--card);border:3px solid var(--beni);display:grid;place-items:center;
+    transform:rotate(-9deg);font-family:"Anton",sans-serif;color:var(--beni);
+    font-size:13px;line-height:1;text-align:center;box-shadow:2px 2px 0 var(--ink)}
+
+  .panel{background:var(--card);border:2px solid var(--ink);border-radius:2px;
+    margin:16px 0;padding:12px;box-shadow:4px 4px 0 rgba(26,26,26,.15)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .row:last-child{margin-bottom:0}
+  .field{flex:1 1 46%;min-width:0}
+  .field.full{flex:1 1 100%}
+  .field label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;
+    color:var(--sumi-2);margin-bottom:4px}
+  select,input[type=number]{width:100%;height:44px;padding:0 10px;font-size:15px;
+    font-family:inherit;color:var(--ink);background:#fff;border:2px solid var(--ink);
+    border-radius:2px;appearance:none}
+  select{background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 19px,calc(100% - 11px) 19px;background-size:5px 5px;
+    background-repeat:no-repeat;padding-right:30px}
+  button{font-family:inherit;cursor:pointer}
+  .go{width:100%;height:52px;border:2px solid var(--ink);border-radius:2px;
+    background:var(--beni);color:#fff;font-weight:900;font-size:17px;letter-spacing:.1em;
+    box-shadow:3px 3px 0 var(--ink)}
+  .go:active{transform:translate(3px,3px);box-shadow:none}
+  .go[disabled]{opacity:.55}
+  :focus-visible{outline:3px solid var(--ai);outline-offset:2px}
+
+  .hint{margin:8px 2px 0;font-size:11px;color:var(--sumi-2);line-height:1.65}
+  .status{font-size:12px;color:var(--sumi-2);margin:10px 2px;min-height:1.6em}
+  .status b{color:var(--ink)}
+  .status.err{color:var(--beni);font-weight:700}
+  .status.work{color:var(--ai);font-weight:700}
+
+  ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+  .fuda{position:relative;background:var(--card);border:2px solid var(--ink);
+    border-radius:2px;box-shadow:4px 4px 0 rgba(26,26,26,.18)}
+  .fuda a.hit{display:flex;gap:10px;padding:10px;text-decoration:none;color:inherit;align-items:flex-start}
+  .fuda .cap{flex:none;width:112px;aspect-ratio:231/87;object-fit:cover;border:1px solid var(--ink);background:#e6e0d2}
+  .meta{min-width:0;flex:1}
+  .name{font-weight:700;font-size:15px;line-height:1.35;margin:0 0 4px;word-break:break-word;padding-right:44px}
+  .rev{font-size:11px;color:var(--sumi-2);margin:0 0 6px}
+  .rev .good{color:#2b6b3f;font-weight:700}
+  .rev .mixed{color:#8a6a12;font-weight:700}
+  .rev .bad{color:var(--beni);font-weight:700}
+  .prices{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
+  .was{position:relative;font-size:12px;color:var(--sumi-2)}
+  .was::after{content:"";position:absolute;left:-2px;right:-2px;top:52%;height:2px;
+    background:var(--beni);transform:rotate(-6deg)}
+  .now{font-family:"Anton",sans-serif;font-size:24px;line-height:1;color:var(--beni);letter-spacing:.02em}
+  .stamp{position:absolute;top:-10px;right:-6px;width:56px;height:56px;border-radius:50%;
+    background:var(--card);border:3px solid var(--beni);color:var(--beni);
+    display:grid;place-items:center;transform:rotate(-11deg);
+    font-family:"Anton",sans-serif;font-size:17px;line-height:1;
+    box-shadow:inset 0 0 0 1px var(--beni)}
+  .stamp small{display:block;font-size:9px;font-family:"Zen Kaku Gothic New",sans-serif;
+    font-weight:700;letter-spacing:.1em}
+
+  .more{width:100%;height:48px;margin-top:16px;background:var(--card);
+    border:2px dashed var(--ink);border-radius:2px;font-weight:700;font-size:15px}
+  .empty{padding:28px 12px;text-align:center;color:var(--sumi-2);font-size:14px}
+
+  .foot{position:fixed;left:0;right:0;bottom:0;background:var(--ki);
+    border-top:3px solid var(--ink);padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex;gap:8px;max-width:560px;margin:0 auto}
+  .foot button{flex:1;height:44px;border:2px solid var(--ink);border-radius:2px;
+    background:var(--card);font-weight:700;font-size:14px}
+  .foot button:active{transform:translateY(1px)}
+  .note{font-size:11px;color:var(--sumi-2);margin:18px 2px 0;line-height:1.75}
+  .note strong{color:var(--ink)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap banner">
+    <div>
+      <h1>蒸気<em>特売</em>市</h1>
+      <p class="lead">Steamの売れ筋ゲームから、セール中のものだけ札に出す。</p>
+    </div>
+    <div class="sticker">SALE<br>棚卸</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="panel" aria-label="絞り込み">
+    <div class="row">
+      <div class="field full">
+        <label for="src">仕入れ口</label>
+        <select id="src">
+          <option value="ai" selected>Claudeの検索で集める（このアプリ内で動く）</option>
+          <option value="steam">Steamから直に取る（外部ブラウザで開いた時だけ）</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="cc">地域・通貨</label>
+        <select id="cc">
+          <option value="jp" selected>日本 (¥)</option>
+          <option value="us">米国 ($)</option>
+          <option value="eu">ユーロ圏 (€)</option>
+          <option value="uk">英国 (£)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="minoff">最低割引率</label>
+        <select id="minoff">
+          <option value="0">指定なし</option>
+          <option value="20">20%以上</option>
+          <option value="50" selected>50%以上</option>
+          <option value="75">75%以上</option>
+          <option value="90">90%以上</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="genre">ジャンル</label>
+        <select id="genre">
+          <option value="" selected>指定なし</option>
+          <option value="19">アクション</option>
+          <option value="21">アドベンチャー</option>
+          <option value="122">RPG</option>
+          <option value="9">ストラテジー</option>
+          <option value="599">シミュレーション</option>
+          <option value="701">スポーツ</option>
+          <option value="699">レース</option>
+          <option value="1664">パズル</option>
+          <option value="1667">ホラー</option>
+          <option value="1743">格闘</option>
+          <option value="492">インディー</option>
+          <option value="597">カジュアル</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="kw">キーワード（任意）</label>
+        <input id="kw" type="text" placeholder="例: ローグライク" autocapitalize="off" autocorrect="off">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="pop">人気の下限（レビュー数）</label>
+        <select id="pop">
+          <option value="0" selected>指定なし</option>
+          <option value="500">500件以上</option>
+          <option value="2000">2,000件以上</option>
+          <option value="10000">1万件以上</option>
+          <option value="50000">5万件以上</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="score">評価</label>
+        <select id="score">
+          <option value="0" selected>指定なし</option>
+          <option value="70">好評 (70%〜)</option>
+          <option value="85">非常に好評 (85%〜)</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="sort">並び</label>
+        <select id="sort">
+          <option value="pop" selected>売れ筋順</option>
+          <option value="off">割引率が高い順</option>
+          <option value="cheap">安い順</option>
+          <option value="rich">高い順</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="cap">価格上限（任意）</label>
+        <input id="cap" type="number" inputmode="numeric" placeholder="例: 2000">
+      </div>
+    </div>
+    <div class="row">
+      <button class="go" id="go">札を出す</button>
+    </div>
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <p class="status" id="status">「札を出す」で、いま売れ筋のセール中ゲームを集める。</p>
+
+  <ul class="list" id="list" aria-live="polite"></ul>
+  <button class="more" id="more" hidden>さらに探す</button>
+
+  <p class="note">
+    <strong>仕入れ口について。</strong>
+    Steamは外部サイトからの直接読み込みを許していないため、ブラウザから素で取ることはできない。
+    加えてこのアプリをClaude内のビューアで開いている場合、外部への通信自体が遮断されるので中継サーバー（CORSプロキシ）も使えない。
+    そこで既定では、唯一許可されているAnthropic APIを通してClaudeにウェブ検索させ、その結果を札にしている。
+    価格は<strong>取得時点の目安</strong>として扱い、買う前にストアで確認して。
+    正確な値が要るなら、このHTMLをダウンロードしてSafariで直接開き、仕入れ口を「Steamから直に取る」に切り替える。
+    そちらはSteamの売れ筋×セール一覧をそのまま写す。
+  </p>
+</main>
+
+<div class="foot">
+  <button id="copy">一覧をコピー</button>
+  <button id="share">共有</button>
+</div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const listEl=$('#list'), statusEl=$('#status'), moreBtn=$('#more'), goBtn=$('#go'), hintEl=$('#hint');
+
+  const CUR = {jp:'日本円（¥）', us:'米ドル（$）', eu:'ユーロ（€）', uk:'英ポンド（£）'};
+  const PAGE = 50;
+
+  let items=[], shown=[], start=0, total=0, busy=false;
+
+  /* ───────── 共通 ───────── */
+  function setStatus(html, kind){
+    statusEl.innerHTML = html;
+    statusEl.className = 'status' + (kind ? ' ' + kind : '');
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function num(s){ const d=String(s==null?'':s).replace(/[^\d]/g,''); return d?parseInt(d,10):null; }
+  function withTimeout(p, ms){
+    return new Promise((res,rej)=>{
+      const t=setTimeout(()=>rej(new Error('時間切れ')),ms);
+      p.then(v=>{clearTimeout(t);res(v);},e=>{clearTimeout(t);rej(e);});
+    });
+  }
+  function capsule(id){ return id ? 'https://cdn.cloudflare.steamstatic.com/steam/apps/'+id+'/capsule_231x87.jpg' : ''; }
+  function storeUrl(it){
+    return it.appid
+      ? 'https://store.steampowered.com/app/'+it.appid+'/'
+      : 'https://store.steampowered.com/search/?term='+encodeURIComponent(it.title);
+  }
+
+  function updateHint(){
+    hintEl.textContent = $('#src').value === 'ai'
+      ? 'Claudeがウェブを検索して集める。10〜20秒かかる。価格は目安。'
+      : 'Steamの生データを取る。Claude内のビューアでは通信が遮断されるため、ダウンロードしてSafariで開いた時だけ動く。';
+  }
+
+  /* ───────── 仕入れ口 A: Claude検索 ───────── */
+  async function loadViaClaude(more){
+    const cc = $('#cc').value;
+    const minOff = $('#minoff').value;
+    const cap = $('#cap').value.trim();
+    const genreLabel = $('#genre').selectedOptions[0].textContent;
+    const kw = $('#kw').value.trim();
+    const known = items.map(i=>i.title).slice(0,60);
+
+    const prompt = [
+      '今日は' + new Date().toISOString().slice(0,10) + '。ウェブ検索で、現在Steamでセール中の「売れ筋・人気の高いゲーム」を調べて。',
+      'store.steampowered.com の売れ筋×セール一覧（filter=topsellers&specials=1）、SteamDB、IsThereAnyDeal などの最新情報を参照する。',
+      '条件: 通貨=' + (CUR[cc]||'日本円') + '。ゲーム本体のみ（DLC・ソフトウェア・サントラは除外）。',
+      minOff !== '0' ? '割引率は' + minOff + '%以上。' : '',
+      cap ? 'セール価格は ' + cap + ' 以下。' : '',
+      genreLabel !== '指定なし' ? 'ジャンルは「' + genreLabel + '」に該当するものだけ。他ジャンルは含めない。' : '',
+      kw ? 'タイトルまたは内容が「' + kw + '」に関連するものだけ。' : '',
+      known.length ? '次のタイトルは既出なので除外: ' + known.join(' / ') : '',
+      '最大16件。売れ筋・知名度の高い順に並べる。',
+      '',
+      '出力はJSON配列のみ。前置き・説明・コードフェンスは一切書かない。各要素は次の形:',
+      '{"t":"タイトル","id":Steam appid の数値 or null,"off":割引率の数値,"was":"定価（通貨記号つき文字列）","now":"セール価格（通貨記号つき文字列）","rev":"レビュー要約（例: 非常に好評）","n":レビュー件数の数値 or null}',
+      '検索結果で確認できた情報だけを使い、確認できない項目は null にする。推測で埋めない。'
+    ].filter(Boolean).join('\n');
+
+    setStatus('Claudeがウェブを検索している…（10〜20秒）','work');
+
+    const res = await withTimeout(fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        messages:[{role:'user',content:prompt}],
+        tools:[{type:'web_search_20250305', name:'web_search'}]
+      })
+    }), 90000);
+
+    if(!res.ok) throw new Error('API ' + res.status);
+    const data = await res.json();
+    const text = (data.content||[]).map(b => b.type==='text' ? b.text : '').join('\n');
+    const body = text.replace(/```json|```/g,'').trim();
+    const s = body.indexOf('['), e = body.lastIndexOf(']');
+    if(s < 0 || e < 0) throw new Error('結果を読み取れなかった');
+
+    const arr = JSON.parse(body.slice(s, e+1));
+    const seen = new Set(items.map(i=>i.title));
+    let added = 0;
+    arr.forEach(r=>{
+      const title = (r.t||'').trim();
+      if(!title || seen.has(title)) return;
+      const off = parseInt(r.off,10);
+      if(!off) return;
+      const appid = r.id ? String(r.id).replace(/\D/g,'') : '';
+      items.push({
+        appid, title, off,
+        img: capsule(appid),
+        was: r.was || '', now: r.now || '',
+        nowVal: num(r.now) ?? 0,
+        revSummary: r.rev || '', revPct: null,
+        revCount: (typeof r.n === 'number' ? r.n : num(r.n)),
+        revTone: /非常に好評|圧倒的|好評/.test(r.rev||'') ? 'good' : (/賛否|やや不評|不評/.test(r.rev||'') ? 'mixed' : ''),
+        approx: true
+      });
+      seen.add(title); added++;
+    });
+    if(!added && !items.length) throw new Error('条件に合うセールが見つからなかった');
+    total = 0;
+    moreBtn.hidden = false;
+    moreBtn.textContent = 'さらに探す';
+  }
+
+  /* ───────── 仕入れ口 B: Steam直取り ───────── */
+  const PROXIES = [
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+    u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+  ];
+
+  function steamUrl(cc, st, tag){
+    const params = {
+      query:'', start:String(st), count:String(PAGE), dynamic_data:'', sort_by:'_ASC',
+      infinite:'1', category1:'998', specials:'1', filter:'topsellers',
+      cc:cc, l:'japanese', supportedlang:'japanese'
+    };
+    if(tag) params.tags = tag;
+    const p = new URLSearchParams(params);
+    return 'https://store.steampowered.com/search/results/?' + p.toString();
+  }
+
+  async function loadViaSteam(){
+    const url = steamUrl($('#cc').value, start, $('#genre').value);
+    let lastErr;
+    for(let i=0;i<PROXIES.length;i++){
+      try{
+        setStatus('中継 ' + (i+1) + '/' + PROXIES.length + ' でSteamの棚を覗いている…','work');
+        const res = await withTimeout(fetch(PROXIES[i](url)), 20000);
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        const data = JSON.parse(await res.text());
+        if(typeof data.results_html !== 'string') throw new Error('形式が違う');
+        total = data.total_count || total;
+        const rows = parseRows(data.results_html);
+        const seen = new Set(items.map(i=>i.appid));
+        rows.forEach(r=>{ if(!seen.has(r.appid)) items.push(r); });
+        start += PAGE;
+        moreBtn.hidden = !(total && items.length < total);
+        moreBtn.textContent = 'さらに取り込む';
+        return;
+      }catch(e){ lastErr = e; }
+    }
+    const msg = String(lastErr && lastErr.message || '');
+    if(/Load failed|Failed to fetch|NetworkError|cloned/i.test(msg)){
+      throw new Error('外部への通信が遮断されている。Claude内のビューアではSteam直取りは動かないので、HTMLをダウンロードしてSafariで開くか、仕入れ口を「Claudeの検索で集める」に戻して');
+    }
+    throw lastErr || new Error('取得に失敗');
+  }
+
+  function parseRows(html){
+    const doc = new DOMParser().parseFromString(html,'text/html');
+    const out = [];
+    doc.querySelectorAll('a.search_result_row').forEach(row=>{
+      const appid = row.getAttribute('data-ds-appid')||'';
+      const title = (row.querySelector('.title')?.textContent||'').trim();
+      if(!appid || !title) return;
+
+      let img = row.querySelector('img')?.getAttribute('src')||'';
+      img = img.replace('capsule_sm_120','capsule_231x87') || capsule(appid);
+
+      let off = null;
+      const pct = row.querySelector('.discount_pct')?.textContent
+               || row.querySelector('[class*="discount_pct"]')?.textContent || '';
+      const pm = pct.match(/(\d+)\s*%/);
+      if(pm) off = parseInt(pm[1],10);
+
+      const was = (row.querySelector('.discount_original_price')?.textContent||'').trim();
+      let now = (row.querySelector('.discount_final_price')?.textContent||'').trim();
+      if(!now){
+        const blk = row.querySelector('[data-price-final]');
+        const cents = blk && parseInt(blk.getAttribute('data-price-final'),10);
+        if(cents) now = String(cents/100);
+      }
+      if(off === null && was && now){
+        const o = num(was), f = num(now);
+        if(o && f && o > f) off = Math.round((1 - f/o)*100);
+      }
+      if(!off) return;
+
+      let revSummary='', revPct=null, revCount=null, revTone='';
+      const rv = row.querySelector('.search_review_summary');
+      if(rv){
+        const plain = (rv.getAttribute('data-tooltip-html')||'').replace(/<br\s*\/?>/gi,'\n');
+        revSummary = (plain.split('\n')[0]||'').trim();
+        const p = plain.match(/(\d+)\s*%/); if(p) revPct = parseInt(p[1],10);
+        const ns = (plain.match(/[\d,]{2,}/g)||[]).map(s=>parseInt(s.replace(/,/g,''),10)).filter(n=>!isNaN(n));
+        if(ns.length) revCount = Math.max.apply(null, ns);
+        const cn = rv.className;
+        revTone = cn.includes('positive') ? 'good' : cn.includes('mixed') ? 'mixed' : cn.includes('negative') ? 'bad' : '';
+      }
+
+      out.push({appid,title,img,off,was,now,nowVal:num(now)??0,revSummary,revPct,revCount,revTone,approx:false});
+    });
+    return out;
+  }
+
+  /* ───────── 絞り込み・描画 ───────── */
+  function filterSort(){
+    const minOff = parseInt($('#minoff').value,10);
+    const minRev = parseInt($('#pop').value,10);
+    const minScore = parseInt($('#score').value,10);
+    const capRaw = $('#cap').value.trim();
+    const cap = capRaw ? parseInt(capRaw,10) : null;
+    const kw = $('#kw').value.trim().toLowerCase();
+    const sort = $('#sort').value;
+
+    const r = items.filter((it,i)=>{
+      it._i = i;
+      if(it.off < minOff) return false;
+      if(minRev > 0 && (it.revCount == null || it.revCount < minRev)) return false;
+      if(minScore > 0 && (it.revPct == null || it.revPct < minScore)) return false;
+      if(cap != null && it.nowVal > cap) return false;
+      if(kw && !it.title.toLowerCase().includes(kw)) return false;
+      return true;
+    });
+
+    if(sort==='off') r.sort((a,b)=> b.off-a.off || a._i-b._i);
+    else if(sort==='cheap') r.sort((a,b)=> a.nowVal-b.nowVal || a._i-b._i);
+    else if(sort==='rich') r.sort((a,b)=> b.nowVal-a.nowVal || a._i-b._i);
+    else r.sort((a,b)=> a._i-b._i);
+    return r;
+  }
+
+  function render(){
+    shown = filterSort();
+    if(!items.length){ listEl.innerHTML=''; return; }
+
+    if(!shown.length){
+      listEl.innerHTML = '<li class="empty">この条件に合う札がない。割引率かレビュー数の下限を緩めるか、さらに探してみる。</li>';
+    } else {
+      listEl.innerHTML = shown.map(it=>`
+        <li class="fuda">
+          <div class="stamp">${it.off}%<small>OFF</small></div>
+          <a class="hit" href="${esc(storeUrl(it))}" target="_blank" rel="noopener">
+            ${it.img ? `<img class="cap" src="${esc(it.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : '<div class="cap"></div>'}
+            <div class="meta">
+              <p class="name">${esc(it.title)}</p>
+              <p class="rev">${it.revSummary
+                ? `<span class="${it.revTone}">${esc(it.revSummary)}</span>` + (it.revCount ? ` ・ ${it.revCount.toLocaleString()}件` : '')
+                : 'レビュー情報なし'}</p>
+              <p class="prices">
+                ${it.was ? `<span class="was">${esc(it.was)}</span>` : ''}
+                <span class="now">${esc(it.now || '—')}</span>
+              </p>
+            </div>
+          </a>
+        </li>`).join('');
+    }
+
+    const approx = shown.some(i=>i.approx);
+    setStatus(`札 <b>${shown.length}</b> 枚（集めた ${items.length} 件${total ? ' / 全 '+total+' 件' : ''}）`
+      + (approx ? '　※価格は検索時点の目安。ストアで要確認。' : ''));
+  }
+
+  /* ───────── 実行 ───────── */
+  async function load(reset){
+    if(busy) return;
+    busy = true; goBtn.disabled = true; moreBtn.disabled = true;
+    if(reset){ items=[]; start=0; total=0; listEl.innerHTML=''; moreBtn.hidden=true; }
+    try{
+      if($('#src').value === 'ai') await loadViaClaude(!reset);
+      else await loadViaSteam();
+      render();
+    }catch(e){
+      setStatus('取得できなかった。' + esc(e.message||'原因不明'), 'err');
+    }finally{
+      busy=false; goBtn.disabled=false; moreBtn.disabled=false;
+    }
+  }
+
+  function asText(){
+    if(!shown.length) return '';
+    return 'Steam 売れ筋セール（' + new Date().toLocaleDateString('ja-JP') + '）\n'
+      + shown.map(it=>`・${it.title} -${it.off}% ${it.now}${it.was?'（元 '+it.was+'）':''}\n  ${storeUrl(it)}`).join('\n');
+  }
+
+  goBtn.addEventListener('click', ()=> load(true));
+  moreBtn.addEventListener('click', ()=> load(false));
+  $('#src').addEventListener('change', ()=>{ updateHint(); items=[]; start=0; total=0; listEl.innerHTML=''; moreBtn.hidden=true;
+    setStatus('仕入れ口を変えた。「札を出す」で集め直す。'); });
+  ['minoff','pop','score','sort','cap'].forEach(id=>{
+    $('#'+id).addEventListener('change', ()=>{ if(items.length) render(); });
+  });
+  $('#kw').addEventListener('input', ()=>{ if(items.length) render(); });
+  $('#genre').addEventListener('change', ()=>{
+    // ジャンルはSteam直取りではURL条件、Claude検索では取り直しが必要なので再取得を促す
+    if(items.length){ items=[]; start=0; total=0; listEl.innerHTML=''; moreBtn.hidden=true;
+      setStatus('ジャンルを変えた。「札を出す」で集め直す。'); }
+  });
+
+  $('#copy').addEventListener('click', async ()=>{
+    const t = asText();
+    if(!t){ setStatus('コピーする札がない。','err'); return; }
+    try{ await navigator.clipboard.writeText(t); setStatus('一覧をコピーした。'); }
+    catch(e){ setStatus('コピーできなかった。長押しで選択して。','err'); }
+  });
+  $('#share').addEventListener('click', async ()=>{
+    const t = asText();
+    if(!t){ setStatus('共有する札がない。','err'); return; }
+    if(navigator.share){ try{ await navigator.share({title:'Steam 売れ筋セール', text:t}); }catch(e){} }
+    else {
+      try{ await navigator.clipboard.writeText(t); setStatus('この端末は共有に非対応。代わりにコピーした。'); }
+      catch(e){ setStatus('共有もコピーもできなかった。','err'); }
+    }
+  });
+
+  updateHint();
+})();
+</script>
+</body>
+</html>
