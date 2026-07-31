@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ARK: SA アイランド ソロ攻略端末</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b10; --panel:#0e151d; --panel2:#121c26; --line:#1e3040;
+  --cyan:#4fd8e8; --cyan-dim:#2a7a88; --amber:#e8a94f; --red:#e86a5a; --purple:#b48ce8;
+  --text:#c9d6de; --muted:#66798a;
+  --mono:'Orbitron',monospace; --jp:'Zen Kaku Gothic New',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--jp);
+  font-size:15px; line-height:1.75; padding-bottom:env(safe-area-inset-bottom);
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(79,216,232,.08), transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(79,216,232,.012) 3px 4px);
+}
+.wrap{max-width:680px;margin:0 auto;padding:0 18px 80px;position:relative;z-index:1}
+
+/* ===== ヘッダー ===== */
+header{padding:38px 0 26px;text-align:center;border-bottom:1px solid var(--line)}
+.imp{width:78px;height:78px;margin:0 auto 16px;position:relative;display:flex;align-items:center;justify-content:center}
+.imp svg{position:absolute;inset:0;animation:spin 24s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.imp svg{animation:none}}
+.imp .pct{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--cyan);letter-spacing:.5px}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.35em;color:var(--cyan-dim);text-transform:uppercase}
+h1{font-size:21px;font-weight:700;letter-spacing:.08em;margin:8px 0 4px;color:#e6eef3}
+.sub{font-size:12px;color:var(--muted);letter-spacing:.1em}
+.progress-note{margin-top:14px;font-size:11px;color:var(--muted)}
+.progress-note b{color:var(--cyan);font-family:var(--mono)}
+
+/* ===== ナビ ===== */
+nav{
+  display:flex;gap:8px;overflow-x:auto;padding:14px 0;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  position:sticky;top:0;background:linear-gradient(var(--bg) 85%,transparent);z-index:5;
+}
+nav::-webkit-scrollbar{display:none}
+nav a{
+  flex:none;font-size:12px;color:var(--muted);text-decoration:none;
+  border:1px solid var(--line);border-radius:3px;padding:6px 12px;
+  background:var(--panel);letter-spacing:.05em;
+}
+nav a:active{color:var(--cyan);border-color:var(--cyan-dim)}
+
+/* ===== セクション ===== */
+section{margin-top:38px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.sec-head .tag{font-family:var(--mono);font-size:10px;color:var(--amber);letter-spacing:.25em}
+h2{font-size:17px;font-weight:700;letter-spacing:.06em;color:#e6eef3}
+.sec-desc{font-size:12.5px;color:var(--muted);margin-bottom:18px}
+
+/* ===== フェーズ ===== */
+.phase{position:relative;padding-left:34px;margin-bottom:10px}
+.phase::before{
+  content:"";position:absolute;left:11px;top:30px;bottom:-10px;width:1px;
+  background:linear-gradient(var(--cyan-dim),var(--line));opacity:.5;
+}
+.phase:last-of-type::before{display:none}
+.hex{
+  position:absolute;left:0;top:4px;width:23px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;font-weight:700;color:var(--cyan);
+  background:var(--panel2);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  border:none;
+}
+.phase.done .hex{background:var(--cyan);color:#04252b}
+.phase-card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px 16px}
+.phase-title{font-size:14.5px;font-weight:700;color:#dde8ee;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.phase-title .cnt{font-family:var(--mono);font-size:10px;color:var(--muted);flex:none}
+.phase-goal{font-size:11.5px;color:var(--cyan);margin:2px 0 10px;letter-spacing:.03em}
+.check{list-style:none}
+.check li{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:7px 0;border-top:1px dashed rgba(30,48,64,.7);
+  font-size:13.5px;cursor:pointer;user-select:none;-webkit-user-select:none;
+}
+.check li .box{
+  flex:none;width:16px;height:16px;margin-top:4px;border:1px solid var(--cyan-dim);
+  border-radius:2px;position:relative;transition:background .15s;
+}
+.check li.on .box{background:var(--cyan);border-color:var(--cyan)}
+.check li.on .box::after{
+  content:"";position:absolute;left:4.5px;top:1px;width:4px;height:8px;
+  border:solid #04252b;border-width:0 2px 2px 0;transform:rotate(42deg);
+}
+.check li.on{color:var(--muted);text-decoration:line-through;text-decoration-color:rgba(102,121,138,.5)}
+.note{font-size:11.5px;color:var(--muted);margin-top:10px;padding-left:10px;border-left:2px solid var(--amber)}
+.note b{color:var(--amber);font-weight:500}
+
+/* ===== 汎用カード ===== */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:16px;margin-bottom:12px}
+.card h3{font-size:14px;font-weight:700;color:#dde8ee;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.card h3 .dot{width:6px;height:6px;background:var(--amber);border-radius:1px;flex:none}
+.card p{font-size:13.5px}
+.card p + p{margin-top:8px}
+.warn{border-left:2px solid var(--red)}
+.warn h3 .dot{background:var(--red)}
+
+/* ===== 設定テーブル ===== */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--cyan-dim);
+  text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:500;
+}
+td{padding:9px 10px;border-bottom:1px dashed rgba(30,48,64,.7);vertical-align:top}
+td:first-child{color:#dde8ee;white-space:nowrap}
+td.val{font-family:var(--mono);font-size:12px;color:var(--cyan);white-space:nowrap}
+td.why{font-size:12px;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+
+/* ===== ボス ===== */
+.boss{display:flex;gap:12px}
+.boss-mark{
+  flex:none;width:40px;height:40px;border:1px solid var(--line);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:15px;color:var(--amber);background:var(--panel2);
+}
+.boss-body{flex:1}
+.boss-body h3{font-size:14px;font-weight:700;color:#dde8ee}
+.boss-body .loc{font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:.05em;margin-bottom:6px}
+.boss-body p{font-size:13px}
+
+/* ===== 生物図鑑(統合版) ===== */
+.bestiary-controls{position:sticky;top:0;z-index:6;background:var(--bg);padding:4px 0 10px;margin-bottom:4px}
+.search-box{position:relative;margin-bottom:10px}
+.search-box input{
+  width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;
+  padding:11px 14px;color:var(--text);font-family:var(--jp);font-size:14px;outline:none;
+}
+.search-box input:focus{border-color:var(--cyan-dim)}
+.search-box input::placeholder{color:var(--muted)}
+.chips{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--muted);
+  border:1px solid var(--line);border-radius:20px;padding:6px 12px;background:var(--panel);
+  white-space:nowrap;
+}
+.chip.active{color:var(--cyan);border-color:var(--cyan-dim);background:var(--panel2)}
+.no-result{display:none;text-align:center;color:var(--muted);font-size:13px;padding:30px 0}
+.no-result.show{display:block}
+
+details.cat{margin-top:16px;border:1px solid var(--line);border-radius:5px;background:var(--panel);overflow:hidden}
+summary.cat-head{
+  list-style:none;cursor:pointer;padding:13px 16px;display:flex;align-items:center;gap:10px;
+  font-size:14px;font-weight:700;color:#dde8ee;user-select:none;
+}
+summary.cat-head::-webkit-details-marker{display:none}
+summary.cat-head .arrow{font-family:var(--mono);font-size:11px;color:var(--cyan-dim);transition:transform .2s;flex:none}
+details[open] summary.cat-head .arrow{transform:rotate(90deg)}
+summary.cat-head .cat-cnt{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);flex:none}
+.cat-desc{padding:0 16px 12px;font-size:11.5px;color:var(--muted);margin-top:-6px}
+
+.beast{padding:12px 16px;border-top:1px dashed rgba(30,48,64,.7)}
+.beast-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.beast-name{font-size:14px;font-weight:700;color:#dde8ee}
+.method{
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;padding:2px 7px;
+  border-radius:2px;border:1px solid;flex:none;
+}
+.method.ko{color:var(--red);border-color:rgba(232,106,90,.4);background:rgba(232,106,90,.08)}
+.method.pv{color:var(--cyan);border-color:rgba(79,216,232,.4);background:rgba(79,216,232,.08)}
+.method.tp{color:var(--amber);border-color:rgba(232,169,79,.4);background:rgba(232,169,79,.08)}
+.method.sp{color:var(--purple);border-color:rgba(180,140,232,.4);background:rgba(180,140,232,.08)}
+.method.nt{color:var(--muted);border-color:rgba(102,121,138,.4);background:rgba(102,121,138,.08)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
+.field{font-size:12px}
+.field b{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--cyan-dim);margin-bottom:2px;font-weight:500}
+.field.role{grid-column:1 / -1;border-top:1px dashed rgba(30,48,64,.5);padding-top:6px;margin-top:1px}
+.field.role b{color:var(--amber)}
+.field.skill{grid-column:1 / -1;border-top:1px dashed rgba(30,48,64,.5);padding-top:6px;margin-top:1px}
+.field.skill b{color:var(--purple)}
+
+.legend{display:flex;flex-wrap:wrap;gap:9px;font-size:10px;color:var(--muted);margin:12px 0 4px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+
+
+/* ===== タブ切り替え ===== */
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+nav{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  position:sticky;top:0;background:linear-gradient(var(--bg) 88%,transparent);z-index:9;padding:14px 0}
+nav::-webkit-scrollbar{display:none}
+.tab-btn{
+  flex:none;font-size:12px;color:var(--muted);text-decoration:none;
+  border:1px solid var(--line);border-radius:3px;padding:7px 13px;
+  background:var(--panel);letter-spacing:.05em;font-family:var(--jp);cursor:pointer;
+}
+.tab-btn.active{color:var(--cyan);border-color:var(--cyan-dim);background:var(--panel2)}
+
+/* ===== エリアマップ編 ===== */
+.region-card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px 16px;margin-bottom:10px}
+.region-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.region-name{font-size:14.5px;font-weight:700;color:#dde8ee}
+.region-pos{font-family:var(--mono);font-size:10px;color:var(--cyan-dim);letter-spacing:.03em}
+.danger{
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;padding:2px 7px;
+  border-radius:2px;border:1px solid;flex:none;margin-left:auto;
+}
+.danger.low{color:var(--cyan);border-color:rgba(79,216,232,.4);background:rgba(79,216,232,.08)}
+.danger.mid{color:var(--amber);border-color:rgba(232,169,79,.4);background:rgba(232,169,79,.08)}
+.danger.high{color:var(--red);border-color:rgba(232,106,90,.4);background:rgba(232,106,90,.08)}
+.region-card p{font-size:13px}
+.obelisk-row{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px dashed rgba(30,48,64,.7)}
+.region-card .obelisk-row:first-of-type{border-top:none}
+.ob-dot{flex:none;width:14px;height:14px;border-radius:50%;box-shadow:0 0 8px currentColor}
+.ob-green{background:#5fe89a;color:#5fe89a}
+.ob-blue{background:#4f9ee8;color:#4f9ee8}
+.ob-red{background:var(--red);color:var(--red)}
+
+
+.cmd-cat{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--cyan-dim);margin:22px 0 8px;text-transform:uppercase}
+.cmd-cat:first-of-type{margin-top:0}
+code.cmdline{
+  display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:3px;
+  padding:2px 7px;font-family:var(--mono);font-size:11.5px;color:var(--cyan);white-space:nowrap;
+}
+.step{position:relative;padding-left:30px;margin-bottom:14px}
+.step-num{
+  position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;
+  background:var(--panel2);border:1px solid var(--cyan-dim);color:var(--cyan);
+  font-family:var(--mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+}
+.step h4{font-size:13.5px;font-weight:700;color:#dde8ee;margin-bottom:4px}
+.step p{font-size:12.5px}
+
+footer{margin-top:56px;text-align:center;font-family:var(--mono);font-size:9px;letter-spacing:.3em;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="imp">
+    <svg viewBox="0 0 78 78" fill="none">
+      <circle cx="39" cy="39" r="36" stroke="#1e3040" stroke-width="1.5"/>
+      <circle id="ring" cx="39" cy="39" r="36" stroke="#4fd8e8" stroke-width="2"
+        stroke-dasharray="226" stroke-dashoffset="226" stroke-linecap="round"
+        transform="rotate(-90 39 39)" style="transition:stroke-dashoffset .4s"/>
+      <polygon points="39,10 64,24.5 64,53.5 39,68 14,53.5 14,24.5"
+        stroke="#2a7a88" stroke-width="1" fill="none" opacity=".5"/>
+    </svg>
+    <span class="pct" id="pct">0%</span>
+  </div>
+  <div class="eyebrow">Survivor Field Terminal — The Island</div>
+  <h1>アイランド ソロ攻略マニュアル</h1>
+  <div class="sub">ARK: Survival Ascended / 単独生存者用行動計画書</div>
+  <div class="progress-note">達成率 <b id="cnt-note">0 / 0</b> — 項目をタップして進捗を記録</div>
+</header>
+
+<nav id="tabnav">
+  <div class="tab-btn active" data-tab="basics">基礎知識</div>
+  <div class="tab-btn" data-tab="phases">攻略手順</div>
+  <div class="tab-btn" data-tab="map">エリアマップ</div>
+  <div class="tab-btn" data-tab="boss">ボス戦</div>
+  <div class="tab-btn" data-tab="bestiary">生物図鑑</div>
+  <div class="tab-btn" data-tab="solo">ソロの楽しみ方</div>
+  <div class="tab-btn" data-tab="settings">推奨設定</div>
+  <div class="tab-btn" data-tab="kibble">キブル配合表</div>
+  <div class="tab-btn" data-tab="engrams">エングラム優先度</div>
+  <div class="tab-btn" data-tab="mutations">ブリーディング応用編</div>
+  <div class="tab-btn" data-tab="cheats">チートコマンド</div>
+</nav>
+
+<!-- ================= 基礎知識編 ================= -->
+<section id="basics" class="tab-panel active">
+  <div class="sec-head"><span class="tag">SEC.01</span><h2>基礎知識編 — プレイ前に知っておくこと</h2></div>
+  <p class="sec-desc">攻略手順に入る前の前提知識。既にプレイ経験があれば読み飛ばしてよい。</p>
+
+  <div class="card">
+    <h3><span class="dot"></span>HUD(画面表示)の見方</h3>
+    <p><b style="color:#dde8ee">体力(赤)</b>:0で気絶または死亡。<b style="color:#dde8ee">スタミナ(緑)</b>:走行・攻撃・水泳で消費。<b style="color:#dde8ee">満腹度/水分</b>:0が続くと体力が減少する。<b style="color:#dde8ee">重量</b>:上限超過で移動速度が大幅低下。<b style="color:#dde8ee">酸素</b>:水中でのみ表示され0で溺れる。</p>
+    <p>恐竜を気絶させる際は<b style="color:#dde8ee">トーポー(気絶値)</b>ゲージが表示され、満タンで気絶状態になる。</p>
+  </div>
+
+  <div class="card" style="padding:8px 4px">
+    <h3 style="padding:8px 12px 0"><span class="dot"></span>レベルアップとステータス振り分け</h3>
+    <table>
+      <tr><th>ステータス</th><th>効果</th><th>ソロでの優先度</th></tr>
+      <tr><td>体力(HP)</td><td class="why">最大体力を増加</td><td class="val">高</td></tr>
+      <tr><td>スタミナ</td><td class="why">走行・攻撃可能量を増加</td><td class="val">中</td></tr>
+      <tr><td>重量</td><td class="why">最大積載量を増加</td><td class="val">高(序盤特に)</td></tr>
+      <tr><td>近接ダメージ</td><td class="why">素手・武器の攻撃力を増加</td><td class="val">中</td></tr>
+      <tr><td>移動速度</td><td class="why">徒歩の移動速度を増加</td><td class="val">低(上限あり)</td></tr>
+      <tr><td>頑丈さ</td><td class="why">気温耐性・状態異常耐性を増加</td><td class="val">低〜中</td></tr>
+      <tr><td>製作技術</td><td class="why">クラフト品の品質を上げる</td><td class="val">中(装備更新期に)</td></tr>
+    </table>
+    <p style="padding:10px 12px 4px" class="sec-desc" style="margin:0">恐竜側のレベルアップは体力・スタミナ・重量・近接ダメージに厚めに振ると汎用性が高い。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>テイムの基本原理</h3>
+    <p><b style="color:#dde8ee">気絶テイム(KO)</b>:こん棒・麻酔矢・ボーラ等でトーポーを蓄積させ気絶させた後、対象の好物を給餌してテイムゲージを満たす。トーポーは時間経過で減るため、ナルコベリー/ナルコティックで維持する。</p>
+    <p><b style="color:#dde8ee">パッシブテイム(PV)</b>:気絶させず、敵対していない状態で近づいて給餌するだけでテイムが進む種。</p>
+    <p><b style="color:#dde8ee">テイム有効度</b>:給餌の与えすぎ・トーポー切れなどで下がり、完了時のステータスに影響する。キブル使用で効率と有効度の両方が上がりやすい。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>序盤の狩猟・テイム装備</h3>
+    <p>こん棒(拳より安全に気絶値を稼げる)→スリングショット(遠距離で安全に気絶値)→ボーラ(大型対象の拘束)→麻酔矢+クロスボウ(中距離の主力)の順に整えると効率がよい。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>建築の階級</h3>
+    <p>藁(最弱・可燃)→木材(中耐久)→石/アドビ(耐火・中〜高耐久)→金属(高耐久・重い)→テック(最高耐久、テックケーブ以降)の順に強化される。スナップポイントで隣接パーツが自動整列するので、まず床(ファウンデーション)を敷いてから壁・天井を伸ばすと歪みにくい。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>サドルと騎乗</h3>
+    <p>小型生物(ドードー等)以外は鞍(サドル)がないと騎乗できない。鞍のエングラムは対象生物と同程度のプレイヤーレベルで解放されることが多く、鞍の品質(原始〜アセンダント)が防御力に直結する。ボス戦用は品質アペレンティス以上を目安に。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>刷り込み(インプリンティング)の基礎</h3>
+    <p>孵化・出産後の幼体は一定間隔で世話(なでる/特定の要求に応える)をせがみ、応えるごとに刷り込み度が上昇する。刷り込み100%で最終ステータスに大幅ボーナス(近接・体力に加算)が付くため、ボス用個体の育成では必須級。ソロは成熟速度を上げて刷り込み間隔を短縮しないと対応しきれない点に注意。</p>
+  </div>
+
+  <div class="card warn">
+    <h3><span class="dot"></span>死亡・アイテムロスト対策</h3>
+    <p>死亡するとその場にアイテムが入ったバッグ(死体)が残り、時間経過で消滅する。死体マーカーをONにしておくと座標が記録され回収しやすい。ソロは救助者がいないため、遠征時は消耗品以外を拠点に置いていく判断が重要。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>食料の保存</h3>
+    <p>生肉は腐敗が早く、調理する(焚き火・産業用調理器)と保存期間が延びる。さらにビーフジャーキー(燻製小屋)にすると長期保存が可能。保存ボックス・冷蔵庫(アイスボックス)に入れると腐敗速度がさらに遅くなる。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>環境ダメージへの対策</h3>
+    <p>雪山では低体温症、砂漠や溶岩地帯では熱中症のリスクがある。毛皮装備(寒冷地)・ギリー/砂漠装備(高温地)で対策し、頑丈さステータスも耐性に影響する。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>その他覚えておきたいこと</h3>
+    <p>エングラムポイントは「マインドワイプ」で再割り振り可能(要エングラム/専用アイテム)。トランスポンダーを恐竜に埋め込むとマップ上に位置表示できる。シングルプレイヤー設定はホスト側のワールド設定がそのまま適用される。</p>
+  </div>
+</section>
+
+<!-- ================= 攻略手順 ================= -->
+<section id="phases" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.02</span><h2>攻略手順 — 漂着からアセンションまで</h2></div>
+  <p class="sec-desc">7フェーズ構成。各項目をタップするとチェックが入り、上部リングに達成率が反映される。</p>
+
+  <div class="phase" data-phase>
+    <div class="hex">1</div>
+    <div class="phase-card">
+      <div class="phase-title">漂着 — 南海岸で生存基盤 <span class="cnt"></span></div>
+      <div class="phase-goal">目標:死なない環境を作る(推奨Lv 1–15)</div>
+      <ul class="check">
+        <li><span class="box"></span>南1〜南3の海岸沿いで活動開始(ディロフォ以外の脅威が少ない)</li>
+        <li><span class="box"></span>石ピッケル・石斧・松明・寝袋を作成</li>
+        <li><span class="box"></span>藁の小屋+ベッド+収納箱+焚き火を設置</li>
+        <li><span class="box"></span>水辺の近くで貯水器・小型菜園を用意</li>
+        <li><span class="box"></span>スリングショットとヤリでナルコベリー採取ルートを確保</li>
+      </ul>
+      <div class="note"><b>ソロ注意:</b>死亡時の回収要員がいない。序盤は「持ち歩かない・拠点に置く」を徹底。</div>
+    </div>
+  </div>
+
+  <div class="phase" data-phase>
+    <div class="hex">2</div>
+    <div class="phase-card">
+      <div class="phase-title">序盤テイム — 労働力と足の確保 <span class="cnt"></span></div>
+      <div class="phase-goal">目標:採取の自動化と空路の確立(Lv 15–35)</div>
+      <ul class="check">
+        <li><span class="box"></span>モスコップス/ドードー(卵・食料係)をテイム</li>
+        <li><span class="box"></span>トリケラ or パラサウロでベリー・藁を大量確保</li>
+        <li><span class="box"></span>ラプトル or カルノで肉の安定供給</li>
+        <li><span class="box"></span>プテラノドンをテイム — 行動範囲が一変する最重要枠</li>
+        <li><span class="box"></span>木造拠点+大型ゲート付き囲いへ拡張</li>
+      </ul>
+      <div class="note"><b>優先:</b>プテラ用にボーラ+麻酔矢(クロスボウ)を先に準備すると楽。</div>
+    </div>
+  </div>
+
+  <div class="phase" data-phase>
+    <div class="hex">3</div>
+    <div class="phase-card">
+      <div class="phase-title">中盤発展 — 金属時代へ <span class="cnt"></span></div>
+      <div class="phase-goal">目標:金属装備・工業炉・製作機を稼働(Lv 35–60)</div>
+      <ul class="check">
+        <li><span class="box"></span>アルゲンタヴィスをテイム(運搬・遠征の主力)</li>
+        <li><span class="box"></span>アンキロサウルス(金属)+ドエディクルス(石)を確保</li>
+        <li><span class="box"></span>山岳の金属鉱脈で採掘ルートを確立(アルゲンでアンキロを吊る)</li>
+        <li><span class="box"></span>製錬炉→作業台→精錬炉(工業炉)→製作機の順に工業化</li>
+        <li><span class="box"></span>石造以上の本拠点+ワイバーン級も入る飼育場</li>
+        <li><span class="box"></span>ライフルと防具(フラック)一式を常備</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase" data-phase>
+    <div class="hex">4</div>
+    <div class="phase-card">
+      <div class="phase-title">洞窟制覇 — アーティファクト回収 <span class="cnt"></span></div>
+      <div class="phase-goal">目標:ボス召喚に必要なアーティファクトを揃える(Lv 60–80)</div>
+      <ul class="check">
+        <li><span class="box"></span>低温の洞窟(狡猾)— 入門用。バリオニクスが便利</li>
+        <li><span class="box"></span>狩人の洞窟(狩人)— 蜘蛛・コウモリ対策に防虫剤</li>
+        <li><span class="box"></span>島中央の洞窟(賢者)— 迷いやすいのでマップ必携</li>
+        <li><span class="box"></span>沼地の洞窟(免疫)— 難関。ガスマスク+高品質防具</li>
+        <li><span class="box"></span>残りのアーティファクトをボス別に確認して回収</li>
+        <li><span class="box"></span>供物用のトロフィー(各種牙・爪など)を狩り集める</li>
+      </ul>
+      <div class="note"><b>ソロ定石:</b>肩乗せ+バリオニクス/ティラコレオ/メガテリウム/ダイアウルフなど洞窟対応の地上騎乗で1体ずつ。フライヤーは洞窟に入れないので注意。全滅リスクを避け、装備はコピーを拠点に残す。</div>
+    </div>
+  </div>
+
+  <div class="phase" data-phase>
+    <div class="hex">5</div>
+    <div class="phase-card">
+      <div class="phase-title">ブリーディング — ボス部隊の育成 <span class="cnt"></span></div>
+      <div class="phase-goal">目標:刷り込み100%のボス用19+1体を編成(Lv 80–100)</div>
+      <ul class="check">
+        <li><span class="box"></span>高レベル(130↑)のレックス or テリジノを雌雄複数テイム</li>
+        <li><span class="box"></span>HP・近接の高ステ個体を交配で選別</li>
+        <li><span class="box"></span>ユウティラヌス1体(咆哮バフ役)を用意</li>
+        <li><span class="box"></span>刷り込み100%で19体を成体まで育成</li>
+        <li><span class="box"></span>ボス用サドル(品アペ以上、防御60↑目安)を製作</li>
+        <li><span class="box"></span>テリジノ編成なら野菜ケーキを量産(スイートベリー畑)</li>
+      </ul>
+      <div class="note"><b>設定前提:</b>このフェーズはバニラ速度だと数週間かかる。SEC.07の交配・成熟倍率を先に調整推奨。</div>
+    </div>
+  </div>
+
+  <div class="phase" data-phase>
+    <div class="hex">6</div>
+    <div class="phase-card">
+      <div class="phase-title">ボス三連戦 <span class="cnt"></span></div>
+      <div class="phase-goal">目標:γ→β→αの順に3ボスを撃破(詳細はSEC.04)</div>
+      <ul class="check">
+        <li><span class="box"></span>ブルードマザー(γ)撃破</li>
+        <li><span class="box"></span>メガピテクス(γ)撃破</li>
+        <li><span class="box"></span>ドラゴン(γ)撃破</li>
+        <li><span class="box"></span>各ボスのβ・αは戦力を見て段階的に挑戦</li>
+        <li><span class="box"></span>撃破報酬のエレメントでテック装備を解放</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase" data-phase>
+    <div class="hex">7</div>
+    <div class="phase-card">
+      <div class="phase-title">テックケーブ — アセンション <span class="cnt"></span></div>
+      <div class="phase-goal">目標:オーバーシーア撃破でアイランド卒業</div>
+      <ul class="check">
+        <li><span class="box"></span>3ボスのトロフィーを揃えてテックケーブを開放</li>
+        <li><span class="box"></span>洞窟突入部隊(レックス数体+搭乗用)と溶岩対策を準備</li>
+        <li><span class="box"></span>道中の攻性生物(テックギガノト等)を突破</li>
+        <li><span class="box"></span>オーバーシーア撃破 — アセンション達成</li>
+      </ul>
+      <div class="note"><b>後日談:</b>アセンション後は追加レベル解放。スコーチドアース以降のマップへ物語が続く。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= エリアマップ編 ================= -->
+<section id="map" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.03</span><h2>エリアマップ編 — 地域・オベリスク・洞窟座標</h2></div>
+  <p class="sec-desc">座標は緯度(LAT)/経度(LON)の0〜100表記。地図左上が(0,0)、右下が(100,100)に相当する。</p>
+
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">南海岸(スポーン地帯)</span><span class="region-pos">LAT 75–90 / LON 40–65 付近</span><span class="danger low">低</span></div>
+    <p>初期スポーンが集中するエリア。ディロフォサウルス以外の脅威が少なく、序盤拠点の定番。緑オベリスクもこの近海にある。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">ハーバイボア島</span><span class="region-pos">南海岸沖の小島</span><span class="danger low">低</span></div>
+    <p>草食獣のみが生息する小島。肉食獣が渡ってこないため、防壁なしでも運用できる安全な序盤〜中盤拠点候補。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">カルノ島</span><span class="region-pos">南海岸沖の小島</span><span class="danger mid">中</span></div>
+    <p>名前の通りカルノタウルスが多く生息する小島。危険だが孤立した地形で防衛しやすく、拠点化する上級者もいる。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">レッドウッドの森</span><span class="region-pos">西〜中央部</span><span class="danger mid">中</span></div>
+    <p>針葉樹の巨木地帯。メガテリウム・ティラコレオ・ティタノミルマの巣・テラーバードが生息。木材と希少な虫系素材の採取地。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">沼地(スワンプ)</span><span class="region-pos">中央〜南西部</span><span class="danger high">高</span></div>
+    <p>サルコスクス・カプロスクス・タイタノボア・スピノサウルス・ライニオグナサが徘徊する高難度エリア。沼地の洞窟(スワンプケーブ)もここにある。黒曜石・タールの採取地でもある。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">中央山岳地帯</span><span class="region-pos">地図中央</span><span class="danger mid">中</span></div>
+    <p>金属・水晶鉱脈が集中する採掘の主戦場。アルゲンタヴィスの巣、ロックエレメンタルの生息地でもある。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">北の雪原(フローズントゥース)</span><span class="region-pos">北部</span><span class="danger high">高</span></div>
+    <p>ダイアウルフ・ダイアベア・ウーリーライノ・ユウティラヌスが生息する寒冷地。防寒装備必須。雪山の洞窟(スノーケーブ)が最難関級。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">火山地帯</span><span class="region-pos">北西部</span><span class="danger high">高</span></div>
+    <p>ロックエレメンタルや高レベル個体が集中する高リスクエリア。黒曜石・水晶が豊富だが、単独での長時間滞在は避けたい。</p>
+  </div>
+  <div class="region-card">
+    <div class="region-head"><span class="region-name">大渓谷(南東海域)</span><span class="region-pos">南東の深海</span><span class="danger high">高</span></div>
+    <p>モササウルス・タソテウティスが徘徊する深海の難所。黒真珠などの希少資源が眠るが、単独探索は極めて危険。</p>
+  </div>
+
+  <div class="card" style="margin-top:22px">
+    <h3><span class="dot"></span>3つのオベリスク</h3>
+    <div class="obelisk-row"><span class="ob-dot ob-green"></span><div><b style="color:#dde8ee">緑オベリスク</b> — 南海岸近くの海上。ブルードマザー戦のトロフィー捧げ場所。</div></div>
+    <div class="obelisk-row"><span class="ob-dot ob-blue"></span><div><b style="color:#dde8ee">青オベリスク</b> — 西側の海上、沼地寄り。メガピテクス戦の捧げ場所。</div></div>
+    <div class="obelisk-row"><span class="ob-dot ob-red"></span><div><b style="color:#dde8ee">赤オベリスク</b> — 東側の山岳寄り海上。ドラゴン戦の捧げ場所。</div></div>
+    <p style="margin-top:8px">各オベリスクは接近すると定期的にサプライドロップ(補給物資)を投下する。装備更新に活用できる。</p>
+  </div>
+
+  <div class="card" style="padding:8px 4px;margin-top:14px">
+    <h3 style="padding:8px 12px 0"><span class="dot"></span>アーティファクト洞窟(10箇所+テックケーブ)</h3>
+    <table>
+      <tr><th>洞窟名</th><th>座標</th><th>難易度</th></tr>
+      <tr><td>セントラル洞窟</td><td class="val">41.5 / 46.9</td><td class="why">標準・地上(狡猾→ブルードマザー)</td></tr>
+      <tr><td>北西の洞窟</td><td class="val">19.3 / 19.0</td><td class="why">標準・地上(天空→ドラゴン)</td></tr>
+      <tr><td>サウス下部の洞窟</td><td class="val">80.3 / 53.5</td><td class="why">標準・地上(狩人→ブルードマザー)</td></tr>
+      <tr><td>北東の洞窟</td><td class="val">14.7 / 85.4</td><td class="why">標準・地上(貪食→メガピテクス)</td></tr>
+      <tr><td>サウス上部の洞窟</td><td class="val">68.2 / 56.2</td><td class="why">標準・地上(群れ→メガピテクス)</td></tr>
+      <tr><td>溶岩洞窟</td><td class="val">70.6 / 86.1</td><td class="why">標準・地上(巨大→ブルードマザー)</td></tr>
+      <tr><td>沼地の洞窟(スワンプ)</td><td class="val">62.7 / 37.3</td><td class="why">高難度・地上(免疫→ドラゴン)</td></tr>
+      <tr><td>雪山の洞窟(スノー)</td><td class="val">29.1 / 31.8</td><td class="why">最難関・地上(強靭→ドラゴン)</td></tr>
+      <tr><td>失われた信仰の洞窟</td><td class="val">53.7 / 10.4</td><td class="why">標準・水中(怪力→メガピテクス)</td></tr>
+      <tr><td>失われた希望の洞窟</td><td class="val">45.9 / 88.9</td><td class="why">高難度・水中(狡知→ドラゴン)</td></tr>
+      <tr><td>テックケーブ</td><td class="val">43.1 / 39.1</td><td class="why">3ボス撃破後に開放。オーバーシーア戦へ</td></tr>
+    </table>
+  </div>
+  <div class="note" style="margin-top:10px"><b>内訳:</b>ブルードマザー用3(狡猾・狩人・巨大)・メガピテクス用3(貪食・怪力・群れ)・ドラゴン用4(狡知・免疫・天空・強靭)の計10アーティファクト。水中の2洞窟は潜水装備(水中呼吸エングラム推奨)が前提。</div>
+
+  <div class="card" style="padding:8px 4px;margin-top:14px">
+    <h3 style="padding:8px 12px 0"><span class="dot"></span>資源洞窟(全12箇所・すべて水中)</h3>
+    <table>
+      <tr><th>洞窟</th><th>座標</th><th>洞窟</th><th>座標</th></tr>
+      <tr><td>資源洞窟1</td><td class="val">16.0 / 10.4</td><td>資源洞窟7</td><td class="val">52.8 / 91.8</td></tr>
+      <tr><td>資源洞窟2</td><td class="val">10.2 / 21.8</td><td>資源洞窟8</td><td class="val">83.3 / 10.0</td></tr>
+      <tr><td>資源洞窟3</td><td class="val">10.5 / 39.9</td><td>資源洞窟9</td><td class="val">90.9 / 13.6</td></tr>
+      <tr><td>資源洞窟4</td><td class="val">08.0 / 90.1</td><td>資源洞窟10</td><td class="val">90.1 / 36.7</td></tr>
+      <tr><td>資源洞窟5</td><td class="val">36.2 / 91.1</td><td>資源洞窟11</td><td class="val">90.7 / 71.4</td></tr>
+      <tr><td>資源洞窟6</td><td class="val">50.1 / 11.1</td><td>資源洞窟12</td><td class="val">87.1 / 90.2</td></tr>
+    </table>
+  </div>
+  <div class="note" style="margin-top:10px">シリカパール・水晶が高密度。オイル脈もあるが地上のオイル脈より産出量は少なめ。</div>
+</section>
+
+<!-- ================= ボス ================= -->
+<section id="boss" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.04</span><h2>ボス攻略要領</h2></div>
+  <p class="sec-desc">目安ステータス(γ挑戦の実用ライン):ブリードしたレックス/テリジノでHP 30,000〜50,000・近接 800〜1000%↑を目標に。刷り込み100%+アセンダント級サドルが前提。ユウティラヌスの咆哮は常時維持し、ダエオドンで回復を回す。β・αはこの数倍が必要。</p>
+
+  <div class="card boss">
+    <div class="boss-mark">I</div>
+    <div class="boss-body">
+      <h3>ブルードマザー・リスリス</h3>
+      <div class="loc">緑オベリスク — 最初の関門</div>
+      <p>巨大蜘蛛。子蜘蛛の群れと蜘蛛の巣による鈍化が厄介だが、火力で押し切れる入門ボス。レックス隊で正面から囲めば安定。搭乗者はショットガンで援護。</p>
+    </div>
+  </div>
+
+  <div class="card boss">
+    <div class="boss-mark">II</div>
+    <div class="boss-body">
+      <h3>メガピテクス</h3>
+      <div class="loc">青オベリスク — 中間試験</div>
+      <p>巨猿。岩投げと取り巻き(メソピテクス/ギガントピテクス)を捌く。アリーナが寒冷地なので防寒対策を。実はアイランド3ボス中もっともHPが低く即死級の特殊攻撃も持たないため、装備が整えば最も安定して倒せる。壁際に追い込んで殴り続けるのが基本。</p>
+    </div>
+  </div>
+
+  <div class="card boss warn">
+    <div class="boss-mark">III</div>
+    <div class="boss-body">
+      <h3>ドラゴン</h3>
+      <div class="loc">赤オベリスク — 最難関</div>
+      <p>火炎ブレスが<b style="color:var(--red)">最大HPの割合ダメージ</b>のため、高HPレックスでも溶ける。定石はテリジノサウルス19体+野菜ケーキ(自動回復)。飛行中は搭乗者の遠距離武器で釣り、着地時に集中攻撃。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 生物図鑑(統合版) ================= -->
+<section id="bestiary" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.05</span><h2>生物図鑑 — アイランド全生態データ</h2></div>
+  <p class="sec-desc">78種を収録。エリア・対策・テイム特徴・役割に加え、各生物の特殊能力/特殊アクション/攻撃も記載。</p>
+
+  <div class="bestiary-controls">
+    <div class="search-box">
+      <input id="search" type="text" inputmode="search" placeholder="生物名・エリア・役割・特殊能力で検索">
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="legend">
+    <span><span class="method ko" style="padding:1px 6px">KO</span> 気絶テイム</span>
+    <span><span class="method pv" style="padding:1px 6px">PV</span> パッシブ給餌</span>
+    <span><span class="method tp" style="padding:1px 6px">TP</span> トラップ推奨</span>
+    <span><span class="method sp" style="padding:1px 6px">SP</span> 特殊手順</span>
+    <span><span class="method nt" style="padding:1px 6px">NT</span> テイム不可</span>
+  </div>
+
+  <div id="content"></div>
+  <div class="no-result" id="no-result">該当する生物が見つかりません</div>
+</section>
+
+
+<section id="solo" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.06</span><h2>ソロプレイの設計思想</h2></div>
+  <p class="sec-desc">攻略を「消化」せず長く遊ぶための指針。</p>
+
+  <div class="card">
+    <h3><span class="dot"></span>「勝つ」より「暮らす」</h3>
+    <p>隠れ湖・滝上・浮島など景観の良い土地に本拠地を作り込むこと自体を目的化する。ボスは急がなくても逃げない。</p>
+  </div>
+  <div class="card">
+    <h3><span class="dot"></span>自分ルールでロールプレイ</h3>
+    <p>飛行禁止・特定種のみの部族設定・徒歩縛りなど、制約が物語を生む。「翼竜を憎む地上民の族長」のような設定を1行決めるだけで行動に意味が出る。</p>
+  </div>
+  <div class="card">
+    <h3><span class="dot"></span>ブリーディングを長期趣味に</h3>
+    <p>色変異(ミューテーション)集めはソロ最大のやり込み。理想色のレックス軍団やパステルのユタラプトル群れなど、収集欲が尽きない。</p>
+  </div>
+  <div class="card">
+    <h3><span class="dot"></span>明確な収集目標を持つ</h3>
+    <p>全洞窟制覇・探検家の記録(ヘレナたちの手記)全回収は、マップ理解と物語摂取を兼ねた最良のソロ目標。記録は経験値も入る。</p>
+  </div>
+</section>
+
+<!-- ================= 設定 ================= -->
+<section id="settings" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.07</span><h2>ソロ推奨ワールド設定</h2></div>
+  <p class="sec-desc">方針:待ち時間だけを削り、緊張感は残す。ネットの「サーバー向け設定」をそのまま流用すると、ソロ特有の仕組みで数値が二重に効いて破綻しやすいので、まずその仕組みから押さえる。</p>
+
+  <div class="card warn">
+    <h3><span class="dot"></span>大前提:「シングルプレイヤー設定を使用」は裏で数値を底上げする</h3>
+    <p>Host/Local起動時にONになっている<b style="color:#dde8ee">「シングルプレイヤー設定を使用」</b>は、単なるフラグではなく、育成系のタイマーやテイム済み恐竜のレベル成長を裏側で大きく底上げする。例えば成熟速度(BabyMatureSpeedMultiplier)は素の値1.0のままでも、この設定下では実質30倍以上に相当する。同様にテイム済み恐竜のレベルアップ時のHP・近接ダメージの伸びも底上げされており、SEC.04で挙げたボス火力ライン(HP 30,000〜50,000/近接800〜1000%超)が現実的な理由はここにある。</p>
+    <p>つまり<b style="color:#e8a94f">「サーバー攻略サイトの推奨値」をそのまま入力すると、下地の底上げ分と二重に掛かって極端な結果になりやすい</b>。特に育成系(交配・孵化・成熟・刷り込み間隔)は控えめな値から様子を見て調整するのが安全。</p>
+  </div>
+
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>項目(キー名)</th><th>推奨値</th><th>理由</th></tr>
+      <tr><td>テイム速度<br><span style="font-size:9px;color:var(--muted)">TamingSpeedMultiplier</span></td><td class="val">4.0–6.0</td><td class="why">高レベル恐竜の数時間待ちを解消。SPの底上げ対象外なのでそのまま効く</td></tr>
+      <tr><td>採取量<br><span style="font-size:9px;color:var(--muted)">HarvestAmountMultiplier</span></td><td class="val">2.0–4.0</td><td class="why">建材集めの反復作業を圧縮</td></tr>
+      <tr><td>経験値<br><span style="font-size:9px;color:var(--muted)">XPMultiplier</span></td><td class="val">1.5–2.0</td><td class="why">3倍を超えると装備更新が追いつかず一気にヌルくなる</td></tr>
+      <tr><td>難易度オフセット<br><span style="font-size:9px;color:var(--muted)">DifficultyOffset</span></td><td class="val">1.0</td><td class="why">アイランドは既定でLv150帯に対応済み。変更不要なことが多い</td></tr>
+      <tr><td>交配間隔<br><span style="font-size:9px;color:var(--muted)">MatingIntervalMultiplier</span></td><td class="val">0.05–0.15</td><td class="why">下げすぎると連続出産で管理が破綻する。少し間隔を残すのがコツ</td></tr>
+      <tr><td>成熟速度<br><span style="font-size:9px;color:var(--muted)">BabyMatureSpeedMultiplier</span></td><td class="val">1.0–3.0</td><td class="why">SP下地の底上げに乗るため、この程度でレックスが数時間で成体になる。10以上は不要なことが多い</td></tr>
+      <tr><td>孵化速度<br><span style="font-size:9px;color:var(--muted)">EggHatchSpeedMultiplier</span></td><td class="val">1.0–5.0</td><td class="why">成熟速度と同じくSPの底上げに乗る。上げすぎ注意</td></tr>
+      <tr><td>刷り込み間隔<br><span style="font-size:9px;color:var(--muted)">BabyCuddleIntervalMultiplier</span></td><td class="val">0.15–0.3</td><td class="why">成熟速度と連動。上げた分だけ下げないと世話が間に合わず刷り込み100%を逃す</td></tr>
+      <tr><td>腐敗時間<br><span style="font-size:9px;color:var(--muted)">GlobalSpoilingTimeMultiplier</span></td><td class="val">2.0</td><td class="why">ソロは消費が遅い。食料管理の負担減</td></tr>
+      <tr><td>クラフトスキル<br><span style="font-size:9px;color:var(--muted)">CraftingSkillBonusMultiplier</span></td><td class="val">1.5–2.0</td><td class="why">サドル・武器の品質底上げ。装備更新のテンポが良くなる</td></tr>
+      <tr><td>サプライ品質<br><span style="font-size:9px;color:var(--muted)">SupplyCrateLootQualityMultiplier</span></td><td class="val">1.5–2.0</td><td class="why">オベリスク補給物資でアセンダント級が出やすくなる</td></tr>
+      <tr><td>最大重量(任意)<br><span style="font-size:9px;color:var(--muted)">PerLevelStatsMultiplier (Weight)</span></td><td class="val">1.5前後</td><td class="why">運搬往復のストレス緩和。上げすぎ注意</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>コピー用設定例(非専用セッション向け)</h3>
+    <p style="margin-bottom:8px">上記の推奨値をそのまま反映した一例。ホスト画面の詳細設定、または<code style="color:var(--cyan)">GameUserSettings.ini</code> / <code style="color:var(--cyan)">Game.ini</code>に手入力する場合の参考値として使う。</p>
+    <pre style="background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:12px;overflow-x:auto;font-family:var(--mono);font-size:11px;line-height:1.8;color:var(--cyan);white-space:pre"><code>TamingSpeedMultiplier=5.0
+HarvestAmountMultiplier=3.0
+XPMultiplier=2.0
+MatingIntervalMultiplier=0.1
+BabyMatureSpeedMultiplier=2.0
+EggHatchSpeedMultiplier=3.0
+BabyCuddleIntervalMultiplier=0.2
+BabyImprintAmountMultiplier=1.0
+GlobalSpoilingTimeMultiplier=2.0
+CraftingSkillBonusMultiplier=1.5
+SupplyCrateLootQualityMultiplier=1.5</code></pre>
+    <p style="margin-top:8px">実際の底上げ具合はプレイ環境で変わるため、まずこの値で1匹育ててみて、速すぎ/遅すぎを見てから±で微調整するのが確実。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>触らない方がいい設定</h3>
+    <p>ダメージ倍率・野生の攻撃力・食料/水消費(PlayerCharacterFoodDrainMultiplier等)は1.0のまま据え置き推奨。ここを緩めるとサバイバルの緊張感が消え、飽きが早まる。</p>
+  </div>
+  <div class="card">
+    <h3><span class="dot"></span>ソロ運用のコツ</h3>
+    <p>非専用セッションならメニューを開けば実質ポーズ。長時間離れる日はセーブして終了すれば、オフライン中に恐竜が餓死する事故を防げる。死体マーカーはONにしておくこと。設定変更は反映されないことがあるため、変更後は一度ワールドを再読み込みして確認する。</p>
+  </div>
+</section>
+
+<!-- ================= キブル配合表 ================= -->
+<section id="kibble" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.08</span><h2>キブル配合表</h2></div>
+  <p class="sec-desc">ASAのキブルは生物ごとの専用レシピではなく、<b style="color:#dde8ee">卵のサイズで決まる6段階のティア制</b>。仕組みさえ覚えれば迷わない。</p>
+
+  <div class="card">
+    <h3><span class="dot"></span>基本ルール</h3>
+    <p>卵は極小(Basic)→小(Simple)→中(Regular)→大(Superior)→特大(Exceptional)→特殊(Extraordinary)の6段階のサイズを持ち、そのまま同名のキブルティアになる。</p>
+    <p><b style="color:var(--cyan)">好みのティアより上位のキブルは同じ効果で代用できる</b>(下位は生肉以下の効果しかない)。迷ったら一段階上を使えば損はしない。</p>
+  </div>
+
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>ティア</th><th>卵サイズ</th><th>代表的な追加素材</th></tr>
+      <tr><td>Basic</td><td class="val">極小</td><td class="why">繊維・ベリー・調理肉・水</td></tr>
+      <tr><td>Simple</td><td class="val">小</td><td class="why">繊維・穀物(サボルート等)・調理肉・水</td></tr>
+      <tr><td>Regular</td><td class="val">中</td><td class="why">繊維・穀物・調理肉・水</td></tr>
+      <tr><td>Superior</td><td class="val">大</td><td class="why">調理肉・樹液(サップ)・ロックアロット</td></tr>
+      <tr><td>Exceptional</td><td class="val">特大</td><td class="why">上質肉・レアマッシュルーム 等</td></tr>
+      <tr><td>Extraordinary</td><td class="val">特殊</td><td class="why">上質肉・レアマッシュルーム・巨大蜂の蜜</td></tr>
+    </table>
+  </div>
+  <div class="note"><b>作り方:</b>調理鍋(クッキングポット)か産業用調理器に、対応サイズの卵+上記素材+水を入れて調理する。正確な個数はゲーム内クラフト画面で確認するのが確実(アップデートで微調整されることがある)。</div>
+
+  <div class="card">
+    <h3><span class="dot"></span>アイランドでの目安対象</h3>
+    <p><b style="color:var(--cyan)">Superior〜Exceptional帯</b>:レックス・スピノサウルス・アルゲンタヴィス・ブロントサウルス・ギガノトサウルス・ケツァルコアトルス・テリジノサウルス・モササウルスなど、中盤以降の主力テイム対象の多くがここに集中する。レックス/スピノの好みはSuperiorとする資料とExceptionalとする資料があり判断が割れるため、<b style="color:#dde8ee">迷ったら一段階上のExceptionalを使えば確実</b>。</p>
+    <p><b style="color:var(--amber)">Extraordinary</b>:ティアを問わずどの生物にも通用する最上位互換。手持ちの卵が中途半端で対象の好みが分からない時の保険として最も安全。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>ソロでの卵調達</h3>
+    <p>野生から拾う・テイム済みの雌が自然に産む・オヴィラプトルを近くに置いて産卵頻度を上げる、の3通り。序盤は拾い集め、中盤以降は雌の小規模な産卵場を作ると安定する。</p>
+  </div>
+</section>
+
+<!-- ================= エングラム優先度 ================= -->
+<section id="engrams" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.09</span><h2>エングラム優先度</h2></div>
+  <p class="sec-desc">正確な解放レベルはアップデートで変わるため、ここでは「進行段階ごとに何を優先すべきか」の順番で示す。</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <h4>生存の最低ライン(Lv1〜)</h4>
+    <p>焚き火・石斧・石ピッケル・ヤリを最優先。これだけで調理・伐採・狩猟の基本が揃う。</p>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <h4>序盤の足場(Lv5前後〜)</h4>
+    <p>水筒→布のシャツ・ズボン(上下だけで十分、他パーツは後回し)→ボーラ→簡易ベッド→スリングショットの順。ボーラは序盤テイムの生命線。</p>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <h4>木材期(Lv15前後〜)</h4>
+    <p>木造建築一式→ボウ+タラン矢、またはクロスボウ+麻酔矢→調理鍋。ここで初めて本格的な気絶テイムが可能になる。</p>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <h4>石材期(Lv25前後〜)</h4>
+    <p>石造建築→鍛冶台(スミシー)→テイムした生物に応じたサドル(プテラ・トリケラ等)。この段階で拠点を燃えない構造に更新する。</p>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <h4>金属期(Lv40前後〜)</h4>
+    <p>精錬炉→金属建築→ロングネックライフル→上位サドル(レックス・アルゲン等)。中盤の主力装備がここで出揃う。</p>
+  </div>
+  <div class="step">
+    <div class="step-num">6</div>
+    <h4>工業期(Lv60前後〜)</h4>
+    <p>ファブリケーター→産業用調理器・冷蔵庫→フラック装備。洞窟・ボス挑戦の準備段階。</p>
+  </div>
+  <div class="step">
+    <div class="step-num">7</div>
+    <h4>テック期(ボス撃破後)</h4>
+    <p>ボス討伐で解放されるテックエングラム一式。テックサドル・テック装備でアセンション以降の内容に対応する。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>ステータス振り分けとの兼ね合い</h3>
+    <p>ごく序盤(Lv1〜10程度)だけは移動速度に数点振ると探索・逃走が楽になる。ただし移動速度は上限が低く費用対効果が早く落ちるため、Lv20を過ぎたら体力・重量・近接ダメージに寄せていくのが基本(詳細はSEC.01)。</p>
+  </div>
+</section>
+
+<!-- ================= ブリーディング応用編 ================= -->
+<section id="mutations" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.10</span><h2>ブリーディング応用編 — ミューテーション</h2></div>
+  <p class="sec-desc">SEC.06の育成フェーズをさらに突き詰めるための、突然変異(ミューテーション)の仕組みと厳選手順。</p>
+
+  <div class="card">
+    <h3><span class="dot"></span>ミューテーションの基本</h3>
+    <p>子が生まれる際、低確率でステータス1つに<b style="color:#dde8ee">+2ポイントの永続ボーナス</b>が付き、同時に体色の1箇所が変化する。両親のミューテーションカウンター(母方/父方)がともに20未満なら、少なくとも1つ発生する確率はおよそ<b style="color:var(--cyan)">7.3%</b>。</p>
+    <p>カウンターが20に達した側は、その後ほぼミューテーションを生み出さなくなる(両親とも20以上だと発生しない)。だからといって20が上限というわけではなく、値そのものはサーバー設定次第でさらに伸ばせる(既定の上限は255)。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>20を超えても厳選を続ける「スタッキング」</h3>
+    <p>ミューテーションカウンターが20/20の個体同士を掛け合わせても、もう伸びにくくなるだけ。そこで<b style="color:var(--amber)">片側を常に「清潔(0/20)」に保つ</b>方法が定番:</p>
+    <ol style="padding-left:18px;font-size:13px;line-height:2">
+      <li>清潔な雌を複数匹用意する(ステータスの良い個体を選ぶ)</li>
+      <li>手持ちで一番良いミューテーション持ちの雄と交配</li>
+      <li>生まれた子に狙ったステータスの新しいミューテーションが乗り、かつ父方由来であれば、その子を次の「種雄」に昇格させる</li>
+      <li>元の雄と入れ替えて、同じ清潔な雌たちと再度交配</li>
+      <li>これを繰り返し、狙った1ステータスに何重にもミューテーションを積み重ねる</li>
+    </ol>
+    <p>雄側のカウンターが20を超えても、清潔な雌側から新しいミューテーションを引き出せるため、理論上は際限なく積み重ねられる。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>ソロでの現実的な落としどころ</h3>
+    <p>色厳選+ステータス厳選を同時に完璧に狙うと際限なく時間がかかる。ソロでは「近接ダメージか体力のどちらか1つに絞って数世代分だけ積む」程度でも、野生個体とは一線を画す性能になる。無理にミューテーションを追わずSEC.07の育成速度調整だけでも、ボス挑戦ラインには十分届く。</p>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span>形質(Traits)という追加要素</h3>
+    <p>ASAには任意で使える形質システムがある。「頑健(Robust)」は良い方のステータスを子へ遺伝させやすくする補正、「変異体質(Mutable)」はミューテーション発生率そのものを底上げする補正で、ジーンスキャナー+ジーンストレージという専用施設で個体から抽出・移植する。通常の交配だけでは遺伝しないため、興味があれば中盤以降に触ってみる程度でよい。</p>
+  </div>
+</section>
+
+<!-- ================= チートコマンド一覧 ================= -->
+<section id="cheats" class="tab-panel">
+  <div class="sec-head"><span class="tag">SEC.11</span><h2>チートコマンド一覧(シングルプレイ用)</h2></div>
+  <p class="sec-desc">ソロでは事実上の難易度調整・時短ツール。<code class="cmdline">Tab</code>キー(PC)でコンソールを開き、<code class="cmdline">cheat ○○</code>の形式で入力する。シングルプレイでは大抵そのまま使えるが、反応しない場合は先に<code class="cmdline">enablecheats</code>を一度入力する。</p>
+
+  <div class="cmd-cat">移動・生存系</div>
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>コマンド</th><th>効果</th></tr>
+      <tr><td><code class="cmdline">cheat god</code></td><td class="why">無敵化(溺死は防げない)。再入力で解除</td></tr>
+      <tr><td><code class="cmdline">cheat fly</code></td><td class="why">飛行モード。<code class="cmdline">cheat walk</code>で解除</td></tr>
+      <tr><td><code class="cmdline">cheat ghost</code></td><td class="why">壁抜け(ノークリップ)。<code class="cmdline">walk</code>で解除</td></tr>
+      <tr><td><code class="cmdline">cheat infinitestats</code></td><td class="why">満腹度・水分・スタミナ・酸素を常時最大に</td></tr>
+      <tr><td><code class="cmdline">cheat slomo 1</code></td><td class="why">ゲーム速度倍率。1が通常、5で5倍速など</td></tr>
+    </table>
+  </div>
+
+  <div class="cmd-cat">時間・世界系</div>
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>コマンド</th><th>効果</th></tr>
+      <tr><td><code class="cmdline">cheat settimeofday 12:00</code></td><td class="why">時刻を指定した時間に変更</td></tr>
+      <tr><td><code class="cmdline">cheat destroywilddinos</code></td><td class="why">野生生物を全消去し再湧きさせる(難易度変更後の高Lv個体出現に)</td></tr>
+      <tr><td><code class="cmdline">cheat saveworld</code></td><td class="why">その場で強制セーブ</td></tr>
+    </table>
+  </div>
+
+  <div class="cmd-cat">レベル・エングラム系</div>
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>コマンド</th><th>効果</th></tr>
+      <tr><td><code class="cmdline">cheat addexperience 10000 0 0</code></td><td class="why">指定量の経験値を即座に付与</td></tr>
+      <tr><td><code class="cmdline">cheat giveengrams</code></td><td class="why">現在のレベルで習得可能な全エングラムを解放</td></tr>
+    </table>
+  </div>
+
+  <div class="cmd-cat">テイム・生物系</div>
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>コマンド</th><th>効果</th></tr>
+      <tr><td><code class="cmdline">cheat forcetame</code></td><td class="why">照準先の生物を即座にテイム完了させる</td></tr>
+      <tr><td><code class="cmdline">cheat gmsummon "..." 150</code></td><td class="why">指定ブループリントのテイム済み個体を指定Lvで召喚</td></tr>
+      <tr><td><code class="cmdline">cheat settargetdinocolor 0 6</code></td><td class="why">照準先の生物の色領域を変更(観賞・記録用)</td></tr>
+    </table>
+  </div>
+
+  <div class="cmd-cat">アイテム系</div>
+  <div class="card" style="padding:8px 4px">
+    <table>
+      <tr><th>コマンド</th><th>効果</th></tr>
+      <tr><td><code class="cmdline">cheat giveresources</code></td><td class="why">基本素材(繊維・木材・石・金属など)を各50個付与</td></tr>
+      <tr><td><code class="cmdline">cheat giveitemset 1</code></td><td class="why">指定ティアの装備一式を付与</td></tr>
+    </table>
+  </div>
+
+  <div class="note"><b>使い方の指針:</b>「攻略の時短」に使うのは快適だが、使いすぎるとテイム・採取・戦闘の達成感そのものが薄れる。詰まった作業(高Lv個体が出ない、時間帯が合わない等)をピンポイントで解消する用途に留めるのがおすすめ。</div>
+</section>
+
+
+<footer>ARK: SURVIVAL ASCENDED — THE ISLAND — SOLO PROTOCOL v2.0 (統合版)</footer>
+</div>
+
+<script>
+(function(){
+  var items = Array.prototype.slice.call(document.querySelectorAll('.check li'));
+  var ring = document.getElementById('ring');
+  var pct = document.getElementById('pct');
+  var note = document.getElementById('cnt-note');
+  var CIRC = 226;
+
+  function refresh(){
+    var done = items.filter(function(li){return li.classList.contains('on')}).length;
+    var ratio = items.length ? done/items.length : 0;
+    ring.style.strokeDashoffset = String(CIRC * (1-ratio));
+    pct.textContent = Math.round(ratio*100)+'%';
+    note.textContent = done+' / '+items.length;
+    document.querySelectorAll('[data-phase]').forEach(function(ph){
+      var ls = ph.querySelectorAll('.check li');
+      var d = ph.querySelectorAll('.check li.on').length;
+      ph.querySelector('.cnt').textContent = d+'/'+ls.length;
+      ph.classList.toggle('done', ls.length>0 && d===ls.length);
+    });
+  }
+  items.forEach(function(li){
+    li.addEventListener('click', function(){
+      li.classList.toggle('on');
+      refresh();
+    });
+  });
+  refresh();
+})();
+</script>
+
+
+<script>
+const DATA = [
+{
+"cat": "温和な採取要員",
+"desc": "序盤の労働力。ほぼ無害でテイムも容易。",
+"items": [
+{
+"name": "ドードー",
+"area": "全域の海岸・平地",
+"threat": "無害、放置でよい",
+"tame": "パッシブ(ベリー)",
+"role": "卵の供給源。序盤の食料確保役",
+"method": "pv",
+"skill": "特筆すべき攻撃・特殊行動はなし"
+},
+{
+"name": "リストロサウルス",
+"area": "河川沿い・平地",
+"threat": "無害",
+"tame": "パッシブ(ベリー)",
+"role": "スタミナ回復バフを持つ肩乗せ",
+"method": "pv",
+"skill": "近くにいるだけで乗り手のスタミナ回復速度を上げるオーラを常時展開"
+},
+{
+"name": "モスコップス",
+"area": "平地・浅い森",
+"threat": "無害。触れても攻撃してこない",
+"tame": "パッシブ(要求される餌を順番に与える)",
+"role": "ベリー・繊維の自動採取要員。鞍不要で即騎乗できる優秀な序盤テイム",
+"method": "pv",
+"skill": "その時々で要求する餌が変わる特殊なパッシブテイム。ワンダー中に自動でベリー・繊維などを採取する"
+},
+{
+"name": "パラサウロロフス",
+"area": "平地・海岸",
+"threat": "無害、逃げ足が速い",
+"tame": "気絶(ベリー)",
+"role": "索敵警戒・初期の足",
+"method": "ko",
+"skill": "鳴き声で近くの脅威(肉食獣)を検知し警戒音を発する索敵能力"
+},
+{
+"name": "トリケラトプス",
+"area": "平地・草原",
+"threat": "突進してくるが火力は低め",
+"tame": "気絶(ベリー)",
+"role": "藁・ベリー・繊維の主力採取",
+"method": "ko",
+"skill": "角による突進攻撃でノックバックを与える"
+},
+{
+"name": "イグアノドン",
+"area": "平地",
+"threat": "無害〜軽い突進",
+"tame": "気絶(ベリー)",
+"role": "藁採取、初期の運搬役",
+"method": "ko",
+"skill": "特筆すべき特殊攻撃はなし。素早い移動が持ち味"
+},
+{
+"name": "ディプロドクス",
+"area": "平地・湖畔",
+"threat": "無害。直接ダメージは0だがノックバックで崖から落とされる事故に注意",
+"tame": "気絶/パッシブ両対応(ベリー)",
+"role": "高積載の運搬・ベリー採取。複数人騎乗も可能",
+"method": "ko",
+"skill": "直接ダメージが0に固定された特殊な恐竜。攻撃は純粋なノックバックのみ。気絶とパッシブの両方でテイムできる珍しい仕様"
+},
+{
+"name": "ブロントサウルス",
+"area": "平地",
+"threat": "無害。巨体で移動阻害に注意",
+"tame": "気絶(ベリー)",
+"role": "木材・藁の大量採取、移動拠点にも",
+"method": "ko",
+"skill": "咆哮で周囲の小型肉食獣を威嚇し近寄らせにくくする"
+},
+{
+"name": "ガリミムス",
+"area": "草原",
+"threat": "無害、素早く逃げる",
+"tame": "気絶(ベリー)",
+"role": "高速移動・繊維採取",
+"method": "ko",
+"skill": "スタミナ効率に優れた高速スプリントが可能"
+},
+{
+"name": "ステゴサウルス",
+"area": "森林縁・平地",
+"threat": "尾の一撃に注意",
+"tame": "気絶(ベリー)",
+"role": "藁・木材のバランス採取",
+"method": "ko",
+"skill": "背板の周囲に範囲攻撃判定を持つ尾の薙ぎ払い"
+},
+{
+"name": "パラケラテリウム",
+"area": "草原・砂利地",
+"threat": "無害",
+"tame": "気絶(ベリー)",
+"role": "高積載運搬、複数人騎乗が可能",
+"method": "ko",
+"skill": "突進時に軽いノックバック。特殊攻撃は少ない代わりに積載量が突出"
+},
+{
+"name": "エクウス(野生馬)",
+"area": "草原",
+"threat": "無害、逃げ足が速くボーラ必須",
+"tame": "気絶(ベリー)",
+"role": "軽量高速の移動手段",
+"method": "ko",
+"skill": "急加速からの高速巡航が得意、特殊攻撃はなし"
+},
+{
+"name": "オヴィス(羊)",
+"area": "山麓・草原",
+"threat": "無害",
+"tame": "気絶(ベリー)",
+"role": "毛皮(ウール)の定期供給源",
+"method": "ko",
+"skill": "時間経過でウールを再生産。攻撃手段はほぼ持たない"
+},
+{
+"name": "フィオミア",
+"area": "平地",
+"threat": "無害",
+"tame": "気絶(ベリー)",
+"role": "序盤のベリー採取要員",
+"method": "ko",
+"skill": "特筆すべき特殊行動はなし"
+},
+{
+"name": "アカティナ(カタツムリ)",
+"area": "森林・平地",
+"threat": "無害",
+"tame": "パッシブ(施肥/キチン給餌)",
+"role": "キチン・粘液の採取",
+"method": "pv",
+"skill": "移動が遅い代わりに完全に無害。粘液を定期分泌"
+},
+{
+"name": "ダンビートル",
+"area": "森林・湿地",
+"threat": "無害",
+"tame": "パッシブ(糞を給餌)",
+"role": "糞からオイル・肥料を生成",
+"method": "pv",
+"skill": "糞を食べて経路上でオイル/肥料に自動変換する独自ギミック"
+},
+{
+"name": "トリロバイト",
+"area": "浅瀬・岩場",
+"threat": "無害",
+"tame": "パッシブ(生肉)",
+"role": "キチン採取、序盤の肩乗せ",
+"method": "pv",
+"skill": "攻撃手段を持たない完全な非戦闘生物"
+},
+{
+"name": "カルボネミス(カメ)",
+"area": "河川・湖",
+"threat": "無害",
+"tame": "気絶(ベリー)",
+"role": "高防御の水陸両用シールド役",
+"method": "ko",
+"skill": "甲羅に引っ込むことで被ダメージを大幅軽減する防御姿勢"
+}
+]
+},
+{
+"cat": "沿岸・湿地の脅威",
+"desc": "海岸〜沼地で序盤〜中盤の生存者を脅かす種。",
+"items": [
+{
+"name": "ディロフォサウルス",
+"area": "海岸・浅い森",
+"threat": "毒吐きで視界不良、複数体に囲まれやすい",
+"tame": "気絶(生肉)",
+"role": "毒吐きで牽制する軽量アタッカー",
+"method": "ko",
+"skill": "遠距離から毒液を吐きかけ視界を奪う(暗闇+鈍化)遠隔攻撃"
+},
+{
+"name": "サルコスクス",
+"area": "河川・沼地",
+"threat": "水中からの奇襲、噛みつき固定に注意",
+"tame": "気絶(生肉/魚肉)",
+"role": "水陸両用の中堅アタッカー",
+"method": "ko",
+"skill": "噛みついた相手を固定して連続ダメージを与えるグラブ攻撃"
+},
+{
+"name": "カプロスクス",
+"area": "沼地",
+"threat": "群れで襲い水中に引きずり込む",
+"tame": "気絶(生肉)",
+"role": "沼地探索の護衛役",
+"method": "ko",
+"skill": "獲物を咥えて水中に引きずり込むドラッグ攻撃"
+},
+{
+"name": "タイタノボア",
+"area": "沼地・洞窟周辺",
+"threat": "噛みつきでトーポー(気絶値)が急上昇し、気絶させられると危険",
+"tame": "特殊パッシブ(受精卵を落として食べさせる)",
+"role": "騎乗不可の毒ヘビ。倒すとナルコティック素材の毒が得られる",
+"method": "sp",
+"skill": "噛みつきの毒が対象のトーポーを急激に上げる。テイムは受精卵を落として食べさせる特殊パッシブで、テイム後も餌は卵のみ"
+},
+{
+"name": "ライニオグナサ(ASA固有種)",
+"area": "アイランド各地の沼地",
+"threat": "非常に高い攻撃力。中盤までは接近を避ける",
+"tame": "特殊(高難度)",
+"role": "アイランドにASAで唯一新規追加された固有種。エンドゲーム級の大型飛行昆虫",
+"method": "sp",
+"skill": "仕様が特殊なため、テイム手順・能力の詳細は最新の攻略情報を確認するのが安全"
+},
+{
+"name": "テラーバード",
+"area": "平地・レッドウッド",
+"threat": "素早い蹴り攻撃、群れに注意",
+"tame": "気絶(生肉)",
+"role": "高速の軽量アタッカー",
+"method": "ko",
+"skill": "連続キック+跳躍からの叩きつけコンボ攻撃"
+},
+{
+"name": "パーロヴィア",
+"area": "レッドウッドの巣穴",
+"threat": "地中から奇襲、麻痺毒",
+"tame": "気絶(生肉)",
+"role": "テイム後は逆に奇襲役として運用できる",
+"method": "ko",
+"skill": "地中に潜伏し不意打ちで飛び出す奇襲攻撃、噛みつきに麻痺毒"
+}
+]
+},
+{
+"cat": "森林(レッドウッド)の住民",
+"desc": "針葉樹の森特有の生態系。",
+"items": [
+{
+"name": "メガテリウム",
+"area": "レッドウッド",
+"threat": "正面から突っ込むと重い一撃を受ける",
+"tame": "気絶(生肉)",
+"role": "虫系(蜘蛛・サソリ等)特効を持つ対昆虫アタッカー",
+"method": "ko",
+"skill": "節足動物(昆虫・クモ・サソリ等)への特効ダメージボーナスを常時保持"
+},
+{
+"name": "ティラコレオ",
+"area": "レッドウッド・雪山",
+"threat": "樹上から飛びかかる奇襲",
+"tame": "気絶(生肉)",
+"role": "壁面・樹上を移動できる俊敏な奇襲型",
+"method": "ko",
+"skill": "壁面・木に張り付いて移動でき、飛びかかって相手を掴むポウンス攻撃"
+},
+{
+"name": "メソピテクス",
+"area": "レッドウッド",
+"threat": "糞を投げてくる程度で脅威度は低い",
+"tame": "パッシブ(ベリー)",
+"role": "装備を持ち去ることがある小型モンキー。肩乗せ運用も",
+"method": "pv",
+"skill": "威嚇として糞を投げつける、まれにアイテムを持ち去る小さな盗み癖"
+},
+{
+"name": "ギガントピテクス",
+"area": "レッドウッド",
+"threat": "縄張り意識が強く、触れると攻撃してくる",
+"tame": "パッシブ(ベリーを与える。触れると敵対する点に注意)",
+"role": "近接タンク。騎乗者を壁越しに投げ飛ばせる特殊能力を持つ。繊維・レアフラワーも採取",
+"method": "pv",
+"skill": "騎乗者を前方へ投げ飛ばして壁越えできる独自アクション。ワンダー中に繊維・レアフラワーを自動採取する"
+},
+{
+"name": "ティタノミルマ",
+"area": "レッドウッド地下の巣",
+"threat": "兵隊アリの猛毒針",
+"tame": "特殊(女王を確保しフェロモンで運用)",
+"role": "キチンの高効率採取",
+"method": "sp",
+"skill": "兵隊アリの毒針は継続ダメージを蓄積、女王のフェロモンで周囲の個体を懐柔できる"
+},
+{
+"name": "メガネウラ(オオトンボ)",
+"area": "沼地・レッドウッド上空",
+"threat": "毒で鈍化させてくる",
+"tame": "気絶(腐り肉)",
+"role": "討伐すると強力な麻酔毒素の素材が入手できる",
+"method": "ko",
+"skill": "不規則な飛行で急接近し、毒針でトーポーを蓄積させる"
+}
+]
+},
+{
+"cat": "雪原・山岳の生物",
+"desc": "北部山脈の寒冷地帯。防寒装備が前提。",
+"items": [
+{
+"name": "ダイアウルフ",
+"area": "雪山(夜間に多い)",
+"threat": "群れで襲ってくる、吹雪との複合で視界不良",
+"tame": "気絶(生肉)",
+"role": "高速の群れ運用に向く護衛",
+"method": "ko",
+"skill": "遠吠えで仲間を呼び寄せ、群れで連携して包囲する"
+},
+{
+"name": "ダイアベア",
+"area": "雪山",
+"threat": "高い攻撃力、立ち上がり攻撃の範囲に注意",
+"tame": "気絶(生肉)",
+"role": "中盤の頑丈な近接アタッカー",
+"method": "ko",
+"skill": "立ち上がって振り下ろす範囲攻撃、乗騎中は自動でベリー・繊維を採取する特殊能力"
+},
+{
+"name": "ウーリーライノ",
+"area": "雪山",
+"threat": "突進の踏みつけダメージ",
+"tame": "気絶(ベリー)",
+"role": "突進特化の防衛・採取兼用",
+"method": "ko",
+"skill": "助走からの突進チャージ攻撃でノックバック・出血を付与"
+},
+{
+"name": "マンモス",
+"area": "雪山",
+"threat": "巨体からの突進",
+"tame": "気絶(ベリー)",
+"role": "木材採取と高積載を兼ねる大型運搬",
+"method": "ko",
+"skill": "牙による薙ぎ払いと踏みつけ、巨体ゆえの高い耐久力"
+},
+{
+"name": "ユウティラヌス",
+"area": "雪山・山岳",
+"threat": "高火力の噛みつき、単体でも中盤の脅威",
+"tame": "気絶(生肉)",
+"role": "咆哮でパーティ全体をバフする支援役。ボス部隊に必須",
+"method": "ko",
+"skill": "「勇気の咆哮」で味方の攻撃力・速度を強化し、「恐怖の咆哮」で敵を怯ませる2種の咆哮を使い分け"
+}
+]
+},
+{
+"cat": "洞窟・地下の脅威",
+"desc": "アーティファクト回収で必ず遭遇する種。",
+"items": [
+{
+"name": "アラネオ(クモ)",
+"area": "洞窟内",
+"threat": "糸による鈍化、集団に注意",
+"tame": "防虫剤+腐り肉(接近して給餌)。※アップデートで気絶テイム化した情報もあり最新確認推奨",
+"role": "洞窟探索用のクモ。糸で敵を絡めとる",
+"method": "sp",
+"skill": "糸を吐いて対象を鈍化・拘束する。防虫剤で敵対を抑えつつ接近して給餌するのが基本"
+},
+{
+"name": "アースロプレウラ",
+"area": "洞窟・暗い森",
+"threat": "毒ブレスで鈍足化、酸で防具が劣化",
+"tame": "防虫剤+腐り肉(接近して給餌)",
+"role": "黒曜石・タールの採取要員",
+"method": "sp",
+"skill": "円錐状の毒ブレスを吐き、範囲内の対象を鈍化させながら継続ダメージ。防虫剤で敵対を抑えて給餌する"
+},
+{
+"name": "オニクス(コウモリ)",
+"area": "洞窟内",
+"threat": "集団で襲い状態異常を付与",
+"tame": "防虫剤+生肉(接近して給餌)",
+"role": "洞窟に生息する小型コウモリ",
+"method": "sp",
+"skill": "噛みつきに狂犬病様の状態異常が蓄積する。防虫剤で敵対を抑えて接近給餌する"
+},
+{
+"name": "メガロサウルス",
+"area": "洞窟内(夜行性)",
+"threat": "夜間は高火力で襲う。掴み噛みつきで拘束される",
+"tame": "気絶(生肉、高難度)",
+"role": "洞窟のボス格。テイムできれば終盤級の護衛",
+"method": "ko",
+"skill": "夜行性で夜間に能力が上がり日中は眠くなる特性。対象を咥えて拘束する掴み噛みつきを持つ"
+},
+{
+"name": "ロックエレメンタル",
+"area": "火山・山岳の岩場",
+"threat": "岩と同化しており不意打ちされやすい",
+"tame": "特殊(水晶/黒曜石を給餌)",
+"role": "黒曜石・水晶の採取要員",
+"method": "sp",
+"skill": "岩と同化するカモフラージュで潜み、接近されると地面を叩く範囲攻撃で反撃"
+},
+{
+"name": "メガラニア",
+"area": "洞窟入口・レッドウッド",
+"threat": "壁を這って奇襲、毒",
+"tame": "気絶(生肉)",
+"role": "壁面移動可能な機動力の高い護衛",
+"method": "ko",
+"skill": "壁・天井を自在に這い回り、毒を伴う連続噛みつきでスタックダメージを蓄積"
+}
+]
+},
+{
+"cat": "中型捕食者・護衛戦力",
+"desc": "中盤の主力になる汎用アタッカー群。",
+"items": [
+{
+"name": "ラプトル",
+"area": "平地・海岸",
+"threat": "群れでの連携攻撃",
+"tame": "気絶(生肉)",
+"role": "序盤〜中盤の主力護衛",
+"method": "ko",
+"skill": "跳びかかって対象に組み付くポウンス攻撃、近縁種が周囲にいるほど攻撃力が上がるパックボーナス"
+},
+{
+"name": "カルノタウルス",
+"area": "平地",
+"threat": "突進からの高火力連続攻撃",
+"tame": "気絶(生肉)",
+"role": "単体火力に優れるアタッカー",
+"method": "ko",
+"skill": "助走からの突進攻撃で大ノックバック、着地後に連続噛みつき"
+},
+{
+"name": "アロサウルス",
+"area": "平地・森林",
+"threat": "群れで襲い咬みつきで出血させる",
+"tame": "気絶(生肉)",
+"role": "群れ運用可能な中堅アタッカー",
+"method": "ko",
+"skill": "群れで連携し弱った獲物に集中攻撃を仕掛ける狩りの習性"
+},
+{
+"name": "バリオニクス",
+"area": "河川・沼地",
+"threat": "水中と陸上どちらからも攻撃してくる",
+"tame": "気絶(生肉/魚肉)",
+"role": "水陸両用の洞窟探索要員",
+"method": "ko",
+"skill": "水中の魚を感知するセンサーを持ち、二足/四足歩行を切り替えて速度と安定性を調整できる"
+},
+{
+"name": "サーベルタイガー",
+"area": "雪山・森林",
+"threat": "高い機動力での奇襲",
+"tame": "気絶(生肉)",
+"role": "速度と火力を両立する万能護衛",
+"method": "ko",
+"skill": "高いジャンプ力からの奇襲、寒冷地でも移動速度が落ちにくい"
+},
+{
+"name": "ケントロサウルス",
+"area": "平地・森林縁",
+"threat": "とげによる反撃ダメージ",
+"tame": "気絶(ベリー)",
+"role": "打たれ強い前衛・防衛役",
+"method": "ko",
+"skill": "背中と尾のとげが近接攻撃者に反撃ダメージを返す仕様"
+},
+{
+"name": "パキケファロサウルス",
+"area": "平地",
+"threat": "頭突きでノックバックされる",
+"tame": "気絶(ベリー)",
+"role": "小型ながら気絶させやすい前衛",
+"method": "ko",
+"skill": "頭突きチャージで対象を大きくノックバックさせスタン気味にする"
+}
+]
+},
+{
+"cat": "大型捕食者・エンドコンテンツ",
+"desc": "ボス戦力の核となる最上位種。",
+"items": [
+{
+"name": "レックス",
+"area": "平地・草原(高Lv個体は山寄り)",
+"threat": "圧倒的な噛みつき火力、単体でも致命的",
+"tame": "気絶(生肉/キブル)",
+"role": "ボス戦の標準アタッカー",
+"method": "ko",
+"skill": "単純だが圧倒的な噛みつき火力が持ち味。特殊アクションは少なく素のステータスで押す"
+},
+{
+"name": "スピノサウルス",
+"area": "河川・沼地",
+"threat": "水陸両方から高火力で襲ってくる",
+"tame": "気絶(生肉/魚肉)",
+"role": "水陸両用の最強クラス近接",
+"method": "ko",
+"skill": "四足歩行に切り替えて移動速度を上げられる、帆で体温調整しつつ周囲の野生捕食者の警戒度を下げる効果"
+},
+{
+"name": "ギガノトサウルス",
+"area": "草原・平地(稀に広域徘徊)",
+"threat": "マップ最大級の脅威。単独接近は危険",
+"tame": "気絶(生肉、大量の麻酔が必要)",
+"role": "テイムできれば最強クラスのアタッカー",
+"method": "ko",
+"skill": "特殊攻撃はほぼ持たないが、桁違いのHP・攻撃力と長い索敵範囲そのものが最大の脅威"
+},
+{
+"name": "テリジノサウルス",
+"area": "森林・山岳",
+"threat": "長い鉤爪による広範囲攻撃",
+"tame": "気絶(ベリー/生肉)",
+"role": "野菜ケーキで自己回復しながら戦える万能アタッカー",
+"method": "ko",
+"skill": "鉤爪の薙ぎ払いで複数対象にヒットし、野菜ケーキ摂取で自己回復しながら戦える"
+}
+]
+},
+{
+"cat": "空中生物",
+"desc": "移動・偵察・運搬を担う飛行種。",
+"items": [
+{
+"name": "プテラノドン",
+"area": "海岸・平地上空",
+"threat": "急降下からの掴み攻撃",
+"tame": "気絶(キブル推奨)",
+"role": "最初の空の足。速度に優れる",
+"method": "ko",
+"skill": "急降下からの掴み(ピックアップ)攻撃で小型の獲物を持ち去る"
+},
+{
+"name": "ディモルフォドン",
+"area": "レッドウッド上空",
+"threat": "群れで生存者を掴んで連れ去る",
+"tame": "気絶(生肉)",
+"role": "小型ながら群れ運用可能な奇襲役",
+"method": "ko",
+"skill": "群れで飛来し小型の生存者や恐竜を掴んで運び去る"
+},
+{
+"name": "マイクロラプトル",
+"area": "レッドウッド・沼地",
+"threat": "集団で滑空攻撃、暗闇で視界を奪う",
+"tame": "気絶(レアフラワー)",
+"role": "肩乗せの高速護衛。騎乗者を守る小型ペット",
+"method": "ko",
+"skill": "飛びかかって相手を騎乗解除させる奇襲攻撃を持つ。素早く火力も高い"
+},
+{
+"name": "アルカエオプテリクス",
+"area": "森林上空",
+"threat": "無害、滑空の補助のみ",
+"tame": "パッシブ(生肉)",
+"role": "肩乗せでグライダー移動が可能に",
+"method": "pv",
+"skill": "攻撃手段を持たず、装備すると滑空によるファストトラベル補助に特化"
+},
+{
+"name": "アルゲンタヴィス",
+"area": "山岳の巣",
+"threat": "高高度からの強奪攻撃",
+"tame": "気絶(キブル/生肉)",
+"role": "運搬・遠征の主力",
+"method": "ko",
+"skill": "生存者や中型恐竜を掴んで空輸できるキャリー能力"
+},
+{
+"name": "ケツァルコアトルス",
+"area": "山岳最上部",
+"threat": "巨体からの振り落とし攻撃",
+"tame": "気絶(キブル)",
+"role": "プラットフォーム型の移動要塞",
+"method": "ko",
+"skill": "プラットフォームサドルを装着でき、飛行中の建築拠点として運用可能"
+},
+{
+"name": "ペラゴルニス",
+"area": "海岸上空・沖合",
+"threat": "ほぼ無害。臆病で、攻撃するとすぐ逃げる",
+"tame": "気絶(魚肉)",
+"role": "水面に着水できる万能飛行騎乗。魚・有機ポリマー採取に強い",
+"method": "ko",
+"skill": "背中に乗ったまま釣り竿を使える移動釣り台。小魚に高倍率ダメージで一撃回収し、ペンギンから有機ポリマーも集められる"
+}
+]
+},
+{
+"cat": "水棲生物",
+"desc": "沿岸〜深海まで、海洋進出に必須の種。",
+"items": [
+{
+"name": "イクチオサウルス",
+"area": "沿岸の浅瀬",
+"threat": "無害。群れの捕食者からは逃げる",
+"tame": "気絶(魚肉)",
+"role": "序盤の海の足",
+"method": "ko",
+"skill": "高い遊泳速度以外に特筆すべき特殊攻撃はなし"
+},
+{
+"name": "メガロドン",
+"area": "沖合",
+"threat": "高速で追跡してくる海の脅威",
+"tame": "気絶(生肉/魚肉)",
+"role": "中盤の海洋護衛",
+"method": "ko",
+"skill": "高速遊泳での追跡と強力な噛みつきで獲物を仕留める"
+},
+{
+"name": "プレシオサウルス",
+"area": "沿岸〜沖合",
+"threat": "無害だが巨体、他の海洋生物に注意",
+"tame": "気絶(生肉)",
+"role": "高積載の海上プラットフォーム",
+"method": "ko",
+"skill": "攻撃性はほぼ無いが酸素ゲージが非常に大きく長時間潜水できる"
+},
+{
+"name": "モササウルス",
+"area": "深海",
+"threat": "深海の頂点捕食者、単独探索は危険",
+"tame": "気絶(生肉/キブル、大量の麻酔)",
+"role": "深海探索・海底洞窟攻略の必須戦力",
+"method": "ko",
+"skill": "完全水生で陸に上がれない代わりに、強烈な噛みつきと高速遊泳を持つ海の頂点捕食者"
+},
+{
+"name": "バシロサウルス",
+"area": "深海",
+"threat": "見た目に反し温厚",
+"tame": "気絶(生肉)",
+"role": "オイルを定期的に生成する資源生成役",
+"method": "ko",
+"skill": "エコーロケーション(反響定位)で周囲の資源や生物を探知できる"
+},
+{
+"name": "タソテウティス(大烏賊)",
+"area": "深海",
+"threat": "触手で掴まれ身動きを封じられる",
+"tame": "テイム不可(討伐対象)",
+"role": "黒真珠などの希少素材ドロップ",
+"method": "nt",
+"skill": "触手で対象を掴んで拘束し、墨を吐いて視界を奪いながら逃走する"
+},
+{
+"name": "マンタ",
+"area": "沿岸〜沖合の中層",
+"threat": "近づくだけで襲ってくる。群れると危険","tame": "パッシブ(アングラージェルを与える)",
+"role": "一撃離脱重視の小型海棲騎乗。鞍を付ければ乗れる","method": "pv",
+"skill": "水面から短距離ジャンプできる。素早い一撃離脱が得意"
+},
+{
+"name": "リーズィクティス(巨大魚)",
+"area": "沖合",
+"threat": "無害",
+"tame": "テイム不可(討伐対象)",
+"role": "大量の生肉・油の供給源",
+"method": "nt",
+"skill": "攻撃手段を持たない大型の濾過摂食性の魚"
+},
+{
+"name": "ダンクルオステウス",
+"area": "河川",
+"threat": "高い攻撃力で川を守る門番的存在",
+"tame": "気絶(生肉)",
+"role": "河川防衛・護衛役",
+"method": "ko",
+"skill": "骨質の顎による強力な噛みつきで河川の縄張りを防衛する"
+},
+{
+"name": "ピラニア",
+"area": "河川・湖",
+"threat": "群れで一斉に噛みつく",
+"tame": "テイム不可(討伐対象)",
+"role": "脅威として認識し近づかないのが得策",
+"method": "nt",
+"skill": "群れ全体で一斉に噛みつくフレンジー行動で短時間に大ダメージを与える"
+},
+{
+"name": "カイルク(ペンギン)",
+"area": "雪山の海岸",
+"threat": "無害",
+"tame": "パッシブ(魚肉)",
+"role": "肩乗せで低体温耐性を付与",
+"method": "pv",
+"skill": "攻撃手段はなし。装着すると寒冷地での低体温耐性を底上げする"
+},
+{
+"name": "セイバートゥースサーモン",
+"area": "河川",
+"threat": "弱いが群れることがある",
+"tame": "簡易テイム(魚肉)",
+"role": "食料資源として優秀",
+"method": "ko",
+"skill": "群れで移動する程度で特筆すべき特殊攻撃はなし"
+}
+]
+},
+{
+"cat": "支援・特殊ユーティリティ",
+"desc": "戦闘の枠に収まらない後方支援役。",
+"items": [
+{
+"name": "ダエオドン(デイノン)",
+"area": "平地・山岳",
+"threat": "無害",
+"tame": "気絶(生肉)",
+"role": "範囲回復を持つ最重要サポート。ボス部隊に必須",
+"method": "ko",
+"skill": "非戦闘時に発動する範囲回復オーラで周囲の味方のHPを持続回復する"
+},
+{
+"name": "カストロイデス(ビーバー)",
+"area": "河川沿いの森",
+"threat": "無害",
+"tame": "気絶(ベリー)",
+"role": "木材の高効率採取、ダム設置で簡易拠点化",
+"method": "ko",
+"skill": "ダム(巣)を設置でき、内部が簡易ストレージ兼クラフト拠点として機能する"
+},
+{
+"name": "ベルゼブフォ(カエル)",
+"area": "沼地",
+"threat": "舌による拘束攻撃",
+"tame": "気絶(腐り肉)",
+"role": "ナルコベリーの自動精製、大ジャンプで移動",
+"method": "ko",
+"skill": "長い舌で対象を掴んで引き寄せるグラブ攻撃、大ジャンプによる高機動移動"
+},
+{
+"name": "オッター(カワウソ)",
+"area": "河川",
+"threat": "無害",
+"tame": "パッシブ(魚肉)",
+"role": "肩乗せで釣りの成功率を上げる",
+"method": "pv",
+"skill": "攻撃手段はなし。装着すると釣りの成功率・収穫量を底上げする"
+}
+]
+},
+{
+"cat": "巨獣・トラップ限定",
+"desc": "通常の気絶テイムが通用しない特殊枠。",
+"items": [
+{
+"name": "タイタノサウルス",
+"area": "平地の奥地(限定的に出現)",
+"threat": "マップ最大級の巨体、専用の大型トラップが前提",
+"tame": "トラップ+ケラチン給餌",
+"role": "移動要塞として運用。鞍は特殊仕様",
+"method": "tp",
+"skill": "踏みつけだけで小型構造物を破壊できるほどの巨体。専用の移動要塞サドルを装着可能"
+},
+{
+"name": "ペゴマスタクス",
+"area": "森林・岩場",
+"threat": "装備やベリーを盗んでくる小型の盗人",
+"tame": "気絶(ベリー、追跡がやや困難)",
+"role": "キチン採取要員。盗み癖のある小型ペット",
+"method": "ko",
+"skill": "生存者の装備やベリーを奪って逃走する俊敏な盗みアクション"
+}
+]
+}
+];
+
+const contentEl = document.getElementById('content');
+const chipsEl = document.getElementById('chips');
+const searchEl = document.getElementById('search');
+const noResultEl = document.getElementById('no-result');
+
+let activeCat = 'すべて';
+
+function methodLabel(m){
+  return {ko:'KO', pv:'PV', tp:'TP', sp:'SP', nt:'NT'}[m] || m;
+}
+
+function buildChips(){
+  const cats = ['すべて', ...DATA.map(c=>c.cat)];
+  chipsEl.innerHTML = cats.map(c=>
+    `<div class="chip${c===activeCat?' active':''}" data-cat="${c}">${c}</div>`
+  ).join('');
+  chipsEl.querySelectorAll('.chip').forEach(el=>{
+    el.addEventListener('click', ()=>{ activeCat = el.dataset.cat; buildChips(); renderBestiary(); });
+  });
+}
+
+function renderBestiary(){
+  const q = searchEl.value.trim().toLowerCase();
+  let totalShown = 0;
+  let html = '';
+
+  DATA.forEach((group, gi)=>{
+    if(activeCat !== 'すべて' && activeCat !== group.cat) return;
+
+    const matched = group.items.filter(it=>{
+      if(!q) return true;
+      const hay = (it.name+it.area+it.role+it.threat+it.skill).toLowerCase();
+      return hay.includes(q);
+    });
+    if(matched.length === 0) return;
+
+    totalShown += matched.length;
+    const openAttr = (q || activeCat !== 'すべて' || gi === 0) ? ' open' : '';
+
+    html += `<details class="cat"${openAttr}>
+      <summary class="cat-head"><span class="arrow">▸</span>${group.cat}<span class="cat-cnt">${matched.length}種</span></summary>
+      <div class="cat-desc">${group.desc}</div>
+      ${matched.map(it=>`
+        <div class="beast">
+          <div class="beast-head">
+            <span class="beast-name">${it.name}</span>
+            <span class="method ${it.method}">${methodLabel(it.method)}</span>
+          </div>
+          <div class="fields">
+            <div class="field"><b>エリア</b>${it.area}</div>
+            <div class="field"><b>対策</b>${it.threat}</div>
+            <div class="field" style="grid-column:1 / -1"><b>テイム特徴</b>${it.tame}</div>
+            <div class="field skill"><b>特殊能力・攻撃</b>${it.skill}</div>
+            <div class="field role"><b>役割</b>${it.role}</div>
+          </div>
+        </div>
+      `).join('')}
+    </details>`;
+  });
+
+  contentEl.innerHTML = html;
+  noResultEl.classList.toggle('show', totalShown === 0);
+}
+
+buildChips();
+renderBestiary();
+searchEl.addEventListener('input', renderBestiary);
+</script>
+
+
+<script>
+(function(){
+  var btns = document.querySelectorAll('.tab-btn');
+  var panels = document.querySelectorAll('.tab-panel');
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      btns.forEach(function(b){ b.classList.remove('active'); });
+      panels.forEach(function(p){ p.classList.remove('active'); });
+      btn.classList.add('active');
+      var target = document.getElementById(btn.dataset.tab);
+      if(target){ target.classList.add('active'); }
+      var main = document.querySelector('.wrap');
+      window.scrollTo({top:0, behavior:'smooth'});
+    });
+  });
+})();
+</script>
+</body>
+</html>
