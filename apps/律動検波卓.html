@@ -349,22 +349,43 @@ async function load(file){
 }
 
 /* ============================ 録音 ============================ */
-const REC_MAX = 900;                       // 秒
-const LIVE_SPAN = 12;                      // 生表示の秒数
+const REC_MAX  = 900;      // 秒（自動停止）
+const LIVE_SPAN= 12;       // 生表示の秒数
+const LIVE_COLS= 180;      // 生表示の柱の本数（描画量を一定に保つ）
+const TAP_BLOCK= 2048;     // 音声スレッドからまとめて受け取る単位
+const DRAW_MS  = 50;       // 生表示の更新間隔
+
 const WORKLET_SRC = `
 class Tap extends AudioWorkletProcessor{
+  constructor(){ super(); this.buf=new Float32Array(${TAP_BLOCK}); this.n=0; }
   process(inputs){
-    const ch=inputs[0][0];
-    if(ch) this.port.postMessage(new Float32Array(ch));
+    const ch = inputs[0] && inputs[0][0];
+    if(ch){
+      let o=0;
+      while(o<ch.length){
+        const k=Math.min(ch.length-o, this.buf.length-this.n);
+        this.buf.set(ch.subarray(o,o+k), this.n);
+        this.n+=k; o+=k;
+        if(this.n===this.buf.length){
+          const out=this.buf.slice();
+          this.port.postMessage(out, [out.buffer]);
+          this.n=0;
+        }
+      }
+    }
     return true;
   }
 }
 registerProcessor('tap', Tap);`;
 
+/* 16 bit で貯める（Float32 の半分の容量で済み、書き出す WAV と同じ精度） */
 function recBuffer(chunks, total, sr, ctx){
   const flat=new Float32Array(total);
   let o=0;
-  for(const c of chunks){ flat.set(c, o); o+=c.length; }
+  for(const c of chunks){
+    for(let i=0;i<c.length;i++) flat[o+i]=c[i]/32768;
+    o+=c.length;
+  }
   if(ctx && ctx.createBuffer){
     const b=ctx.createBuffer(1, Math.max(1,total), sr);
     b.getChannelData(0).set(flat);
@@ -406,22 +427,41 @@ async function startRec(){
   const ctx=ac();
   if(ctx.state==="suspended"){ try{ await ctx.resume(); }catch(e){} }
   const sr=ctx.sampleRate;
-  const R = S.rec = { stream, ctx, sr, chunks:[], total:0, t0:performance.now(),
-                      levels:[], peak:0, node:null, src:null, sink:null, af:0, stopping:false };
+  const R = S.rec = {
+    stream, ctx, sr, chunks:[], total:0,
+    cols:[],                       // 生表示の柱（本数は LIVE_COLS で固定）
+    accSq:0, accN:0, accPk:0,      // 現在の柱にためている分
+    colN:Math.max(1, Math.round(sr*LIVE_SPAN/LIVE_COLS)),
+    peak:0, node:null, src:null, sink:null,
+    af:0, lastDraw:0, lastData:performance.now(), lastResume:0,
+    stalled:false, stopping:false
+  };
   R.src = ctx.createMediaStreamSource(stream);
   R.sink = ctx.createGain(); R.sink.gain.value = 0;   // 音を出さずに回す
   R.sink.connect(ctx.destination);
 
+  // 音声スレッドから来た塊を貯める。ここでは描画しない（届く回数だけ描くと重くなるため）
   const take = block => {
-    if(!S.rec || S.rec!==R || R.stopping) return;
-    R.chunks.push(block); R.total += block.length;
-    let sq=0, pk=0;
-    for(let i=0;i<block.length;i++){ const v=block[i]; sq+=v*v; const a=v<0?-v:v; if(a>pk) pk=a; }
-    R.levels.push({ t:R.total/sr, db:20*Math.log10(Math.sqrt(sq/block.length)+1e-12), pk });
-    if(pk>R.peak) R.peak=pk;
-    const span=Math.max(1, Math.round(LIVE_SPAN*sr/block.length)+2);
-    if(R.levels.length>span) R.levels.splice(0, R.levels.length-span);
-    if(R.total/sr>=REC_MAX) stopRec();
+    const R=S.rec;
+    if(!R || R.stopping) return;
+    const L=block.length;
+    const q=new Int16Array(L);
+    for(let i=0;i<L;i++){
+      const v=block[i];
+      const c=v<-1?-1:v>1?1:v;
+      q[i]= c<0 ? c*0x8000 : c*0x7FFF;
+      const a=c<0?-c:c;
+      R.accSq+=c*c; if(a>R.accPk) R.accPk=a; if(a>R.peak) R.peak=a;
+    }
+    R.chunks.push(q); R.total+=L; R.accN+=L;
+    R.lastData=performance.now();
+    if(R.stalled){ R.stalled=false; $("#rec-hint").textContent=REC_HINT; }
+    while(R.accN>=R.colN){
+      R.cols.push({ db:20*Math.log10(Math.sqrt(R.accSq/R.accN)+1e-12), pk:R.accPk });
+      if(R.cols.length>LIVE_COLS) R.cols.shift();
+      R.accSq=0; R.accN=0; R.accPk=0;
+    }
+    if(R.total/R.sr>=REC_MAX) stopRec();
   };
 
   let ok=false;
@@ -437,51 +477,79 @@ async function startRec(){
   }
   if(!ok){
     R.node=ctx.createScriptProcessor(4096,1,1);
-    R.node.onaudioprocess=e=>take(new Float32Array(e.inputBuffer.getChannelData(0)));
+    R.node.onaudioprocess=e=>take(e.inputBuffer.getChannelData(0));
   }
   R.src.connect(R.node); R.node.connect(R.sink);
 
   $("#rec").hidden=true; $("#rec-stop").hidden=false;
   $("#rec-dot").classList.add("live");
   $("#pick").disabled=true; $("#raw").disabled=true;
+  $("#rec-hint").textContent=REC_HINT;
   setStatus("録音しています。周期音が入るように、しばらく回してください。");
-  liveTick();
+  R.af=requestAnimationFrame(liveTick);
 }
 
-function liveTick(){
+const REC_HINT="録音は端末内に留まります。最長15分で自動停止します。";
+
+/* 画面の更新。届いたデータ量ではなく時間で間引くので、負荷が一定に保たれる */
+function liveTick(now){
   const R=S.rec; if(!R) return;
+  R.af=requestAnimationFrame(liveTick);
+  const t = now || performance.now();
+  if(t-R.lastDraw < DRAW_MS) return;
+  R.lastDraw=t;
+
   const el=R.total/R.sr;
   $("#rec-time").textContent=recTime(el);
-  const last=R.levels[R.levels.length-1];
+  const last=R.cols[R.cols.length-1];
   $("#rec-lvl").textContent = last
     ? "入力 "+last.db.toFixed(0)+" dBFS　最大 "+(20*Math.log10(R.peak+1e-12)).toFixed(0)+" dBFS"
         + (R.peak>0.99?"　※音が割れています":"")
     : "入力待ち";
-  if(REC_MAX-el<60) $("#rec-hint").textContent="あと "+Math.max(0,Math.round(REC_MAX-el))+" 秒で自動停止します。";
+
+  // 音声が途切れたら知らせて、止まった音声処理の再開を試みる
+  const gap=t-R.lastData;
+  if(gap>1500){
+    R.stalled=true;
+    $("#rec-hint").textContent="マイクからの音が届いていません。画面を表示したままにするか、止めて録り直してください。";
+    if(R.ctx.state!=="running" && t-R.lastResume>2000){
+      R.lastResume=t;
+      R.ctx.resume().catch(()=>{});
+    }
+  }else{
+    if(R.stalled){ R.stalled=false; $("#rec-hint").textContent=REC_HINT; }
+    if(REC_MAX-el<60) $("#rec-hint").textContent="あと "+Math.max(0,Math.round(REC_MAX-el))+" 秒で自動停止します。";
+  }
   drawLive();
-  R.af=requestAnimationFrame(liveTick);
 }
 
 function drawLive(){
   const c=$("#c-live"), R=S.rec;
   const r=c.getBoundingClientRect(), dpr=Math.min(2, window.devicePixelRatio||1);
-  if(c.width!==Math.round(r.width*dpr)){ c.width=Math.round(r.width*dpr); c.height=Math.round(56*dpr); }
+  const wantW=Math.max(1,Math.round(r.width*dpr));
+  if(c.width!==wantW){ c.width=wantW; c.height=Math.round(56*dpr); }
   const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
   const w=r.width, h=56;
   g.clearRect(0,0,w,h); g.fillStyle="#0a0d11"; g.fillRect(0,0,w,h);
   g.strokeStyle="#1a2330"; g.lineWidth=1;
   for(let k=1;k<4;k++){ const y=Math.round(h*k/4)+.5; g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
-  if(!R || !R.levels.length){
+  if(!R || !R.cols.length){
     g.fillStyle="#5a6472"; g.font="10px ui-monospace,Menlo,monospace"; g.textAlign="center"; g.textBaseline="middle";
-    g.fillText("入力待ち", w/2, h/2); return;
+    g.fillText(R?"入力待ち":"待機中", w/2, h/2); return;
   }
-  const n=R.levels.length;
-  const bw=Math.max(1, w/n);
+  const n=R.cols.length, bw=w/LIVE_COLS, x0=w-n*bw;
+  // 割れていない柱をまとめて描き、割れた柱だけ色を変える
+  g.fillStyle="#f0b24a";
   for(let i=0;i<n;i++){
-    const v=clamp((R.levels[i].db+72)/72, 0, 1);
-    const bh=Math.max(1, v*(h-4));
-    g.fillStyle = R.levels[i].pk>0.99 ? "#e2564a" : "#f0b24a";
-    g.fillRect(i*bw, h-bh-2, Math.max(1,bw-0.5), bh);
+    if(R.cols[i].pk>0.99) continue;
+    const v=clamp((R.cols[i].db+72)/72,0,1), bh=Math.max(1, v*(h-4));
+    g.fillRect(x0+i*bw, h-bh-2, Math.max(1,bw-0.5), bh);
+  }
+  g.fillStyle="#e2564a";
+  for(let i=0;i<n;i++){
+    if(R.cols[i].pk<=0.99) continue;
+    const v=clamp((R.cols[i].db+72)/72,0,1), bh=Math.max(1, v*(h-4));
+    g.fillRect(x0+i*bw, h-bh-2, Math.max(1,bw-0.5), bh);
   }
   g.fillStyle="#5a6472"; g.font="9px ui-monospace,Menlo,monospace"; g.textAlign="right"; g.textBaseline="top";
   g.fillText("直近 "+LIVE_SPAN+" 秒", w-4, 3);
@@ -499,7 +567,7 @@ async function stopRec(){
   $("#rec").hidden=false; $("#rec-stop").hidden=true;
   $("#rec-dot").classList.remove("live");
   $("#pick").disabled=false; $("#raw").disabled=false;
-  $("#rec-hint").textContent="録音は端末内に留まります。最長15分で自動停止します。";
+  $("#rec-hint").textContent=REC_HINT;
   drawLive();
   const secs=R.total/R.sr;
   if(secs<1.5){ setStatus("録音が短すぎます。1.5秒以上録ってください。", true); $("#rec-time").textContent="0:00.0"; return; }
@@ -1196,6 +1264,9 @@ $("#rec").addEventListener("click",startRec);
 $("#rec-stop").addEventListener("click",stopRec);
 $("#file").addEventListener("change",()=>{ if(S.rec) stopRec(); });
 window.addEventListener("pagehide",()=>{ if(S.rec) stopRec(); });
+document.addEventListener("visibilitychange",()=>{
+  if(S.rec && !document.hidden && S.rec.ctx.state!=="running") S.rec.ctx.resume().catch(()=>{});
+});
 
 $("#play").addEventListener("click",()=>{ S.playing?stopPlay():startPlay(); });
 $("#zoom").addEventListener("click",()=>{
