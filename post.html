@@ -109,6 +109,18 @@ button:disabled{opacity:.4;cursor:default}
 
 .queue-actions{display:flex;gap:10px;margin-top:14px}
 .queue-actions button{flex:1}
+
+button.ghost.danger{color:var(--vermilion);border-color:rgba(178,58,46,.5)}
+
+.inv{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.iitem{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  border:1px solid var(--rule);background:var(--ink-raised);padding:10px 12px}
+.iitem .iname{flex:1 1 auto;min-width:0;font-family:var(--mincho);font-size:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iitem .isize{flex:none;font-family:var(--mono);font-size:10.5px;color:var(--paper-dim)}
+.iitem .iacts{flex:none;display:flex;gap:6px;width:100%}
+.iitem .iacts button{padding:8px 12px;font-size:12.5px;flex:1}
+.iitem.gone{opacity:.4}
 </style>
 </head>
 <body>
@@ -162,6 +174,15 @@ button:disabled{opacity:.4;cursor:default}
     <button class="ghost" id="queueClear">リストを消す</button>
     <button id="queueSend">投函する</button>
   </div>
+</fieldset>
+
+<fieldset>
+  <legend>在庫</legend>
+  <div class="field">
+    <button class="ghost" id="loadInv" type="button">一覧を読み込む</button>
+    <p class="hint">書庫の <code>apps/</code> を読み出す。「更新」は同じ名前で新しい中身に差し替え、「削除」は取り消せない。</p>
+  </div>
+  <ul class="inv" id="inv"></ul>
 </fieldset>
 
 <div id="log"></div>
@@ -433,6 +454,100 @@ $('#queueSend').addEventListener('click', async () => {
   sending = false;
   $('#queueClear').disabled = false;
   renderQueue();
+});
+
+/* ── 在庫（更新・削除） ───────────────────────────────── */
+
+const fmtBytes = (n) =>
+  n >= 1048576 ? (n/1048576).toFixed(1)+' MB'
+: n >= 1024    ? Math.round(n/1024)+' KB'
+:                n+' B';
+
+let inventory = [];
+
+$('#loadInv').addEventListener('click', async () => {
+  const repo  = $('#repo').value.trim();
+  const token = $('#token').value.trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return say('ng','書庫の書き方が違います。「ユーザ名/リポジトリ名」で入れてください。');
+  if (!token) return say('ng','合鍵が空です。');
+  persist();
+
+  $('#loadInv').disabled = true;
+  $('#inv').innerHTML = '';
+  try {
+    const res = await api(repo, token, 'apps');
+    if (res.status === 404){ say('wait','apps/ がまだ無いようです。何か投函すると出来ます。'); return; }
+    if (res.status === 401) throw new Error('合鍵が通りません（401）。トークンを確認してください。');
+    if (!res.ok) throw new Error(`一覧を読めません（${res.status}）`);
+
+    const list = await res.json();
+    inventory = list
+      .filter((f) => f.type === 'file' && /\.html?$/i.test(f.name) && !f.name.startsWith('_'))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+      .map((f) => ({ name: f.name, path: f.path, sha: f.sha, size: f.size }));
+    renderInv();
+    if (!inventory.length) say('wait','apps/ に器械がありません。');
+  } catch (err) {
+    say('ng', '一覧を読み込めませんでした： ' + err.message);
+  } finally {
+    $('#loadInv').disabled = false;
+  }
+});
+
+function renderInv(){
+  $('#inv').innerHTML = inventory.map((it) => `
+    <li class="iitem" data-path="${esc(it.path)}">
+      <span class="iname">${esc(it.name)}</span>
+      <span class="isize">${fmtBytes(it.size)}</span>
+      <div class="iacts">
+        <button class="ghost" data-upd-name="${esc(it.name)}" type="button">更新</button>
+        <button class="ghost danger" data-del-path="${esc(it.path)}" data-del-sha="${esc(it.sha)}" data-del-name="${esc(it.name)}" type="button">削除</button>
+      </div>
+    </li>`).join('');
+}
+
+$('#inv').addEventListener('click', async (e) => {
+  const upd = e.target.closest('[data-upd-name]');
+  if (upd){
+    $('#name').value = upd.dataset.updName;
+    $('#html').value = '';
+    $('#preview').innerHTML = '';
+    $('#send').disabled = true;
+    $('#html').scrollIntoView({ behavior:'smooth', block:'center' });
+    $('#html').focus();
+    say('wait', `「${upd.dataset.updName}」を更新する準備をしました。新しいHTMLを貼るか、ファイルから同じ名前で選んで投函してください。`);
+    return;
+  }
+
+  const del = e.target.closest('[data-del-path]');
+  if (del){
+    const path = del.dataset.delPath, sha = del.dataset.delSha, name = del.dataset.delName;
+    if (!confirm(`「${name}」を削除します。取り消せません。よろしいですか？`)) return;
+
+    const repo  = $('#repo').value.trim();
+    const token = $('#token').value.trim();
+    if (!token) return say('ng','合鍵が空です。');
+
+    del.disabled = true;
+    say('wait', `${path} を削除中…`);
+    try {
+      const res = await api(repo, token, path, {
+        method: 'DELETE',
+        body: JSON.stringify({ message: `除籍: ${name}`, sha }),
+      });
+      if (!res.ok){
+        const body = await res.json().catch(() => ({}));
+        throw new Error(`${res.status} ${body.message || res.statusText}`);
+      }
+      say('ok', `削除しました： ${path}`);
+      say('wait','台帳への記帳は Actions が終わり次第（およそ1分）反映されます。');
+      inventory = inventory.filter((it) => it.path !== path);
+      renderInv();
+    } catch (err) {
+      say('ng', `${path} を削除できませんでした： ` + err.message);
+      del.disabled = false;
+    }
+  }
 });
 })();
 </script>
