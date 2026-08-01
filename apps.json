@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-31T16:56:03.160Z",
-  "count": 7,
-  "totalBytes": 1851179,
+  "generated": "2026-08-01T06:26:17.976Z",
+  "count": 8,
+  "totalBytes": 1946672,
   "categories": [
     "未分類"
   ],
@@ -89,7 +89,19 @@
       "tags": [],
       "updated": "2026-08-01T01:55:47+09:00",
       "bytes": 524570
+    },
+    {
+      "no": "008",
+      "file": "apps/prompt builder.html",
+      "name": "プロンプトビルダー",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-08-01T15:25:55+09:00",
+      "bytes": 95493
     }
   ],
-  "nextNo": 8
+  "nextNo": 9
 }
