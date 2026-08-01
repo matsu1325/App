@@ -75,6 +75,40 @@ button:disabled{opacity:.4;cursor:default}
 #log .ng{color:var(--vermilion)}
 #log .wait{color:var(--brass)}
 #log a{color:var(--brass)}
+
+.sep{display:flex;align-items:center;gap:10px;margin:22px 0;
+     font-family:var(--mincho);font-size:11px;letter-spacing:.2em;color:var(--paper-dim)}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+.filepick{display:block;border:1px dashed var(--rule);border-radius:2px;
+  padding:18px 14px;text-align:center;cursor:pointer;color:var(--paper-dim);
+  font-size:13px;letter-spacing:.05em;background:var(--ink-raised)}
+.filepick:active{border-color:var(--brass)}
+.filepick b{display:block;color:var(--paper);font-family:var(--mincho);
+  font-size:15px;letter-spacing:.1em;margin-bottom:4px}
+#filePick{display:none}
+
+.queue{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.qitem{border:1px solid var(--rule);border-left:2px solid var(--vermilion);
+  background:var(--ink-raised);padding:12px 13px}
+.qitem.ok{border-left-color:var(--verdigris)}
+.qitem.ng{border-left-color:var(--vermilion);opacity:.75}
+.qhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.qhead .qname{flex:1;min-width:0;font-family:var(--mincho);font-size:15px;
+  font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qhead .qremove{flex:none;background:none;border:none;color:var(--paper-dim);
+  font-family:var(--mono);font-size:15px;padding:2px 6px;cursor:pointer}
+.qdesc{font-size:12px;color:var(--paper-dim);margin:0 0 8px}
+.qfile{display:flex;align-items:baseline;gap:6px}
+.qfile label{margin:0;flex:none;font-size:10.5px}
+.qfile input{font-size:13px;padding:7px 9px}
+.qstatus{margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.05em}
+.qstatus.ok{color:var(--verdigris)}
+.qstatus.ng{color:var(--vermilion)}
+.qstatus.wait{color:var(--brass)}
+
+.queue-actions{display:flex;gap:10px;margin-top:14px}
+.queue-actions button{flex:1}
 </style>
 </head>
 <body>
@@ -111,6 +145,22 @@ button:disabled{opacity:.4;cursor:default}
   <div class="actions">
     <button class="ghost" id="paste">貼り付け</button>
     <button id="send" disabled>投函する</button>
+  </div>
+
+  <div class="sep">または</div>
+
+  <div class="field">
+    <label for="filePick">ファイルから選ぶ</label>
+    <label class="filepick" id="filePickLabel" for="filePick">
+      <b>ファイルを選ぶ</b>
+      端末に保存したHTMLを選ぶ。複数まとめて選んでも良い。
+    </label>
+    <input type="file" id="filePick" accept=".html,.htm,text/html" multiple>
+  </div>
+  <ul class="queue" id="queue"></ul>
+  <div class="queue-actions" id="queueActions" hidden>
+    <button class="ghost" id="queueClear">リストを消す</button>
+    <button id="queueSend">投函する</button>
   </div>
 </fieldset>
 
@@ -213,33 +263,19 @@ async function api(repo, token, path, init = {}){
   });
 }
 
-$('#send').addEventListener('click', async () => {
-  const repo  = $('#repo').value.trim();
-  const token = $('#token').value.trim();
-  const html  = $('#html').value;
-  let file    = $('#name').value.trim();
-
-  $('#log').innerHTML = '';
-
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return say('ng','書庫の書き方が違います。「ユーザ名/リポジトリ名」で入れてください。');
-  if (!token) return say('ng','合鍵が空です。');
-  if (!file)  return say('ng','ファイル名が空です。');
-  if (!/\.html?$/i.test(file)) file += '.html';
-
+/* 1件を投函する。成否をログに書きつつ返す（単発・まとめての両方から使う） */
+async function deposit(repo, token, file, html){
   const path = 'apps/' + file;
-  persist();
-  $('#send').disabled = true;
   say('wait', `${path} を確認中…`);
-
   try {
     // 既にあれば sha を添えて上書き、無ければ新規
     let sha = null;
     const head = await api(repo, token, path);
     if (head.status === 200){
       sha = (await head.json()).sha;
-      say('wait','既存の器械を差し替えます。');
+      say('wait', `既存の器械を差し替えます： ${path}`);
     } else if (head.status === 404){
-      say('wait','新しい器械として収めます。');
+      say('wait', `新しい器械として収めます： ${path}`);
     } else if (head.status === 401){
       throw new Error('合鍵が通りません（401）。トークンを確認してください。');
     } else if (head.status === 403){
@@ -263,15 +299,140 @@ $('#send').addEventListener('click', async () => {
     }
 
     const out = await res.json();
-    say('ok','投函しました。');
+    say('ok', `投函しました： ${path}`);
     say('ok', `<a href="${out.content.html_url}" target="_blank" rel="noopener">GitHub で見る</a>`);
+    return { ok:true, url: out.content.html_url };
+  } catch (err) {
+    say('ng', `${path} を投函できませんでした： ` + err.message);
+    return { ok:false, error: err.message };
+  }
+}
+
+$('#send').addEventListener('click', async () => {
+  const repo  = $('#repo').value.trim();
+  const token = $('#token').value.trim();
+  const html  = $('#html').value;
+  let file    = $('#name').value.trim();
+
+  $('#log').innerHTML = '';
+
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return say('ng','書庫の書き方が違います。「ユーザ名/リポジトリ名」で入れてください。');
+  if (!token) return say('ng','合鍵が空です。');
+  if (!file)  return say('ng','ファイル名が空です。');
+  if (!/\.html?$/i.test(file)) file += '.html';
+
+  persist();
+  $('#send').disabled = true;
+  const result = await deposit(repo, token, file, html);
+  if (result.ok){
     say('wait','台帳への記帳は Actions が終わり次第（およそ1分）反映されます。');
     $('#html').value = ''; $('#name').value = ''; $('#preview').innerHTML = '';
-  } catch (err) {
-    say('ng','投函できませんでした： ' + err.message);
-  } finally {
-    $('#send').disabled = false;
   }
+  $('#send').disabled = false;
+});
+
+/* ── ファイルから選ぶ（複数可） ───────────────────────── */
+
+let queue = [];
+let qid = 1;
+let sending = false;
+
+$('#filePick').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  for (const f of files){
+    if (!/\.html?$/i.test(f.name) && f.type !== 'text/html'){
+      say('ng', `${f.name} はHTMLではないようです。スキップしました。`);
+      continue;
+    }
+    let html;
+    try { html = await f.text(); }
+    catch { say('ng', `${f.name} を読み込めませんでした。`); continue; }
+
+    const mf = readManifest(html);
+    const title = pickTitle(html);
+    const base = f.name.replace(/\.html?$/i, '');
+    const name = (mf && !mf.__broken && mf.name) || title.split(/[|—–\-/／｜]/)[0].trim() || base || '（名称不明）';
+    const desc = (mf && !mf.__broken && mf.desc) || pickDesc(html) || '摘要未記入';
+    const cat  = (mf && !mf.__broken && mf.category) || '未分類';
+    const file = (base || slug(title) || ('kikai-' + qid)) + '.html';
+
+    queue.push({ id: qid++, file, html, name, desc, cat, status: 'pending' });
+  }
+  renderQueue();
+});
+
+function renderQueue(){
+  const box = $('#queue');
+  if (!queue.length){
+    box.innerHTML = '';
+    $('#queueActions').hidden = true;
+    return;
+  }
+  box.innerHTML = queue.map((q) => `
+    <li class="qitem ${q.status === 'ok' ? 'ok' : q.status === 'ng' ? 'ng' : ''}">
+      <div class="qhead">
+        <span class="qname">${esc(q.name)}</span>
+        <button class="qremove" data-remove="${q.id}" aria-label="外す" ${sending ? 'disabled' : ''}>×</button>
+      </div>
+      <p class="qdesc">${esc(q.desc)} ／ ${esc(q.cat)}</p>
+      <div class="qfile">
+        <label>ファイル名</label>
+        <input data-file="${q.id}" value="${esc(q.file)}" autocapitalize="off" autocorrect="off" spellcheck="false" ${sending || q.status === 'ok' ? 'disabled' : ''}>
+      </div>
+      ${q.status === 'ok'      ? '<p class="qstatus ok">投函済み</p>' : ''}
+      ${q.status === 'ng'      ? `<p class="qstatus ng">失敗： ${esc(q.error || '')}</p>` : ''}
+      ${q.status === 'sending' ? '<p class="qstatus wait">投函中…</p>' : ''}
+    </li>`).join('');
+
+  $('#queueActions').hidden = false;
+  const pending = queue.filter((q) => q.status !== 'ok').length;
+  $('#queueSend').textContent = pending ? `${pending}件を投函する` : '投函済み';
+  $('#queueSend').disabled = sending || pending === 0;
+}
+
+$('#queue').addEventListener('click', (e) => {
+  const rm = e.target.closest('[data-remove]');
+  if (!rm) return;
+  queue = queue.filter((q) => q.id !== +rm.dataset.remove);
+  renderQueue();
+});
+$('#queue').addEventListener('input', (e) => {
+  const el = e.target.closest('[data-file]');
+  if (!el) return;
+  const q = queue.find((q) => q.id === +el.dataset.file);
+  if (q) q.file = el.value.trim();
+});
+$('#queueClear').addEventListener('click', () => { queue = []; renderQueue(); });
+
+$('#queueSend').addEventListener('click', async () => {
+  const repo  = $('#repo').value.trim();
+  const token = $('#token').value.trim();
+
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return say('ng','書庫の書き方が違います。「ユーザ名/リポジトリ名」で入れてください。');
+  if (!token) return say('ng','合鍵が空です。');
+  persist();
+
+  $('#log').innerHTML = '';
+  sending = true;
+  $('#queueClear').disabled = true;
+  renderQueue();
+
+  for (const q of queue){
+    if (q.status === 'ok') continue;
+    if (!q.file){ q.status = 'ng'; q.error = 'ファイル名が空です。'; renderQueue(); continue; }
+    if (!/\.html?$/i.test(q.file)) q.file += '.html';
+    q.status = 'sending'; renderQueue();
+    const result = await deposit(repo, token, q.file, q.html);
+    q.status = result.ok ? 'ok' : 'ng';
+    q.error = result.error;
+    renderQueue();
+  }
+
+  say('wait','台帳への記帳は Actions が終わり次第（およそ1分）反映されます。');
+  sending = false;
+  $('#queueClear').disabled = false;
+  renderQueue();
 });
 })();
 </script>
