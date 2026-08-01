@@ -185,6 +185,10 @@ button.act.sub{border-color:var(--line);color:var(--dim)}
 .file-btn{display:inline-block;border:1px solid var(--line);border-radius:2px;padding:8px 12px;
   font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer}
 input[type=file]{display:none}
+/* 連携（他の器械へ渡す） */
+.renkei-note{font-size:11.5px;color:var(--dim);margin:8px 0 0;line-height:1.7}
+.renkei-note a{color:var(--brass)}
+.renkei-note.ng{color:#c2645a}
 footer{color:var(--dim);font-family:var(--mono);font-size:10px;text-align:center;padding:26px 0 6px;letter-spacing:.08em}
 /* トースト */
 #toast{
@@ -248,6 +252,16 @@ footer{color:var(--dim);font-family:var(--mono);font-size:10px;text-align:center
       <button class="act" id="btn-copy">コピー</button>
       <button class="act" id="btn-dl">.md で保存</button>
     </div>
+    <div class="io">
+      <h2>他の器械へ渡す</h2>
+      <p>いま選んでいる範囲（上の「範囲」に従う）の人物を、同じ書庫の器械へ受け渡します。渡した先で「受け取る」を押すと写ります。</p>
+      <div class="big-acts">
+        <button class="act sub" id="btn-to-gikyoku">戯曲装置へ渡す</button>
+        <button class="act sub" id="btn-to-tsubaki">椿ノ工房へ渡す</button>
+      </div>
+      <p class="renkei-note" id="renkei-note"></p>
+    </div>
+
     <div class="io">
       <h2>読み込み</h2>
       <p>この所で書き出した .md を貼れば、そのまま続きを仕立てられます。書き出し文の末尾には人物データが注記として埋め込んであり、他のアプリでは表示されません。</p>
@@ -787,6 +801,61 @@ $("file").addEventListener("change",e=>{
   r.readAsText(f,"utf-8");
   e.target.value="";
 });
+
+/* ============ 連携（受渡箱） ============
+   同じ書庫に並ぶ器械同士で人物を受け渡す。同一オリジンなので
+   localStorage を共有できる。渡す側はここ、受け取る側は各器械。 */
+const RENKEI_KEY="kikai.renkei.v1";
+const Renkei={
+  read(){
+    try{
+      const d=JSON.parse(localStorage.getItem(RENKEI_KEY));
+      if(!d||typeof d!=="object")return{chars:[],scenes:[]};
+      return {chars:Array.isArray(d.chars)?d.chars:[],scenes:Array.isArray(d.scenes)?d.scenes:[]};
+    }catch(e){return{chars:[],scenes:[]}}
+  },
+  write(d){try{localStorage.setItem(RENKEI_KEY,JSON.stringify(d));return true}catch(e){return false}},
+  put(kind,items,from){
+    const d=this.read(), now=Date.now();
+    d[kind]=items.map((x,i)=>Object.assign({rid:"r"+now+"-"+i,ts:now,from:from||""},x));
+    return this.write(d);
+  },
+  /* 台帳（apps.json）から兄弟器械の実ファイル名を引く。名が変わっても追える。 */
+  async appUrl(frag){
+    try{
+      if(!Renkei._led){
+        const r=await fetch("../apps.json",{cache:"no-cache"});
+        Renkei._led=r.ok?await r.json():{apps:[]};
+      }
+      const as=Renkei._led.apps||[];
+      const hit=as.find(a=>String(a.name||"").includes(frag))||as.find(a=>String(a.file||"").includes(frag));
+      return hit?"../"+hit.file.split("/").map(encodeURIComponent).join("/"):null;
+    }catch(e){return null}
+  }
+};
+function outgoing(){
+  const list = scope==="one" ? (cur()?[cur()]:[]) : S.chars;
+  return list.filter(c=>nameOf(c)||Object.keys(c.v).length)
+    .map(c=>({id:c.id,name:nameOf(c)||"名無しの人物",yomi:c.v.yomi||"",v:c.v,rels:c.rels}));
+}
+async function handOver(kind,frag,label){
+  const items=outgoing();
+  const note=$("renkei-note");
+  if(!items.length){note.className="renkei-note ng";note.textContent="渡す人物がいない。名簿から一人起こす。";return}
+  if(!Renkei.put("chars",items,"人物仕立所")){
+    note.className="renkei-note ng";
+    note.textContent="この端末では受け渡しの箱が使えない（保存が塞がれている）。書き出した .md を貼って渡してください。";
+    return;
+  }
+  toast(items.length+"名を渡した");
+  const url=await Renkei.appUrl(frag);
+  note.className="renkei-note";
+  note.innerHTML=items.length+"名を受渡箱に入れました。"
+    +(url?` <a href="${url}">${esc(label)}を開く</a> → 向こうで「人物仕立所から受け取る」を押す。`
+         :` ${esc(label)}を開いて「人物仕立所から受け取る」を押してください。`);
+}
+$("btn-to-gikyoku").addEventListener("click",()=>handOver("chars","戯曲装置","戯曲装置"));
+$("btn-to-tsubaki").addEventListener("click",()=>handOver("chars","椿ノ工房","椿ノ工房"));
 
 function renderAll(){renderRoster();if($("v-edit").classList.contains("on"))renderEditor();if($("v-out").classList.contains("on"))renderOut()}
 load();
