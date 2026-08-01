@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12100E">
+<title>プロンプトビルダー</title>
+<style>
+:root{
+  --ink:#0B0B0D;
+  --ink2:#151519;
+  --ink3:#1F1F26;
+  --red:#E60021;
+  --red-d:#8E0014;
+  --white:#F7F5F0;
+  --grey:#8E8E99;
+  --yellow:#FFD400;
+  --gothic:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",YuGothic,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --pop:cubic-bezier(.18,1.25,.35,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--white);
+  font-family:var(--gothic);
+  font-size:16px;line-height:1.7;font-weight:500;
+  padding-bottom:calc(92px + env(safe-area-inset-bottom));
+  -webkit-text-size-adjust:100%;
+  overflow-x:hidden;
+}
+/* 背景：流れる斜めストライプ＋赤い滲み */
+body::before{
+  content:"";position:fixed;inset:-40% -60%;z-index:-2;pointer-events:none;
+  background:repeating-linear-gradient(115deg,
+    rgba(230,0,33,.09) 0 3px,transparent 3px 26px);
+  animation:drift 22s linear infinite;
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(120% 62% at 92% -8%,rgba(230,0,33,.30),transparent 62%),
+    radial-gradient(90% 46% at -10% 104%,rgba(230,0,33,.16),transparent 60%);
+}
+@keyframes drift{to{transform:translate3d(-90px,-196px,0)}}
+
+/* ── ヘッダー ───────────────────────── */
+header{position:relative;z-index:1;padding:calc(26px + env(safe-area-inset-top)) 18px 30px;overflow:hidden}
+header::before{
+  content:"";position:absolute;left:-14%;right:-14%;top:0;bottom:22px;
+  background:var(--red);transform:skewY(-4deg) translateY(-34%);z-index:-1;
+}
+header::after{
+  content:"";position:absolute;left:-14%;right:-14%;top:0;bottom:-6px;
+  background:var(--ink2);transform:skewY(-4deg) translateY(52%);z-index:-1;
+  box-shadow:0 -3px 0 var(--white);
+}
+h1{
+  margin:0;font-size:36px;font-weight:900;line-height:1;
+  letter-spacing:.02em;transform:skewX(-7deg);
+  text-shadow:4px 4px 0 var(--ink),8px 8px 0 rgba(230,0,33,.55);
+  animation:slam-in .5s var(--pop) both;
+}
+h1 .dot{
+  display:inline-block;background:var(--white);color:var(--red);
+  padding:0 8px;margin-left:4px;transform:rotate(3deg);text-shadow:none;
+}
+.tagline{
+  display:inline-block;margin:14px 0 0;padding:5px 12px;
+  background:var(--white);color:var(--ink);transform:skewX(-7deg) rotate(-1deg);
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;
+  box-shadow:4px 4px 0 var(--red);
+  animation:slam-in .5s .08s var(--pop) both;
+}
+@keyframes slam-in{
+  from{opacity:0;transform:translateX(-38px) skewX(-18deg)}
+}
+
+/* ── タブ ───────────────────────── */
+nav{
+  position:sticky;top:0;z-index:20;
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  padding:10px 14px 12px;
+  background:linear-gradient(180deg,var(--ink) 68%,rgba(11,11,13,0));
+}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  flex:0 0 auto;appearance:none;cursor:pointer;
+  border:2px solid var(--white);background:var(--ink2);color:var(--white);
+  font-family:var(--gothic);font-size:15px;font-weight:800;letter-spacing:.04em;
+  padding:9px 15px;transform:skewX(-10deg);
+  transition:transform .18s var(--pop),background .15s,box-shadow .18s;
+}
+nav button>*{display:inline-block;transform:skewX(10deg)}
+nav button .num{font-family:var(--mono);font-size:11px;color:var(--grey);margin-right:5px}
+nav button[aria-selected="true"]{
+  background:var(--red);border-color:var(--white);
+  transform:skewX(-10deg) translateY(-2px) scale(1.04);
+  box-shadow:5px 5px 0 var(--white);
+}
+nav button[aria-selected="true"] .num{color:var(--yellow)}
+nav button:active{transform:skewX(-10deg) scale(.94)}
+
+/* ── 本文 ───────────────────────── */
+main{padding:14px 16px 12px;max-width:760px;margin:0 auto}
+section[hidden]{display:none}
+section.in>*{animation:card-in .38s var(--pop) backwards}
+section.in>*:nth-child(1){animation-delay:.02s}
+section.in>*:nth-child(2){animation-delay:.07s}
+section.in>*:nth-child(3){animation-delay:.12s}
+section.in>*:nth-child(4){animation-delay:.17s}
+section.in>*:nth-child(5){animation-delay:.22s}
+section.in>*:nth-child(6){animation-delay:.27s}
+section.in>*:nth-child(7){animation-delay:.32s}
+section.in>*:nth-child(n+8){animation-delay:.36s}
+@keyframes card-in{
+  from{opacity:0;transform:translateX(-34px) skewX(-9deg)}
+}
+.lede{
+  position:relative;font-size:13px;font-weight:600;color:var(--white);
+  margin:0 0 20px;padding:11px 13px 11px 17px;
+  background:var(--ink2);border-left:6px solid var(--red);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 11px),calc(100% - 11px) 100%,0 100%);
+}
+fieldset{
+  position:relative;border:2px solid var(--white);border-radius:0;
+  margin:0 0 20px;padding:16px 14px 18px;background:var(--ink2);
+}
+fieldset::after{
+  content:"";position:absolute;right:-2px;bottom:-2px;width:0;height:0;
+  border:11px solid transparent;border-right-color:var(--red);border-bottom-color:var(--red);
+}
+legend{
+  font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.14em;
+  color:var(--white);background:var(--red);padding:4px 11px;
+  transform:skewX(-10deg);margin-left:2px;
+}
+label{display:block;margin:14px 0 0}
+label:first-of-type{margin-top:2px}
+.lb{
+  display:inline-block;font-size:11px;font-weight:800;letter-spacing:.08em;
+  color:var(--ink);background:var(--white);padding:2px 9px;margin-bottom:6px;
+  transform:skewX(-10deg);font-family:var(--mono);
+}
+.lb em{font-style:normal;color:var(--red);margin-left:5px;font-weight:900}
+input[type=text],input[type=number],textarea,select{
+  width:100%;font:inherit;font-size:16px;font-weight:500;
+  background:var(--ink);color:var(--white);
+  border:2px solid #35353F;border-radius:0;
+  padding:10px 11px;
+  transition:border-color .15s,box-shadow .18s var(--pop),transform .18s var(--pop);
+}
+textarea{min-height:76px;resize:vertical;line-height:1.65}
+select{
+  appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--red) 50%),linear-gradient(135deg,var(--red) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 52%,calc(100% - 10px) 52%;
+  background-size:6px 6px,6px 6px;background-repeat:no-repeat;
+  padding-right:34px;
+}
+input:focus,textarea:focus,select:focus{
+  outline:none;border-color:var(--white);
+  box-shadow:5px 5px 0 var(--red);transform:translate(-1px,-1px);
+}
+.row{display:flex;gap:10px}
+.row>*{flex:1;margin-top:14px}
+
+/* ── 選択ボタン ─────────────────────── */
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
+#quickChips .chip,#recentChips .chip{font-size:14px;padding:10px 15px}
+.chip{
+  appearance:none;cursor:pointer;font:inherit;font-size:13px;font-weight:800;
+  background:var(--ink3);color:var(--white);
+  border:2px solid var(--white);border-radius:0;padding:8px 14px;
+  transform:skewX(-10deg);
+  transition:transform .18s var(--pop),background .14s,box-shadow .18s var(--pop);
+}
+.chip>*{display:inline-block;transform:skewX(10deg)}
+.chip:not(.big){text-indent:0}
+.chip:active{transform:skewX(-10deg) scale(.93)}
+.chip[aria-pressed="true"]{
+  background:var(--red);color:#fff;
+  transform:skewX(-10deg) translateY(-3px) rotate(-1deg);
+  box-shadow:6px 6px 0 var(--white);
+}
+.chip.recent{border-color:var(--yellow);color:var(--yellow)}
+.chip.big{
+  flex:1;min-width:96px;font-size:22px;font-weight:900;letter-spacing:.06em;
+  padding:16px 10px;text-align:center;line-height:1.2;
+}
+.chip.big small{
+  display:block;font-size:10px;font-weight:700;letter-spacing:.02em;
+  opacity:.72;margin-top:5px;transform:none;
+}
+.chip.big[aria-pressed="true"]{
+  background:
+    radial-gradient(circle at 3px 3px,rgba(0,0,0,.22) 1.4px,transparent 1.6px) 0 0/9px 9px,
+    var(--red);
+}
+
+/* ── チェック群 ───────────────────── */
+.checks{
+  display:grid;grid-template-columns:1fr;gap:7px;margin-top:9px;
+  background:transparent;border:0;
+}
+@media(min-width:560px){.checks{grid-template-columns:1fr 1fr}}
+.checks label{
+  display:flex;align-items:flex-start;gap:10px;margin:0;
+  background:var(--ink3);border:2px solid #35353F;
+  padding:11px 12px;font-size:14px;font-weight:700;cursor:pointer;
+  transition:transform .16s var(--pop),background .14s,border-color .14s,box-shadow .16s;
+}
+.checks label:active{transform:scale(.97)}
+.checks label:has(input:checked){
+  background:var(--red);border-color:var(--white);color:#fff;
+  box-shadow:4px 4px 0 var(--white);transform:translate(-1px,-1px);
+}
+.checks input{margin:2px 0 0;accent-color:var(--white);width:18px;height:18px;flex:0 0 auto}
+.checks label:has(input:checked) input{accent-color:var(--ink)}
+.checks .memo{display:block;font-size:11px;font-weight:600;opacity:.72;line-height:1.45}
+
+/* ── 追加行 ─────────────────────── */
+.stack{margin-top:9px}
+.item{
+  display:flex;gap:9px;align-items:flex-start;
+  background:var(--ink3);border:2px solid #35353F;border-radius:0;
+  padding:10px;margin-bottom:8px;
+  animation:card-in .3s var(--pop) both;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);
+}
+.item .idx{
+  font-family:var(--mono);font-size:12px;font-weight:900;color:#fff;
+  background:var(--red);padding:2px 7px;margin-top:6px;
+  transform:skewX(-10deg);min-width:24px;text-align:center;
+}
+.item .fields{flex:1;display:flex;flex-direction:column;gap:7px}
+.item input{background:var(--ink)}
+.del{
+  appearance:none;border:2px solid var(--white);background:var(--ink);
+  color:var(--white);border-radius:0;width:34px;height:34px;font-size:17px;font-weight:900;
+  cursor:pointer;margin-top:3px;flex:0 0 auto;transition:transform .16s var(--pop),background .14s;
+}
+.del:active{transform:scale(.9);background:var(--red)}
+.add{
+  appearance:none;width:100%;background:var(--ink);color:var(--white);
+  border:2px dashed var(--grey);border-radius:0;padding:11px;
+  font:inherit;font-size:13px;font-weight:800;cursor:pointer;
+  transition:transform .16s var(--pop),border-color .14s,color .14s;
+}
+.add:active{transform:scale(.97)}
+.add:hover{border-color:var(--red);color:var(--red)}
+.empty{font-size:12px;font-weight:600;color:var(--grey);padding:7px 2px}
+
+/* ── 完成プロンプト ────────────────────── */
+.proof-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}
+.proof-head .count{
+  font-family:var(--mono);font-size:11px;font-weight:800;color:#fff;
+  background:var(--red);padding:3px 10px;transform:skewX(-10deg);
+}
+.paper{
+  position:relative;background:var(--white);color:var(--ink);
+  border:3px solid var(--ink);border-radius:0;padding:30px 18px 24px;
+  transform:rotate(-.5deg);
+  box-shadow:9px 9px 0 var(--red),9px 9px 0 3px var(--ink);
+}
+.paper::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:9px;
+  background:repeating-linear-gradient(115deg,var(--ink) 0 7px,var(--red) 7px 14px);
+}
+.paper::after{
+  content:"";position:absolute;right:8px;bottom:8px;width:78px;height:56px;
+  background:radial-gradient(circle at 2px 2px,rgba(11,11,13,.22) 1.5px,transparent 1.7px) 0 0/8px 8px;
+  pointer-events:none;
+}
+.paper pre{
+  position:relative;z-index:1;margin:0;
+  font-family:var(--mono);font-size:13px;line-height:1.85;font-weight:500;
+  white-space:pre-wrap;word-break:break-word;
+}
+.paper .stamp{
+  position:absolute;top:-13px;right:12px;
+  font-family:var(--mono);font-size:11px;font-weight:900;letter-spacing:.16em;
+  color:#fff;background:var(--red);border:2px solid var(--ink);
+  padding:3px 10px;transform:rotate(4deg);
+}
+.tools{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+.tools button{
+  appearance:none;cursor:pointer;font:inherit;font-size:14px;font-weight:800;
+  background:var(--ink3);color:var(--white);
+  border:2px solid var(--white);border-radius:0;padding:12px 14px;flex:1;min-width:104px;
+  transform:skewX(-10deg);
+  transition:transform .18s var(--pop),background .14s,box-shadow .18s var(--pop);
+}
+.tools button>*{display:inline-block;transform:skewX(10deg)}
+.tools button:active{transform:skewX(-10deg) scale(.93)}
+.tools button.primary{background:var(--red);box-shadow:5px 5px 0 var(--white)}
+.saved{margin-top:22px}
+.saved-item{
+  display:flex;gap:9px;align-items:center;
+  border:2px solid #35353F;border-radius:0;background:var(--ink3);
+  padding:10px 12px;margin-bottom:8px;font-size:14px;font-weight:700;
+  animation:card-in .3s var(--pop) both;
+}
+.saved-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-item .dt{font-family:var(--mono);font-size:10px;color:var(--grey)}
+.saved-item button{
+  appearance:none;border:2px solid var(--white);background:var(--ink);
+  color:var(--white);border-radius:0;padding:6px 11px;font:inherit;font-size:12px;font-weight:800;
+  cursor:pointer;transform:skewX(-10deg);transition:transform .16s var(--pop),background .14s;
+}
+.saved-item button:active{transform:skewX(-10deg) scale(.9);background:var(--red)}
+
+/* ── 下部固定 ────────────────────── */
+.dock{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;
+  display:flex;gap:10px;align-items:center;
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(11,11,13,.93);backdrop-filter:blur(10px);
+  border-top:3px solid var(--white);
+}
+.dock::before{
+  content:"";position:absolute;left:0;right:0;top:-3px;height:3px;
+  background:repeating-linear-gradient(115deg,var(--red) 0 12px,var(--white) 12px 24px);
+}
+.dock .meter{
+  flex:1;font-family:var(--mono);font-size:11px;font-weight:700;
+  color:var(--grey);line-height:1.45;
+}
+.dock .meter b{color:var(--white);font-weight:900;font-size:13px}
+.dock button{
+  appearance:none;cursor:pointer;font-family:var(--gothic);
+  font-size:16px;font-weight:900;letter-spacing:.06em;
+  background:var(--red);color:#fff;border:2px solid var(--white);border-radius:0;
+  padding:12px 20px;transform:skewX(-10deg);
+  box-shadow:5px 5px 0 var(--white);
+  transition:transform .18s var(--pop),box-shadow .18s var(--pop);
+}
+.dock button:active{transform:skewX(-10deg) scale(.93);box-shadow:2px 2px 0 var(--white)}
+.toast{
+  position:fixed;left:50%;z-index:40;
+  bottom:calc(102px + env(safe-area-inset-bottom));
+  background:var(--red);color:#fff;border:3px solid var(--white);
+  font-size:14px;font-weight:900;letter-spacing:.04em;
+  padding:10px 20px;box-shadow:6px 6px 0 var(--ink);
+  opacity:0;transform:translateX(-50%) skewX(-10deg) translateY(14px);
+  transition:opacity .18s,transform .28s var(--pop);pointer-events:none;
+}
+.toast.on{opacity:1;transform:translateX(-50%) skewX(-10deg) translateY(0)}
+.hint{font-size:11px;font-weight:600;color:var(--grey);margin-top:8px;line-height:1.55}
+.warn{
+  font-size:12px;font-weight:800;color:#fff;background:var(--red);
+  margin-top:10px;padding:8px 11px;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%);
+}
+@media(prefers-reduced-motion:reduce){
+  *{transition-duration:.01ms!important;animation:none!important}
+  body::before{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>プロンプト<span class="dot">ビルダー</span></h1>
+  <p class="tagline">PROMPT BUILDER ／ 用途を選んで、形式を決めて、コピーする</p>
+</header>
+
+<nav role="tablist" id="tabs">
+  <button role="tab" data-tab="t1" aria-selected="true"><span class="num">1</span><span>タイプ</span></button>
+  <button role="tab" data-tab="t2" aria-selected="false"><span class="num">2</span><span>依頼内容</span></button>
+  <button role="tab" data-tab="t3" aria-selected="false"><span class="num">3</span><span>出力形式</span></button>
+  <button role="tab" data-tab="t4" aria-selected="false"><span class="num">4</span><span>オプション</span></button>
+  <button role="tab" data-tab="t5" aria-selected="false"><span class="num">5</span><span>完成</span></button>
+</nav>
+
+<main>
+
+<!-- ══ クイックモード ══ -->
+<section id="qm" hidden>
+  <div class="qm-head">
+    <span class="lb" id="qmName"></span>
+    <button class="chip" id="qmBack"><span>やめる</span></button>
+  </div>
+  <fieldset>
+    <legend>ここだけ入力</legend>
+    <div id="qmFields"></div>
+    <label>
+      <span class="lb">補足（任意）</span>
+      <input type="text" id="qmNote" placeholder="条件や希望があれば一行で">
+    </label>
+  </fieldset>
+  <fieldset>
+    <legend>出力の形</legend>
+    <div class="chips" id="qmLayout"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>できあがり</legend>
+    <pre class="qm-prev" id="qmPrev"></pre>
+    <p class="hint" id="qmDiag"></p>
+    <div class="tools">
+      <button class="primary" id="qmCopy"><span>コピーする</span></button>
+      <button id="qmMore"><span>細かく決める</span></button>
+    </div>
+  </fieldset>
+</section>
+
+<!-- ══ 1 タイプ ══ -->
+<section id="t1" class="in">
+  <p class="lede">まず用途を選びます。テンプレートを選ぶと、あとの項目に下書きが入ります。下書きはすべて書き換えられます。</p>
+
+  <fieldset>
+    <legend>クイックスタート</legend>
+    <div id="recentBox" hidden>
+      <span class="lb">最近使ったもの</span>
+      <div class="chips" id="recentChips"></div>
+    </div>
+    <div class="chips" id="quickChips" style="margin-top:12px"></div>
+    <p class="hint">押すだけで、用途・出力形式・進め方・検索設定までまとめて入ります。そのまま「依頼内容」の入力に進みます。</p>
+    <p class="hint" id="setupSummary"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>用途</legend>
+    <div class="chips" id="useChips">
+      <button class="chip big" data-use="research" aria-pressed="true"><span>調査<small>調べる・確かめる</small></span></button>
+      <button class="chip big" data-use="creative" aria-pressed="false"><span>創作<small>書く・考案する</small></span></button>
+      <button class="chip big" data-use="work" aria-pressed="false"><span>作業<small>処理する・直す</small></span></button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>テンプレート</legend>
+    <div class="chips" id="tplChips"></div>
+    <p class="hint" id="tplHint">テンプレートを選ぶと、役割・出力形式・進め方に下書きが入ります。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>役割（ペルソナ）</legend>
+    <label>
+      <span class="lb">役割</span>
+      <input type="text" id="role" placeholder="例：推測と事実を区別して書く調査員">
+    </label>
+    <p class="hint" id="roleHint"></p>
+    <p class="warn" id="roleWarn" hidden>役割だけでは精度は上がりません。「4 オプション」の進め方で、根拠・段階的な検討・自己チェックを指定してください。</p>
+  </fieldset>
+</section>
+
+<!-- ══ 2 依頼内容 ══ -->
+<section id="t2" hidden>
+  <p class="lede">何を頼むかを書く場所です。「やってほしいこと」だけは必ず入力してください。背景に「なぜ必要か」を一行足すだけで結果が変わります。</p>
+
+  <fieldset>
+    <legend>依頼内容</legend>
+    <label>
+      <span class="lb">やってほしいこと<em>必須</em></span>
+      <textarea id="core" placeholder="一文で書く。例：国内の小型電動モビリティ市場の主要3社を比較したい"></textarea>
+    </label>
+    <label>
+      <span class="lb">背景・状況</span>
+      <textarea id="context" placeholder="何のために使うか、いま何に困っているか"></textarea>
+    </label>
+    <div class="row">
+      <label style="margin-top:0">
+        <span class="lb">読み手</span>
+        <input type="text" id="audience" placeholder="例：社内の非技術者">
+      </label>
+      <label style="margin-top:0">
+        <span class="lb">前提・すでに分かっていること</span>
+        <input type="text" id="known" placeholder="例：基礎知識は説明不要">
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>参考資料</legend>
+    <label>
+      <span class="lb">資料を貼り付ける</span>
+      <textarea id="material" placeholder="原文・データ・既存案など。長い資料はここに貼る"></textarea>
+    </label>
+    <label>
+      <span class="lb">資料の扱い方</span>
+      <select id="materialUse">
+        <option value="">— 指定しない</option>
+        <option value="これを主材料として扱い、記述はこの範囲から出さないこと。">主材料にする（範囲外に出ない）</option>
+        <option value="これは参考情報として扱い、必要に応じて外の知識で補うこと。">参考にする（外の知識で補う）</option>
+        <option value="原文の語句・順序は変えず、指示された箇所のみ手を入れること。">原文は極力保つ（指定箇所のみ）</option>
+        <option value="これは検証の対象である。誤り・矛盾・根拠不足を洗い出すこと。">検証の対象にする</option>
+        <option value="これは書き方の見本である。同じ調子で新しく書き起こすこと。">書き方の見本にする</option>
+      </select>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>情報源・検索</legend>
+    <label>
+      <span class="lb">調べ方</span>
+      <select id="research">
+        <option value="">指定しない</option>
+        <option value="ウェブを検索し、確認できた情報に基づいて答えること。">検索して確かめる</option>
+        <option value="まずウェブを検索し、確認できなかった部分のみ手持ちの知識で補うこと。どちらに拠るかは区別して示すこと。">検索優先＋知識で補う</option>
+        <option value="検索は行わず、手持ちの知識の範囲で答えること。確信の持てない点は明示すること。">検索しない</option>
+        <option value="与えられた資料の範囲だけで答えてください。資料にない事柄は「資料に記載なし」と書いてください。">資料の範囲のみ</option>
+      </select>
+    </label>
+    <label>
+      <span class="lb">優先する情報源</span>
+      <input type="text" id="srcPref" placeholder="例：公式ドキュメント、一次資料、査読論文">
+    </label>
+    <label>
+      <span class="lb">読ませたいURL（改行区切り）</span>
+      <textarea id="srcUrl" placeholder="https://..."></textarea>
+    </label>
+    <label>
+      <span class="lb">情報の鮮度</span>
+      <select id="freshness">
+        <option value="">指定しない</option>
+        <option value="直近1か月以内の情報を優先すること。">直近1か月</option>
+        <option value="直近6か月以内の情報を優先すること。">直近6か月</option>
+        <option value="直近1年以内の情報を優先すること。">直近1年</option>
+        <option value="時点は問わないが、各情報がいつ時点のものかを明記すること。">問わない（時点を明記）</option>
+      </select>
+    </label>
+    <div class="checks" id="citation">
+      <label><input type="checkbox" data-n="各記述の直後に、出典元の名称とURLを添える。"><span>各記述に出典を添える</span></label>
+      <label><input type="checkbox" data-n="末尾に、参照した情報源の一覧を付ける。"><span>末尾に情報源の一覧</span></label>
+      <label><input type="checkbox" data-n="出典を確認できない記述には「未確認」と明記する。"><span>未確認なら明記する</span></label>
+      <label><input type="checkbox" data-n="情報が古くなっている可能性がある箇所には、その旨を添える。"><span>古い情報なら注記する</span></label>
+    </div>
+    <p class="hint">検索するかどうかを書かないと、記憶で答えたのか調べたのか区別できない出力になります。調べもののときは最初に決めておくのがおすすめです。</p>
+  </fieldset>
+</section>
+
+<!-- ══ 3 出力形式 ══ -->
+<section id="t3" hidden>
+  <p class="lede">出力の形を決める場所です。形式・構成・分量・文体・NG事項の5つを指定すると、手直しなしで使える出力になります。</p>
+
+  <fieldset>
+    <legend>レイアウト</legend>
+    <div class="chips" id="layoutChips"></div>
+    <p class="hint">いま選んでいるテーマ向けの型です。押すと形式・見出し・分量がまとめて入ります。下の項目で細かく直せます。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>出力の形式</legend>
+    <label>
+      <span class="lb">出力の形</span>
+      <select id="vessel">
+        <option value="prose">見出し付きの文章</option>
+        <option value="bullet">箇条書き</option>
+        <option value="table">表</option>
+        <option value="checklist">チェックリスト</option>
+        <option value="json">JSON</option>
+        <option value="yaml">YAML</option>
+        <option value="csv">CSV</option>
+        <option value="code">コード</option>
+        <option value="markdown">Markdown文書一式</option>
+        <option value="plain">装飾なしの平文</option>
+        <option value="dialogue">会話・台詞形式</option>
+      </select>
+    </label>
+    <div id="vesselExtra"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>構成（見出し）</legend>
+    <div class="stack" id="sections"></div>
+    <button class="add" id="addSection">＋ 見出しを追加</button>
+    <p class="hint">見出しを並べると、その順番・その名前で出力されます。空欄なら構成はモデルにおまかせになります。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>分量</legend>
+    <div class="row" style="margin-top:-13px">
+      <label>
+        <span class="lb">単位</span>
+        <select id="volUnit">
+          <option value="">指定しない</option>
+          <option value="文字">文字</option>
+          <option value="語">語（英語）</option>
+          <option value="項目">項目</option>
+          <option value="行">行</option>
+          <option value="段落">段落</option>
+        </select>
+      </label>
+      <label>
+        <span class="lb">目安</span>
+        <input type="number" id="volNum" placeholder="800" min="1">
+      </label>
+      <label>
+        <span class="lb">厳しさ</span>
+        <select id="volStrict">
+          <option value="程度">程度（目安）</option>
+          <option value="以内">以内（上限）</option>
+          <option value="以上">以上（下限）</option>
+          <option value="厳守">厳守（±5%）</option>
+        </select>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>文体・トーン</legend>
+    <div class="row" style="margin-top:-13px">
+      <label>
+        <span class="lb">文体</span>
+        <select id="style">
+          <option value="">指定しない</option>
+          <option value="です・ます調">です・ます調</option>
+          <option value="だ・である調">だ・である調</option>
+          <option value="体言止めを交えた簡潔な調子">簡潔・体言止め</option>
+          <option value="話し言葉に近い口語">口語</option>
+          <option value="技術文書の書き方（定義→手順→注意）">技術文書</option>
+          <option value="硬めの論説文">硬めの論説</option>
+          <option value="比喩を用いた文芸調">文芸調</option>
+        </select>
+      </label>
+      <label>
+        <span class="lb">語調</span>
+        <select id="tone">
+          <option value="">指定しない</option>
+          <option value="中立で淡々とした">中立・淡々</option>
+          <option value="実務的で無駄のない">実務的</option>
+          <option value="親しみやすくくだけた">親しみやすい</option>
+          <option value="熱量のある、勧める">熱量のある</option>
+          <option value="慎重で保留を明示する">慎重</option>
+          <option value="厳しく批評的な">批評的</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>
+        <span class="lb">言語</span>
+        <select id="lang">
+          <option value="">指定しない</option>
+          <option value="日本語">日本語</option>
+          <option value="英語">英語</option>
+          <option value="日本語（専門用語は英語を併記）">日本語＋英語併記</option>
+        </select>
+      </label>
+      <label>
+        <span class="lb">読者の水準</span>
+        <select id="level">
+          <option value="">指定しない</option>
+          <option value="予備知識のない人にも分かる平易さで">予備知識なし</option>
+          <option value="一般的な社会人に通じる程度で">一般</option>
+          <option value="その分野の実務者向けに、基礎説明は省いて">実務者</option>
+          <option value="専門家向けに、厳密な用語で">専門家</option>
+        </select>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>表記ルール</legend>
+    <div class="checks" id="notation">
+      <label><input type="checkbox" data-n="見出しはMarkdown記法（##）で付ける。"><span>Markdown見出しを使う</span></label>
+      <label><input type="checkbox" data-n="項目には通し番号を振る。"><span>通し番号を振る</span></label>
+      <label><input type="checkbox" data-n="絵文字・顔文字は使わない。"><span>絵文字を使わない</span></label>
+      <label><input type="checkbox" data-n="太字・強調記号は使わない。"><span>強調装飾を使わない</span></label>
+      <label><input type="checkbox" data-n="専門用語には初出時に短い注釈を添える。"><span>専門用語に注釈</span></label>
+      <label><input type="checkbox" data-n="数値には単位と基準時点を必ず添える。"><span>数値に単位と時点</span></label>
+      <label><input type="checkbox" data-n="固有名詞は正式名称で表記する。"><span>固有名詞は正式名称</span></label>
+      <label><input type="checkbox" data-n="全体をコードブロックに入れて出力する。"><span>コードブロックに入れる</span></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>してほしくないこと</legend>
+    <div class="checks" id="prohibit">
+      <label><input type="checkbox" data-n="前置き・挨拶・「承知しました」等は書かず、本文から始める。"><span>前置きを書かない</span></label>
+      <label><input type="checkbox" data-n="末尾に全体の要約や感想を付け足さない。"><span>結びの要約を付けない</span></label>
+      <label><input type="checkbox" data-n="謝罪・弁解の言葉を入れない。"><span>謝罪しない</span></label>
+      <label><input type="checkbox" data-n="一般的な注意書き・免責の断り書きを入れない。"><span>免責文言を入れない</span></label>
+      <label><input type="checkbox" data-n="質問を返さず、不足は妥当な前提を置いて進め、置いた前提は末尾に列挙する。"><span>質問を返さない</span></label>
+      <label><input type="checkbox" data-n="指定した形式以外のものを出力に混ぜない。"><span>指定形式以外を混ぜない</span></label>
+      <label><input type="checkbox" data-n="同じ内容を言い換えて繰り返さない。"><span>言い換えの重複を避ける</span></label>
+      <label><input type="checkbox" data-n="断定できない事柄を断定調で書かない。"><span>不確かな断定をしない</span></label>
+    </div>
+  </fieldset>
+</section>
+
+<!-- ══ 4 オプション ══ -->
+<section id="t4" hidden>
+  <p class="lede">進め方の指定と、精度を上げるための設定です。入れすぎると指示がぼやけるので、効きそうなものだけ選んでください。</p>
+
+  <fieldset>
+    <legend>進め方</legend>
+    <div class="checks" id="method">
+      <label><input type="checkbox" data-n="結論を出す前に、判断の筋道を段階を追って検討すること。"><span>段階を追って検討<span class="memo">複雑な判断・計算向き</span></span></label>
+      <label><input type="checkbox" data-n="主張には根拠を添え、推測と事実を区別して書くこと。"><span>根拠を添える<span class="memo">調査・分析向き</span></span></label>
+      <label><input type="checkbox" data-n="確信の度合いを高・中・低で示すこと。"><span>確信度を示す</span></label>
+      <label><input type="checkbox" data-n="想定される反論・見落としやすいリスクも併記すること。"><span>反論とリスクも書く</span></label>
+      <label><input type="checkbox" data-n="出力後に自分で条件との照合を行い、外れていれば直してから提示すること。"><span>出す前に自己点検</span></label>
+      <label><input type="checkbox" data-n="情報が足りず判断できない場合は、推測で埋めずその旨を明記すること。"><span>推測で埋めない</span></label>
+      <label><input type="checkbox" data-n="着手前に、判断に必要な不明点があれば質問すること。"><span>先に不明点を質問する<span class="memo">「質問を返さない」とは同時に使わないこと</span></span></label>
+      <label><input type="checkbox" data-n="最後に、次に検討すべき論点を短く挙げること。"><span>次の論点を挙げる</span></label>
+    </div>
+    <p class="warn" id="conflict" hidden>「先に不明点を質問する」と「質問を返さない」が両方オンになっています。どちらかを外してください。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>進行のしかた</legend>
+    <label style="margin-top:0">
+      <span class="lb">進め方の段取り</span>
+      <select id="flow">
+        <option value="">一度で完成品を出してもらう</option>
+        <option value="本文を書く前に、方針と構成案だけを提示すること。こちらが同意するまで本文には進まないこと。">先に方針だけ出してもらう</option>
+        <option value="章ごとに区切って提示し、こちらが「次」と言うまで先へ進まないこと。">章ごとに区切る</option>
+        <option value="まず粗い草案を出すこと。こちらの指摘を受けてから仕上げに入ること。">草案→指摘→仕上げ</option>
+        <option value="着手前に、判断に必要な情報をすべて質問すること。回答が揃ってから作業を始めること。">先に質問してもらう</option>
+      </select>
+    </label>
+    <label>
+      <span class="lb">長くなった時</span>
+      <select id="cont">
+        <option value="">指定しない</option>
+        <option value="出力が長さの上限に達する場合は、区切りの良い所で止めて末尾に「続く」と記すこと。次の指示でその続きから再開すること。">「続く」で止める</option>
+        <option value="長くなる場合は要点を優先し、一度で収まる分量に調整すること。">収まる分量に削る</option>
+        <option value="長さを理由に内容を省略しないこと。省略が必要なら、どこを省いたかを明記すること。">省略したら明記</option>
+      </select>
+    </label>
+    <p class="hint">長いものを作るときほど、先に方針だけ出してもらう方が手戻りが減ります。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>案の数</legend>
+    <div class="row" style="margin-top:-13px">
+      <label>
+        <span class="lb">提示する案</span>
+        <select id="variantMode">
+          <option value="">一案でよい</option>
+          <option value="複数">複数案を出す</option>
+        </select>
+      </label>
+      <label>
+        <span class="lb">数</span>
+        <input type="number" id="variantNum" value="3" min="2" max="10">
+      </label>
+    </div>
+    <p class="hint">複数案を選ぶと「方向性を変えた案を出す」「それぞれの狙いを一行で添える」が指示に加わります。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>良い例・NG例</legend>
+    <label>
+      <span class="lb">良い例</span>
+      <textarea id="goodEx" placeholder="良い例を貼る。短い一部分でOK"></textarea>
+    </label>
+    <label>
+      <span class="lb">NG例（避けたい書き方）</span>
+      <textarea id="badEx" placeholder="避けたい例、よくある失敗パターン"></textarea>
+    </label>
+    <label>
+      <span class="lb">絶対に避けること</span>
+      <input type="text" id="avoid" placeholder="例：断定的な効果の約束、他社名の明記">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>変数（差し替え）</legend>
+    <label style="margin-top:0">
+      <span class="lb">繰り返し使う変数</span>
+      <div class="stack" id="slots"></div>
+      <button class="add" id="addSlot" type="button">＋ 変数を追加</button>
+    </label>
+    <p class="hint">登録すると本文中に {{変数名}} が残り、末尾に一覧が付きます。毎回そこだけ差し替えて使い回せます。</p>
+  </fieldset>
+</section>
+
+<!-- ══ 5 完成 ══ -->
+<section id="t5" hidden>
+  <p class="lede">できあがったプロンプトです。書き方を変えると、同じ内容が別の記法で出ます。XMLタグ形式は、指示や資料が長いときに効果的です。</p>
+
+  <fieldset>
+    <legend>健康診断</legend>
+    <div class="diag" id="diagBox"></div>
+    <p class="hint">出力ではなく、指示そのものを検査します。行をタップすると該当のタブに移動します。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>対象モデル</legend>
+    <div class="chips" id="modelChips">
+      <button class="chip" data-model="general" aria-pressed="true"><span>汎用</span></button>
+      <button class="chip" data-model="reasoning" aria-pressed="false"><span>推論モデル</span></button>
+      <button class="chip" data-model="light" aria-pressed="false"><span>軽量モデル</span></button>
+    </div>
+    <p class="hint" id="modelHint"></p>
+    <p class="warn" id="modelWarn" hidden></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>書き方の形式</legend>
+    <div class="chips" id="fmtChips">
+      <button class="chip" data-fmt="heading" aria-pressed="true"><span>見出し形式</span></button>
+      <button class="chip" data-fmt="xml" aria-pressed="false"><span>XMLタグ</span></button>
+      <button class="chip" data-fmt="compact" aria-pressed="false"><span>1段落</span></button>
+    </div>
+  </fieldset>
+
+  <div class="proof-head">
+    <span class="lb" style="margin:0">完成したプロンプト</span>
+    <span class="count" id="count">0字</span>
+  </div>
+  <div class="paper">
+    <span class="stamp">PROMPT</span>
+    <pre id="out"></pre>
+  </div>
+
+  <div class="tools">
+    <button class="primary" id="btnCopy"><span>全文をコピー</span></button>
+    <button id="btnShare"><span>共有</span></button>
+    <button id="btnTxt"><span>.txtで保存</span></button>
+    <button id="btnStore"><span>保存する</span></button>
+    <button id="btnClear"><span>すべてリセット</span></button>
+  </div>
+
+  <fieldset class="saved" style="margin-top:20px">
+    <legend>保存したプロンプト</legend>
+    <div id="savedList"></div>
+  </fieldset>
+</section>
+
+</main>
+
+<div class="dock">
+  <div class="meter">
+    <b id="dockCount">0</b>字 ／ 指摘 <b id="dockDiag">なし</b>
+  </div>
+  <button id="dockGo">プロンプトを見る</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const KEY="kumihan.state.v1", ARC="kumihan.archive.v1";
+
+/* ── 型（テンプレート） ─────────────── */
+const TPL={
+research:[
+ {id:"fact",name:"事実確認",role:"一次情報を確認する調査担当",vessel:"prose",
+  sections:[["結論","問いへの直接の答え"],["根拠","確認できた事実と出所"],["確度と留保","断定できない点"]],
+  method:["根拠を添える","確信度を示す","推測で埋めない"],prohibit:["前置きを書かない"]},
+ {id:"compare",name:"比較検討",role:"評価軸を先に決める分析担当",vessel:"table",
+  cols:"対象,強み,弱み,向く用途,費用感",
+  sections:[["比較表","主要な軸で並べる"],["読み解き","表から言えること"],["選ぶなら","条件別の推奨"]],
+  method:["根拠を添える","反論とリスクも書く"],prohibit:["前置きを書かない"]},
+ {id:"market",name:"市場・競合",role:"市場調査のアナリスト",vessel:"prose",
+  sections:[["市場の輪郭","規模と成長の方向"],["主要プレイヤー","立ち位置と強み"],["変化の兆し","効いている要因"],["示唆","この状況で取れる手"]],
+  method:["根拠を添える","確信度を示す"],notation:["数値に単位と時点"]},
+ {id:"tech",name:"技術調査",role:"実装まで見通す技術調査担当",vessel:"prose",
+  sections:[["選択肢","候補と成り立ち"],["比較","導入コストと制約"],["落とし穴","実装時に踏む地雷"],["推奨","条件つきの結論"]],
+  method:["根拠を添える","反論とリスクも書く"],prohibit:["免責文言を入れない"]},
+ {id:"learn",name:"学習・解説",role:"つまずきやすい点を知っている講師",vessel:"prose",
+  sections:[["全体像","何のための仕組みか"],["核心","最小限の原理"],["具体例","身近な例で一つ"],["よくある誤解","間違えやすい点"]],
+  notation:["専門用語に注釈"],method:["段階を追って検討"]},
+ {id:"chrono",name:"経緯・年表",role:"出来事のつながりを整理する記録担当",vessel:"table",
+  cols:"時期,出来事,意味",
+  sections:[["年表","時系列で並べる"],["転換点","流れが変わった箇所"]],
+  method:["根拠を添える"],notation:["数値に単位と時点"]},
+ {id:"trend",name:"最新動向",role:"検索結果を突き合わせる調査担当",vessel:"prose",
+  sections:[["いま起きていること","直近の動き"],["背景","なぜ今か"],["見方の分かれる点","定まっていない論点"]],
+  research:"検索優先＋知識で補う",freshness:"直近6か月",citation:["末尾に情報源の一覧","古い情報なら注記する"],
+  method:["根拠を添える","推測で埋めない"]},
+ {id:"term",name:"用語整理",role:"紛らわしい言葉を整理する解説者",vessel:"table",
+  cols:"用語,意味,混同されやすい語,使いどころ",sections:[],
+  notation:["専門用語に注釈"],prohibit:["前置きを書かない"]},
+ {id:"cause",name:"原因の切り分け",role:"可能性を一つずつ切り分ける診断担当",vessel:"prose",
+  sections:[["症状の整理","起きている事実"],["考えられる原因","可能性の高い順"],["切り分けの手順","何をどう試すか"],["対処","原因別の手当て"]],
+  method:["段階を追って検討","推測で埋めない"],notation:["通し番号を振る"]},
+ {id:"source",name:"情報源探し",role:"一次資料まで辿る調査担当",vessel:"table",
+  cols:"情報源,種別,何が分かるか,URL",sections:[],
+  research:"検索して確かめる",citation:["各記述に出典を添える","未確認なら明記する"],
+  method:["推測で埋めない"]}
+],
+creative:[
+ {id:"novel",name:"小説・物語",role:"描写を絞って書く小説家",vessel:"prose",
+  sections:[["本文","地の文と会話"]],style:"比喩を用いた文芸調",
+  prohibit:["前置きを書かない","結びの要約を付けない"],method:[]},
+ {id:"copy",name:"キャッチコピー",role:"一行で印象づけるコピーライター",vessel:"bullet",
+  sections:[],variants:8,
+  method:["反論とリスクも書く"],prohibit:["前置きを書かない"],vol:["項目",8,"程度"]},
+ {id:"world",name:"世界観・設定",role:"矛盾のない設定を組み立てる設定担当",vessel:"prose",
+  sections:[["前提","この世界の物理と制度"],["社会","勢力と力関係"],["日常","そこに住む感触"],["物語の種","対立の芽"]],
+  method:["段階を追って検討"]},
+ {id:"script",name:"台本・脚本",role:"間の取り方で見せる脚本家",vessel:"dialogue",
+  sections:[["場面","ト書きと台詞"]],prohibit:["前置きを書かない"]},
+ {id:"lyric",name:"詩・歌詞",role:"言い切らずに余韻を残す作詞家",vessel:"plain",
+  sections:[],prohibit:["前置きを書かない","結びの要約を付けない"],notation:["絵文字を使わない"]},
+ {id:"idea",name:"企画・発案",role:"筋の通る企画を立てる担当",vessel:"prose",
+  sections:[["案の骨子","何をやるか"],["狙い","誰の何が変わるか"],["実現の道筋","最初の一手"],["懸念","つまずきそうな点"]],
+  variants:3,method:["反論とリスクも書く"]},
+ {id:"name",name:"命名・ネーミング",role:"語感と意味を両立させる命名担当",vessel:"table",
+  cols:"案,読み,由来,印象",sections:[],vol:["項目",10,"程度"],
+  prohibit:["前置きを書かない"]},
+ {id:"blog",name:"ブログ記事",role:"最初の3行で引き止めるライター",vessel:"markdown",
+  sections:[["導入","読み進める理由"],["本文","三〜四節に割る"],["結び","持ち帰るもの"]],
+  vol:["文字",2000,"程度"],flow:"先に方針だけ出してもらう",style:"です・ます調"},
+ {id:"sns",name:"SNS投稿",role:"1投稿で完結させるライター",vessel:"bullet",
+  sections:[],variants:5,vol:["文字",140,"以内"],
+  prohibit:["前置きを書かない"],notation:["絵文字を使わない"]},
+ {id:"pitch",name:"プレゼン構成",role:"1枚目で結論を言い切る構成担当",vessel:"prose",
+  sections:[["結論","冒頭で言い切ること"],["論拠","三点に絞る"],["流れ","スライドの並び"],["想定質問","返し方"]],
+  method:["反論とリスクも書く"]},
+ {id:"chara",name:"キャラクター設定",role:"矛盾なく人物を作る設定担当",vessel:"prose",
+  sections:[["外形","見た目と第一印象"],["来歴","そうなった経緯"],["欲と恐れ","動く理由"],["話し方","口調と癖"],["関係","他者との距離"]],
+  method:["段階を追って検討"]},
+ {id:"desc",name:"紹介文・商品説明",role:"買う理由を1段落で示すライター",vessel:"prose",
+  sections:[],vol:["文字",300,"程度"],variants:3,
+  prohibit:["前置きを書かない","不確かな断定をしない"]}
+],
+work:[
+ {id:"summary",name:"要約",role:"要点だけ残す編集者",vessel:"bullet",
+  sections:[["要点","主張の骨"],["補足","落とすと誤解される点"]],
+  vol:["文字",400,"以内"],prohibit:["前置きを書かない","言い換えの重複を避ける"]},
+ {id:"trans",name:"翻訳",role:"直訳と意訳のバランスを取る翻訳者",vessel:"plain",
+  sections:[],prohibit:["前置きを書かない","指定形式以外を混ぜない"],
+  materialUse:"原文は極力保つ（指定箇所のみ）"},
+ {id:"proof",name:"添削・校正",role:"直す理由まで示す校正者",vessel:"table",
+  cols:"箇所,修正案,理由",
+  sections:[["修正一覧","直した箇所"],["全体の講評","傾向と次の一手"]],
+  method:["根拠を添える"],prohibit:["前置きを書かない"]},
+ {id:"code",name:"コード生成",role:"動く最小構成から作るエンジニア",vessel:"code",
+  sections:[["コード","本体"],["使い方","実行手順"],["注意","制約と未対応"]],
+  method:["段階を追って検討","出す前に自己点検"],prohibit:["前置きを書かない"]},
+ {id:"data",name:"データ整形",role:"形式を崩さない処理担当",vessel:"csv",
+  sections:[],prohibit:["前置きを書かない","指定形式以外を混ぜない"],
+  notation:["コードブロックに入れる"]},
+ {id:"mail",name:"メール・文書",role:"相手の立場から書く文書担当",vessel:"plain",
+  sections:[["件名","一行"],["本文","用件・依頼・結び"]],
+  style:"です・ます調",variants:2,prohibit:["前置きを書かない"]},
+ {id:"plan",name:"手順書・段取り",role:"抜け漏れを作らない段取り担当",vessel:"checklist",
+  sections:[["準備","着手前に揃えるもの"],["手順","順に実行する項目"],["確認","終わったことの判定"]],
+  method:["出す前に自己点検"],notation:["通し番号を振る"]},
+ {id:"analyze",name:"文章・資料の分析",role:"書かれていない前提も読む分析担当",vessel:"prose",
+  sections:[["読み取れること","明示されている内容"],["含み","書かれていない前提"],["弱点","論理の飛躍"]],
+  method:["根拠を添える","反論とリスクも書く"],materialUse:"検証の対象にする"},
+ {id:"rewrite",name:"リライト・言い換え",role:"意味を保ったまま言い回しを変えるライター",vessel:"plain",
+  sections:[],variants:3,materialUse:"主材料にする（範囲外に出ない）",
+  prohibit:["前置きを書かない","指定形式以外を混ぜない"]},
+ {id:"debug",name:"バグ修正・エラー解決",role:"再現条件から原因を特定するエンジニア",vessel:"prose",
+  sections:[["原因","なぜ起きているか"],["修正","直したコード"],["確認","直ったことの確かめ方"]],
+  method:["段階を追って検討","推測で埋めない","出す前に自己点検"],
+  materialUse:"検証の対象にする",prohibit:["前置きを書かない"]},
+ {id:"review",name:"コードレビュー",role:"直す価値のある指摘だけ出すレビュアー",vessel:"table",
+  cols:"箇所,指摘,深刻度,直し方",
+  sections:[["指摘一覧","深刻な順"],["全体所感","設計上の傾向"]],
+  method:["根拠を添える","反論とリスクも書く"],materialUse:"検証の対象にする"},
+ {id:"minutes",name:"議事録整形",role:"決定事項とタスクを取り違えない記録担当",vessel:"prose",
+  sections:[["決まったこと","結論のみ"],["宿題","担当と期限"],["未決","持ち越した論点"]],
+  materialUse:"主材料にする（範囲外に出ない）",
+  prohibit:["前置きを書かない"],method:["推測で埋めない"]},
+ {id:"formula",name:"表計算の数式",role:"壊れにくい数式を組む担当",vessel:"code",
+  sections:[["数式","そのまま貼れる形"],["解説","何をしているか"],["注意","崩れる条件"]],
+  prohibit:["前置きを書かない"],method:["出す前に自己点検"]},
+ {id:"qa",name:"想定問答",role:"厳しい質問をしてくる想定質問者",vessel:"table",
+  cols:"想定質問,回答,補足",sections:[],vol:["項目",10,"程度"],
+  method:["反論とリスクも書く"]},
+ {id:"learnplan",name:"学習計画",role:"学ぶ順番を間違えない指導者",vessel:"checklist",
+  sections:[["前提の確認","今できること"],["段階","順に踏む区切り"],["各段階の到達点","できたと言える条件"],["教材","当たるもの"]],
+  flow:"先に質問してもらう",notation:["通し番号を振る"]}
+]};
+
+const ROLE_GUIDE={
+ research:{ph:"例：推測と事実を区別して書く調査員",
+  hint:"調べものでは役割の効果は薄めです。空欄でも構いません。入れるなら「〜の専門家」という肩書きではなく、してほしい振る舞いを書きます。"},
+ creative:{ph:"例：描写を絞って書く小説家",
+  hint:"創作では役割がいちばんよく効きます。文体・語彙・語りの距離がまとめて決まります。肩書きより「どう書くか」を書きましょう。"},
+ work:{ph:"例：直す理由まで示す校正者",
+  hint:"作業では、フォーマットを守らせることとトーンの調整に効きます。判断の正確さは役割ではなく、進め方と制約で担保します。"}};
+
+const QUICK=[
+ {n:"調べてまとめる",use:"research",t:"trend",vol:["文字",800,"程度"],
+  task:"{{調べたいこと}}について、今わかっていることを調べてまとめてほしい。",
+  eg:{"調べたいこと":"例：全固体電池の量産状況"}},
+ {n:"比較して選ぶ",use:"research",t:"compare",research:"検索優先＋知識で補う",citation:["末尾に情報源の一覧"],
+  task:"{{候補A}}と{{候補B}}を比較して、{{用途}}にはどちらが向くか判断したい。",
+  eg:{"候補A":"例：Notion","候補B":"例：Obsidian","用途":"例：個人の資料整理"}},
+ {n:"教えてもらう",use:"research",t:"learn",level:"予備知識なし",
+  task:"{{知りたいこと}}について、仕組みから教えてほしい。",
+  eg:{"知りたいこと":"例：公開鍵暗号の仕組み"}},
+ {n:"原因を調べる",use:"research",t:"cause",
+  task:"{{起きている問題}}の原因を切り分けたい。",
+  eg:{"起きている問題":"例：ビルドが時々失敗する"},mat:"エラーログ・状況（あれば）"},
+ {n:"要約する",use:"work",t:"summary",
+  task:"貼り付けた文章を要約してほしい。",mat:"要約したい文章"},
+ {n:"書き直す",use:"work",t:"rewrite",
+  task:"貼り付けた文章を{{どうしたいか}}という方向で書き直してほしい。",
+  eg:{"どうしたいか":"例：もっと短く、丁寧に"},mat:"書き直したい文章"},
+ {n:"メールを書く",use:"work",t:"mail",
+  task:"{{相手}}に{{用件}}を伝えるメールを書きたい。",
+  eg:{"相手":"例：取引先の担当者","用件":"例：納期延期のお願い"},mat:"元のメール（返信なら）"},
+ {n:"エラーを直す",use:"work",t:"debug",
+  task:"次のエラーの原因を特定して直したい。",mat:"エラーメッセージ・該当コード"},
+ {n:"コードを書く",use:"work",t:"code",
+  task:"{{やりたいこと}}を実現するコードを書いてほしい。",
+  eg:{"やりたいこと":"例：CSVを読んでグラフを描く"},mat:"既存のコード（あれば）"},
+ {n:"議事録を整える",use:"work",t:"minutes",
+  task:"貼り付けたメモを議事録の形に整えてほしい。",mat:"打ち合わせのメモ"},
+ {n:"翻訳する",use:"work",t:"trans",
+  task:"貼り付けた文章を{{言語}}に翻訳してほしい。",
+  eg:{"言語":"例：英語"},mat:"翻訳したい文章"},
+ {n:"記事を書く",use:"creative",t:"blog",
+  task:"{{テーマ}}についての記事を書きたい。読者は{{想定読者}}。",
+  eg:{"テーマ":"例：在宅勤務の集中術","想定読者":"例：会社員"}},
+ {n:"アイデアを出す",use:"creative",t:"idea",
+  task:"{{課題}}を解決するアイデアを出してほしい。",
+  eg:{"課題":"例：平日の来店客が少ない"}},
+ {n:"SNSに投稿する",use:"creative",t:"sns",
+  task:"{{伝えたいこと}}をSNSに投稿したい。",
+  eg:{"伝えたいこと":"例：新商品の発売日"}}];
+
+const LAYOUT={
+ _research:[
+  {n:"結論→根拠",v:"prose",sec:[["結論","問いへの答え"],["根拠","そう言える理由"],["留意点","確かでない部分"]]},
+  {n:"要点リスト",v:"bullet",vol:["項目",5,"程度"]},
+  {n:"表で整理",v:"table",cols:"項目,内容,補足"},
+  {n:"かみ砕いて解説",v:"prose",sec:[["全体像","何のための話か"],["核心","最小限の原理"],["具体例","身近な例"]]}],
+ _creative:[
+  {n:"本文だけ",v:"plain"},
+  {n:"見出し付き",v:"prose",sec:[["導入",""],["本文",""],["結び",""]]},
+  {n:"案を並べる",v:"bullet",variants:3},
+  {n:"表で一覧",v:"table",cols:"案,狙い,補足"}],
+ _work:[
+  {n:"本文だけ",v:"plain"},
+  {n:"手順リスト",v:"checklist",notation:["通し番号を振る"]},
+  {n:"表で整理",v:"table",cols:"項目,内容,補足"},
+  {n:"見出し付き",v:"prose",sec:[["結果",""],["補足",""]]}],
+
+ trend:[
+  {n:"時系列で並べる",v:"table",cols:"時期,動き,意味"},
+  {n:"要点3つ",v:"bullet",vol:["項目",3,"程度"]},
+  {n:"解説記事風",v:"prose",sec:[["いま起きていること","直近の動き"],["背景","なぜ今か"],["見方の分かれる点","定まっていない論点"]]}],
+ compare:[
+  {n:"比較表",v:"table",cols:"対象,強み,弱み,向く用途,費用感"},
+  {n:"表＋読み解き",v:"table",cols:"対象,強み,弱み,費用感",sec:[["比較表","主要な軸で並べる"],["読み解き","表から言えること"],["選ぶなら","条件別の推奨"]]},
+  {n:"長所短所リスト",v:"bullet"},
+  {n:"結論を先に",v:"prose",sec:[["結論","どちらを選ぶか"],["理由","決め手"],["条件が変わる場合","逆転する条件"]]}],
+ learn:[
+  {n:"かみ砕いて解説",v:"prose",sec:[["全体像","何のための仕組みか"],["核心","最小限の原理"],["具体例","身近な例で一つ"],["よくある誤解","間違えやすい点"]]},
+  {n:"たとえ話で",v:"prose",sec:[["たとえ","身近な例に置き換える"],["対応関係","どこが何に当たるか"],["たとえの限界","当てはまらない点"]]},
+  {n:"Q&A形式",v:"prose",sec:[["よくある疑問と答え","一問一答で5つほど"]]},
+  {n:"3行で",v:"bullet",vol:["項目",3,"程度"]}],
+ cause:[
+  {n:"原因→手順",v:"prose",sec:[["症状の整理","起きている事実"],["考えられる原因","可能性の高い順"],["切り分けの手順","何をどう試すか"],["対処","原因別の手当て"]]},
+  {n:"チェックリスト",v:"checklist",notation:["通し番号を振る"]},
+  {n:"表で候補整理",v:"table",cols:"原因の候補,見分け方,対処"}],
+ summary:[
+  {n:"3行まとめ",v:"bullet",vol:["項目",3,"程度"]},
+  {n:"要点リスト",v:"bullet",sec:[["要点","主張の骨"],["補足","落とすと誤解される点"]]},
+  {n:"見出し付き",v:"prose",sec:[["結論","主張の骨"],["要点","押さえるべき点"],["補足","落とすと誤解される点"]]},
+  {n:"一段落で",v:"plain",vol:["文字",200,"以内"]}],
+ rewrite:[
+  {n:"本文だけ",v:"plain"},
+  {n:"3案並べる",v:"plain",variants:3},
+  {n:"変更点つき",v:"prose",sec:[["書き直した文",""],["変えた点","何をなぜ変えたか"]]}],
+ trans:[
+  {n:"訳文だけ",v:"plain"},
+  {n:"原文と対訳",v:"table",cols:"原文,訳文"},
+  {n:"訳文＋注記",v:"prose",sec:[["訳文",""],["迷った箇所","別訳と選んだ理由"]]}],
+ mail:[
+  {n:"件名＋本文",v:"plain",sec:[["件名","一行"],["本文","用件・依頼・結び"]]},
+  {n:"本文だけ",v:"plain"},
+  {n:"強さ違いで3案",v:"plain",variants:3,sec:[["件名",""],["本文",""]]}],
+ debug:[
+  {n:"原因→修正→確認",v:"prose",sec:[["原因","なぜ起きているか"],["修正","直したコード"],["確認","直ったことの確かめ方"]]},
+  {n:"修正コードだけ",v:"code"},
+  {n:"変更点を示す",v:"prose",sec:[["変更点","どこをどう変えたか"],["修正後のコード",""]]}],
+ code:[
+  {n:"コード＋使い方",v:"code",sec:[["コード","本体"],["使い方","実行手順"],["注意","制約と未対応"]]},
+  {n:"コードだけ",v:"code"},
+  {n:"方針から",v:"code",sec:[["方針","どう作るか"],["コード",""],["動かし方",""]]}],
+ minutes:[
+  {n:"決定・宿題・未決",v:"prose",sec:[["決まったこと","結論のみ"],["宿題","担当と期限"],["未決","持ち越した論点"]]},
+  {n:"表でタスク管理",v:"table",cols:"項目,内容,担当,期限"},
+  {n:"箇条書き",v:"bullet"}],
+ blog:[
+  {n:"導入→本文→結び",v:"markdown",sec:[["導入","読み進める理由"],["本文","三〜四節に割る"],["結び","持ち帰るもの"]]},
+  {n:"N選リスト",v:"markdown",sec:[["導入","何のリストか"],["本文","項目ごとに小見出し"],["まとめ","選び方の指針"]]},
+  {n:"How-to",v:"markdown",sec:[["何ができるか","読後に得られること"],["手順","順を追って"],["つまずきどころ","よくある失敗"]]}],
+ idea:[
+  {n:"案＋狙い＋懸念",v:"prose",sec:[["案の骨子","何をやるか"],["狙い","誰の何が変わるか"],["実現の道筋","最初の一手"],["懸念","つまずきそうな点"]]},
+  {n:"一覧表",v:"table",cols:"案,狙い,手間,懸念"},
+  {n:"数を出す",v:"bullet",vol:["項目",10,"程度"]}],
+ sns:[
+  {n:"投稿文だけ",v:"plain",variants:5},
+  {n:"案を並べる",v:"bullet",vol:["項目",5,"程度"]},
+  {n:"投稿＋ハッシュタグ",v:"prose",sec:[["投稿文",""],["ハッシュタグ","5個まで"]]}]
+};
+function layoutsFor(){return LAYOUT[S.tpl]||LAYOUT["_"+S.use]||[];}
+function detectLayout(){
+  const v=$("#vessel").value,hs=S.sections.map(x=>x.h).join("|");
+  const f=layoutsFor().find(L=>L.v===v&&(L.sec||[]).map(x=>x[0]).join("|")===hs);
+  S.layout=f?f.n:null;
+}
+function applyLayout(L){
+  S.layout=L.n;
+  $("#vessel").value=L.v;
+  pendingCols=L.cols||"";
+  renderVesselExtra();
+  S.sections=(L.sec||[]).map(x=>({h:x[0],m:x[1]}));
+  renderSections();
+  if(L.vol){$("#volUnit").value=L.vol[0];$("#volNum").value=L.vol[1];$("#volStrict").value=L.vol[2];}
+  else{$("#volUnit").value="";$("#volNum").value="";}
+  if(L.variants){$("#variantMode").value="複数";$("#variantNum").value=L.variants;}
+  else{$("#variantMode").value="";}
+  addChecks("#notation",L.notation);
+  renderLayouts();build();
+}
+function renderLayouts(){
+  const list=layoutsFor();
+  [["#layoutChips",false],["#qmLayout",true]].forEach(([sel,compact])=>{
+    const box=$(sel);if(!box)return;
+    box.innerHTML="";
+    list.forEach(L=>{
+      const b=document.createElement("button");
+      b.className="chip";b.innerHTML="<span></span>";b.firstChild.textContent=L.n;
+      b.setAttribute("aria-pressed",S.layout===L.n);
+      b.onclick=()=>{applyLayout(L);if(compact)syncQM();};
+      box.appendChild(b);
+    });
+  });
+}
+
+const VESSEL_TEXT={
+ prose:"見出しを立てた文章",bullet:"箇条書き",table:"表（Markdownの表記法）",
+ checklist:"チェックボックス付きのリスト",json:"JSON",yaml:"YAML",csv:"CSV",
+ code:"コード",markdown:"Markdown文書",plain:"装飾のない平文",dialogue:"話者名を頭に置いた会話形式"};
+
+/* ── 状態 ────────────────────────── */
+let S={use:"research",tpl:"",fmt:"heading",model:"general",layout:null,sections:[],slots:[]};
+
+const MODEL_GUIDE={
+ general:{hint:"標準。指示をそのまま渡します。"},
+ reasoning:{hint:"内部で考えてから答えるタイプのモデル。「段階を追って検討」は重複するので自動で外します。結論の形と根拠の示し方を指定する方が効果的です。",drop:["結論を出す前に、判断の筋道を段階を追って検討すること。"]},
+ light:{hint:"軽量モデル。指示が増えるほど取りこぼします。見出しは3つ程度、NG事項は絞りましょう。資料が長いときはXMLタグ形式が安全です。"}};
+
+/* ── テンプレート ─────────────────── */
+function renderTpl(){
+  const box=$("#tplChips");
+  box.innerHTML="";
+  TPL[S.use].forEach(t=>{
+    const b=document.createElement("button");
+    b.className="chip";b.innerHTML="<span></span>";b.firstChild.textContent=t.name;
+    b.setAttribute("aria-pressed",S.tpl===t.id);
+    b.onclick=()=>{ S.tpl=(S.tpl===t.id)?"":t.id; if(S.tpl) applyTpl(t); renderTpl(); build(); };
+    box.appendChild(b);
+  });
+}
+function applyTpl(t){
+  S.layout=null;
+  $("#role").value=t.role||"";
+  $("#vessel").value=t.vessel||"prose";
+  if(t.cols) pendingCols=t.cols;
+  renderVesselExtra();
+  S.sections=(t.sections||[]).map(s=>({h:s[0],m:s[1]}));
+  renderSections();
+  $("#style").value=t.style||"";
+  $("#tone").value="";$("#lang").value="";$("#level").value="";
+  setSelByText("#materialUse",t.materialUse);
+  setSelByText("#research",t.research);
+  setSelByText("#freshness",t.freshness);
+  setSelByText("#flow",t.flow);
+  setSelByText("#cont",t.cont);
+  setChecks("#citation",t.citation||[]);
+  if(t.vol){ $("#volUnit").value=t.vol[0];$("#volNum").value=t.vol[1];$("#volStrict").value=t.vol[2]; }
+  else { $("#volUnit").value="";$("#volNum").value=""; }
+  if(t.variants){ $("#variantMode").value="複数";$("#variantNum").value=t.variants; }
+  else { $("#variantMode").value=""; }
+  setChecks("#method",t.method||[]);
+  setChecks("#prohibit",t.prohibit||[]);
+  setChecks("#notation",t.notation||[]);
+  detectLayout();
+  toast(t.name+"のテンプレートを適用しました");
+}
+function setSelByText(sel,txt){
+  const el=$(sel);if(!el)return;
+  if(!txt){el.value="";return;}
+  const o=[...el.options].find(x=>x.textContent===txt);
+  el.value=o?o.value:"";
+}
+function addChecks(sel,names){
+  if(!names||!names.length)return;
+  $$(sel+" label").forEach(l=>{
+    const txt=l.querySelector("span").firstChild.textContent.trim();
+    if(names.includes(txt))l.querySelector("input").checked=true;
+  });
+}
+function setChecks(sel,names){
+  $$(sel+" label").forEach(l=>{
+    const txt=l.querySelector("span").firstChild.textContent.trim();
+    l.querySelector("input").checked=names.includes(txt);
+  });
+}
+
+/* ── クイックスタート ─────────────── */
+const FRQ="kumihan.recent.v1";
+function pushRecent(name){
+  let l=[];try{l=JSON.parse(localStorage.getItem(FRQ)||"[]")}catch(e){}
+  l=[name,...l.filter(x=>x!==name)].slice(0,4);
+  try{localStorage.setItem(FRQ,JSON.stringify(l))}catch(e){}
+  renderQuick();
+}
+function applyQuick(q,stay){
+  const t=TPL[q.use].find(x=>x.id===q.t);
+  if(!t)return;
+  S.use=q.use;S.tpl=t.id;
+  $$("#useChips .chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.use===S.use));
+  applyTpl(t);
+  if(q.vol){$("#volUnit").value=q.vol[0];$("#volNum").value=q.vol[1];$("#volStrict").value=q.vol[2];}
+  if(q.level)setSelByText("#level",q.level);
+  if(q.style)setSelByText("#style",q.style);
+  if(q.tone)setSelByText("#tone",q.tone);
+  if(q.lang)setSelByText("#lang",q.lang);
+  if(q.research)setSelByText("#research",q.research);
+  if(q.freshness)setSelByText("#freshness",q.freshness);
+  if(q.flow)setSelByText("#flow",q.flow);
+  if(q.cont)setSelByText("#cont",q.cont);
+  if(q.model){S.model=q.model;$$("#modelChips .chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.model===S.model));}
+  addChecks("#citation",q.citation);addChecks("#method",q.method);
+  addChecks("#prohibit",q.prohibit);addChecks("#notation",q.notation);
+  const cur=$("#core").value.trim();
+  const isDraft=!cur||QUICK.some(x=>x.task&&x.task.trim()===cur);
+  const kept=!isDraft;
+  if(isDraft&&q.task)$("#core").value=q.task;
+  renderTpl();renderLayouts();build();pushRecent(q.n);
+  if(stay)return kept;
+  go(1);
+  setTimeout(()=>{
+    const c=$("#core");c.focus();
+    if(c.value.includes("{{")){const i=c.value.indexOf("{{");c.setSelectionRange(i,c.value.indexOf("}}",i)+2);}
+  },60);
+  toast(kept?q.n+"を適用（依頼内容はそのまま）":q.n+"を適用しました");
+}
+
+/* ── クイックモード ─────────────── */
+function blanksOf(q){
+  return [...new Set([...(q.task||"").matchAll(/\{\{([^}]+)\}\}/g)].map(m=>m[1]))];
+}
+function enterQuick(q){
+  applyQuick(q,true);
+  S.qm=q;S.qv={};
+  $("#qmName").textContent=q.n;
+  $("#qmNote").value="";
+  const box=$("#qmFields");box.innerHTML="";
+  blanksOf(q).forEach(name=>{
+    const l=document.createElement("label");
+    l.innerHTML='<span class="lb"></span><input type="text">';
+    l.querySelector(".lb").textContent=name;
+    const i=l.querySelector("input");
+    i.placeholder=(q.eg&&q.eg[name])||"";
+    i.addEventListener("input",()=>{S.qv[name]=i.value;syncQM()});
+    box.appendChild(l);
+  });
+  if(q.mat){
+    const l=document.createElement("label");
+    l.innerHTML='<span class="lb"></span><textarea></textarea>';
+    l.querySelector(".lb").textContent=q.mat;
+    const t=l.querySelector("textarea");
+    t.addEventListener("input",syncQM);
+    box.appendChild(l);
+    if(navigator.clipboard&&navigator.clipboard.readText){
+      const p=document.createElement("button");
+      p.className="qm-paste";p.innerHTML="<span>クリップボードから貼り付け</span>";
+      p.onclick=async()=>{
+        try{const v=await navigator.clipboard.readText();
+          if(v){t.value=v;syncQM();toast("貼り付けました");}}
+        catch(e){toast("長押しで貼り付けてください");}
+      };
+      box.appendChild(p);
+    }
+    S.qmat=t;
+  }else{S.qmat=null;$("#material").value="";}
+  $$("#tabs button").forEach(b=>{b.setAttribute("aria-selected","false");$("#"+b.dataset.tab).hidden=true;});
+  $("#qm").hidden=false;
+  window.scrollTo({top:0,behavior:"instant"});
+  syncQM();
+  setTimeout(()=>{const f=$("#qmFields input,#qmFields textarea");if(f)f.focus();},80);
+}
+function syncQM(){
+  const q=S.qm;if(!q)return;
+  let t=q.task||"";
+  blanksOf(q).forEach(n=>{const v=(S.qv[n]||"").trim();if(v)t=t.split("{{"+n+"}}").join(v);});
+  $("#core").value=t;
+  if(S.qmat)$("#material").value=S.qmat.value;
+  $("#context").value=$("#qmNote").value.trim();
+  build();
+  $("#qmPrev").textContent=$("#out").textContent;
+  const F=diagnose(),hi=F.filter(f=>f.lv==="重大");
+  $("#qmDiag").textContent=hi.length?"⚠ "+hi[0].msg:"未入力の欄は {{ }} のまま残ります。";
+}
+function exitQuick(){S.qm=null;S.qmat=null;$("#qm").hidden=true;}
+function renderQuick(){
+  const box=$("#quickChips");box.innerHTML="";
+  QUICK.forEach(q=>{
+    const b=document.createElement("button");
+    b.className="chip";b.innerHTML="<span></span>";b.firstChild.textContent=q.n;
+    b.onclick=()=>enterQuick(q);box.appendChild(b);
+  });
+  let l=[];try{l=JSON.parse(localStorage.getItem(FRQ)||"[]")}catch(e){}
+  const rb=$("#recentBox"),rc=$("#recentChips");
+  rb.hidden=!l.length;rc.innerHTML="";
+  l.forEach(n=>{
+    const q=QUICK.find(x=>x.n===n);if(!q)return;
+    const b=document.createElement("button");
+    b.className="chip recent";
+    b.innerHTML="<span></span>";b.firstChild.textContent=n;
+    b.onclick=()=>enterQuick(q);rc.appendChild(b);
+  });
+}
+
+/* ── 形式ごとの追加欄 ───────────────── */
+let pendingCols="";
+function renderVesselExtra(){
+  const v=$("#vessel").value, box=$("#vesselExtra");
+  const prev={cols:$("#cols")?.value,schema:$("#schema")?.value,codeLang:$("#codeLang")?.value};
+  box.innerHTML="";
+  if(v==="table"||v==="csv"){
+    box.innerHTML=`<label><span class="lb">列（読点区切り）</span>
+      <input type="text" id="cols" placeholder="対象,強み,弱み,費用"></label>`;
+    $("#cols").value=pendingCols||prev.cols||"";pendingCols="";
+    $("#cols").oninput=build;
+  }else if(v==="json"||v==="yaml"){
+    box.innerHTML=`<label><span class="lb">構造の指定</span>
+      <textarea id="schema" placeholder='キー名と型を書く。例：{"name":string,"score":number,"tags":string[]}'></textarea></label>
+      <p class="hint">構造を書くと、そのキー名・階層のまま返ってきます。書かなければ内容に合わせて組み立てられます。</p>`;
+    $("#schema").value=prev.schema||"";$("#schema").oninput=build;
+  }else if(v==="code"){
+    box.innerHTML=`<label><span class="lb">言語・環境</span>
+      <input type="text" id="codeLang" placeholder="例：Python 3.12 / 単一HTML（外部ライブラリなし）"></label>`;
+    $("#codeLang").value=prev.codeLang||"";$("#codeLang").oninput=build;
+  }
+  build();
+}
+
+/* ── 構成の見出し ────────────────────── */
+function renderSections(){
+  const box=$("#sections");box.innerHTML="";
+  if(!S.sections.length){box.innerHTML='<p class="empty">見出しの指定なし（構成はおまかせ）</p>';return;}
+  S.sections.forEach((s,i)=>{
+    const d=document.createElement("div");d.className="item";
+    d.innerHTML=`<span class="idx">${i+1}</span>
+      <div class="fields">
+        <input type="text" placeholder="見出し" value="">
+        <input type="text" placeholder="この見出しに書くこと（任意）" value="">
+      </div>
+      <button class="del" aria-label="削除">×</button>`;
+    const [a,b]=d.querySelectorAll("input");
+    a.value=s.h;b.value=s.m;
+    a.oninput=()=>{s.h=a.value;build()};
+    b.oninput=()=>{s.m=b.value;build()};
+    d.querySelector(".del").onclick=()=>{S.sections.splice(i,1);renderSections();build()};
+    box.appendChild(d);
+  });
+}
+$("#addSection").onclick=()=>{S.sections.push({h:"",m:""});renderSections();build()};
+
+/* ── 変数 ───────────────────────── */
+function renderSlots(){
+  const box=$("#slots");box.innerHTML="";
+  if(!S.slots.length){box.innerHTML='<p class="empty">変数はありません</p>';return;}
+  S.slots.forEach((s,i)=>{
+    const d=document.createElement("div");d.className="item";
+    d.innerHTML=`<span class="idx">{{}}</span>
+      <div class="fields">
+        <input type="text" placeholder="変数名（例：商品名）">
+        <input type="text" placeholder="説明・入る値の例（任意）">
+      </div>
+      <button class="del" aria-label="削除">×</button>`;
+    const [a,b]=d.querySelectorAll("input");
+    a.value=s.n;b.value=s.d;
+    a.oninput=()=>{s.n=a.value;build()};
+    b.oninput=()=>{s.d=b.value;build()};
+    d.querySelector(".del").onclick=()=>{S.slots.splice(i,1);renderSlots();build()};
+    box.appendChild(d);
+  });
+}
+$("#addSlot").onclick=()=>{S.slots.push({n:"",d:""});renderSlots();build()};
+
+/* ── プロンプト生成 ───────────────────────── */
+function checked(sel){
+  return $$(sel+" input:checked").map(i=>i.dataset.n);
+}
+function buildBlocks(){
+  const B=[],v=$("#vessel").value;
+  const role=$("#role").value.trim();
+  if(role) B.push(["役割",`あなたは${role}として回答してください。`]);
+
+  const core=$("#core").value.trim();
+  const ctx=$("#context").value.trim();
+  const aud=$("#audience").value.trim();
+  const kn=$("#known").value.trim();
+  let task=core||"（やってほしいことが未記入）";
+  B.push(["依頼内容",task]);
+
+  const bg=[];
+  if(ctx)bg.push(ctx);
+  if(aud)bg.push(`読み手は${aud}。`);
+  if(kn)bg.push(`前提：${kn}`);
+  if(bg.length)B.push(["背景",bg.join("\n")]);
+
+  const mat=$("#material").value.trim(), mu=$("#materialUse").value;
+  if(mat)B.push(["参考資料",(mu?mu+"\n\n":"")+mat]);
+  else if(mu)B.push(["資料の扱い方",mu]);
+
+  /* 情報源 */
+  const src=[];
+  if($("#research").value)src.push($("#research").value);
+  const sp=$("#srcPref").value.trim();
+  if(sp)src.push(`情報源は${sp}を優先すること。`);
+  const su=$("#srcUrl").value.trim();
+  if(su)src.push("次のURLの内容を確認すること：\n"+su);
+  if($("#freshness").value)src.push($("#freshness").value);
+  checked("#citation").forEach(n=>src.push(n));
+  if(src.length)B.push(["情報源",src.join("\n")]);
+
+  /* 出力形式 */
+  const f=[];
+  f.push(`形式：${VESSEL_TEXT[v]}で出力する。`);
+  const cols=$("#cols")?.value.trim();
+  if(cols&&(v==="table"||v==="csv"))f.push(`列は「${cols.split(/[,、]/).map(s=>s.trim()).filter(Boolean).join("／")}」の順とする。`);
+  const schema=$("#schema")?.value.trim();
+  if(schema&&(v==="json"||v==="yaml"))f.push(`構造は次のとおり：\n${schema}`);
+  const cl=$("#codeLang")?.value.trim();
+  if(cl&&v==="code")f.push(`言語・環境：${cl}`);
+
+  const secs=S.sections.filter(s=>s.h.trim());
+  if(secs.length){
+    f.push("次の見出しをこの順で立てる：");
+    secs.forEach((s,i)=>f.push(`${i+1}. ${s.h.trim()}${s.m.trim()?" — "+s.m.trim():""}`));
+  }
+  const unit=$("#volUnit").value,num=$("#volNum").value,st=$("#volStrict").value;
+  if(unit&&num){
+    f.push(st==="厳守"?`分量：${num}${unit}を厳守する（誤差±5%以内）。`:`分量：${num}${unit}${st}。`);
+  }
+  const sty=$("#style").value,tn=$("#tone").value,lg=$("#lang").value,lv=$("#level").value;
+  const voice=[];
+  if(sty)voice.push(`文体は${sty}`);
+  if(tn)voice.push(`語調は${tn}`);
+  if(lg)voice.push(`言語は${lg}`);
+  if(voice.length)f.push(voice.join("、")+"。");
+  if(lv)f.push(lv+"書く。");
+  checked("#notation").forEach(n=>f.push(n));
+  B.push(["出力形式",f.join("\n")]);
+
+  /* 進め方 */
+  let m=checked("#method").slice();
+  const drop=MODEL_GUIDE[S.model]?.drop;
+  if(drop)m=m.filter(x=>!drop.includes(x));
+  if($("#variantMode").value==="複数"){
+    const n=$("#variantNum").value||3;
+    m.unshift(`方向性の異なる案を${n}つ出し、それぞれ狙いを一行で添えること。`);
+  }
+  if(m.length)B.push(["進め方",m.join("\n")]);
+
+  /* 進行 */
+  const fl=[];
+  if($("#flow").value)fl.push($("#flow").value);
+  if($("#cont").value)fl.push($("#cont").value);
+  if(fl.length)B.push(["進行",fl.join("\n")]);
+
+  /* NG事項 */
+  const p=checked("#prohibit").slice();
+  const av=$("#avoid").value.trim();
+  if(av)p.push(`次のことは避ける：${av}`);
+  if(p.length)B.push(["制約",p.join("\n")]);
+
+  /* 見本 */
+  const g=$("#goodEx").value.trim(),b2=$("#badEx").value.trim();
+  if(g||b2){
+    const e=[];
+    if(g)e.push("＜良い例＞\n"+g);
+    if(b2)e.push("＜NG例＞\n"+b2);
+    B.push(["例",e.join("\n\n")]);
+  }
+
+  /* 変数 */
+  const sl=S.slots.filter(s=>s.n.trim());
+  if(sl.length)B.push(["変数",
+    "本文中の {{ }} は、使うときに差し替える箇所です。\n"+
+    sl.map(s=>`{{${s.n.trim()}}}${s.d.trim()?" … "+s.d.trim():""}`).join("\n")]);
+
+  return B;
+}
+const XMLTAG={"役割":"role","依頼内容":"task","背景":"context","参考資料":"material","資料の扱い方":"material_use",
+ "情報源":"sources","出力形式":"output_format","進め方":"method","進行":"workflow",
+ "制約":"constraints","例":"examples","変数":"slots"};
+
+function compose(){
+  const B=buildBlocks(),fmt=S.fmt;
+  if(fmt==="xml"){
+    return B.map(([t,b])=>`<${XMLTAG[t]||"section"}>\n${b}\n</${XMLTAG[t]||"section"}>`).join("\n\n");
+  }
+  if(fmt==="compact"){
+    return B.map(([t,b])=>`【${t}】${b.replace(/\n+/g," ／ ")}`).join("\n");
+  }
+  return B.map(([t,b])=>`## ${t}\n${b}`).join("\n\n");
+}
+function updateRoleGuide(){
+  const g=ROLE_GUIDE[S.use];
+  $("#role").placeholder=g.ph;
+  $("#roleHint").textContent=g.hint;
+  const hasRole=!!$("#role").value.trim();
+  const noMethod=$$("#method input:checked").length===0;
+  $("#roleWarn").hidden=!(S.use!=="creative"&&hasRole&&noMethod);
+}
+function updateModelGuide(){
+  const g=MODEL_GUIDE[S.model];
+  $("#modelHint").textContent=g.hint;
+  const load=$$(".checks input:checked").length+S.sections.filter(x=>x.h.trim()).length;
+  const w=$("#modelWarn");
+  if(S.model==="light"&&load>10){
+    w.hidden=false;
+    w.textContent="軽量モデルには指示が多すぎます（見出し＋チェック計"+load+"件）。守られない項目が出るので、減らすか対象モデルを変えてください。";
+  }else if(S.model==="reasoning"&&$$("#method input:checked").some(i=>i.dataset.n.startsWith("結論を出す前に"))){
+    w.hidden=false;
+    w.textContent="対象が推論モデルのため、「段階を追って検討」は出力から外しています。チェックはそのままで大丈夫です。";
+  }else w.hidden=true;
+}
+function summary(){
+  const v=$("#vessel"),parts=[];
+  parts.push("形式="+v.options[v.selectedIndex].textContent);
+  const sec=S.sections.filter(x=>x.h.trim()).length;
+  if(sec)parts.push("見出し"+sec);
+  const unit=$("#volUnit").value,num=$("#volNum").value;
+  if(unit&&num)parts.push(num+unit+$("#volStrict").value);
+  const m=$$("#method input:checked").length;if(m)parts.push("進め方"+m+"件");
+  const p=$$("#prohibit input:checked").length;if(p)parts.push("NG"+p+"件");
+  if($("#research").value)parts.push("検索あり");
+  if($("#flow").value)parts.push("段取りあり");
+  if($("#variantMode").value)parts.push($("#variantNum").value+"案");
+  parts.push("対象="+{general:"汎用",reasoning:"推論",light:"軽量"}[S.model]);
+  $("#setupSummary").textContent="現在の設定 … "+parts.join(" ／ ");
+}
+const VAGUE=["適切に","適宜","なるべく","できるだけ","いい感じ","良い感じ","うまく","しっかり",
+ "ちゃんと","それなり","柔軟に","必要に応じて","たくさん","わかりやすく","分かりやすく","丁寧に"];
+
+function diagnose(){
+  const F=[],add=(lv,tab,msg)=>F.push({lv,tab,msg});
+  const V=id=>$("#"+id).value, T=id=>$("#"+id).value.trim();
+  const ck=g=>$$("#"+g+" input:checked").map(i=>i.dataset.n);
+  const has=(g,head)=>ck(g).some(x=>x.startsWith(head));
+  const v=V("vessel"), secs=S.sections.filter(x=>x.h.trim());
+  const nCk=$$(".checks input:checked").length, load=nCk+secs.length;
+  const core=T("core"), mat=T("material");
+
+  /* ── 重大 ── */
+  if(!core) add("重大",1,"「やってほしいこと」が空です。ここが決まらないと他の指定は効きません。");
+  else if(core.length<20) add("注意",1,"依頼内容が短すぎます（"+core.length+"字）。目的と対象を一文で足すと精度が上がります。");
+
+  if(has("method","着手前に")&&has("prohibit","質問を返さず"))
+    add("重大",3,"「先に不明点を質問する」と「質問を返さない」が両方オンです。どちらかを外してください。");
+
+  const matRange=V("materialUse").startsWith("これを主材料");
+  const searching=V("research").startsWith("ウェブを検索")||V("research").startsWith("まずウェブ");
+  if(matRange&&searching)
+    add("重大",1,"資料の範囲外に出ないよう指定しつつ、検索も指示しています。どちらを優先するか決めてください。");
+
+  const onlyMat=V("research").startsWith("与えられた資料");
+  if((onlyMat||matRange)&&!mat)
+    add("重大",1,"資料の範囲に限る指定なのに、参考資料が空です。このままだと答えようがありません。");
+
+  if(has("citation","各記述の直後")&&!searching)
+    add("重大",1,"出典とURLを求めていますが、検索の指定がありません。記憶だけでURLを書かせると、存在しないURLが混ざります。");
+
+  if(["json","yaml","csv"].includes(v)&&secs.length)
+    add("重大",2,"構造化データ（"+v.toUpperCase()+"）に見出しの構成を指定しても効きません。見出しを消すか、形式を文章に変えてください。");
+
+  if(V("volStrict")==="厳守"&&V("volUnit")==="文字"&&V("volNum")&&secs.length){
+    const per=Number(V("volNum"))/secs.length;
+    if(per<80) add("重大",2,"分量が厳守で"+V("volNum")+"字、見出しが"+secs.length+"個。1見出し"+Math.round(per)+"字では成立しません。");
+  }
+
+  /* ── 注意 ── */
+  const vg=VAGUE.filter(w=>(core+T("context")+T("avoid")).includes(w));
+  if(vg.length) add("注意",1,"曖昧な言い方があります（"+vg.slice(0,3).join("・")+"）。基準や数値に言い換えると解釈のぶれが減ります。");
+
+  if(v==="code"&&!(($("#codeLang")?.value||"").trim()))
+    add("注意",2,"コード出力ですが、言語と環境の指定がありません。");
+  if(["table","csv"].includes(v)&&!(($("#cols")?.value||"").trim()))
+    add("注意",2,"表・CSVですが、列の指定がありません。列を決めると並びが安定します。");
+  if(["json","yaml"].includes(v)&&!(($("#schema")?.value||"").trim()))
+    add("改善",2,"構造の指定がありません。キー名を書くと、そのまま使える形で返ってきます。");
+
+  if(!V("volUnit")&&["prose","markdown","bullet","checklist"].includes(v)&&secs.length>=3)
+    add("注意",2,"見出しが"+secs.length+"個あるのに分量の指定がありません。全体か1見出しかの目安を入れると安定します。");
+
+  if(load>14)
+    add("注意",3,"指示が多すぎます（見出し＋チェック計"+load+"件）。守られない項目が出るので、効くものに絞ってください。");
+
+  if(V("variantMode")&&["以内","厳守"].includes(V("volStrict")))
+    add("注意",2,"複数案と厳しい分量指定が同時にあります。分量が1案あたりか全体かを依頼内容に書き添えてください。");
+
+  if(T("role")&&!ck("method").length&&S.use!=="creative")
+    add("注意",3,"役割だけでは精度は上がりません。進め方で根拠・段階的な検討・自己チェックを指定してください。");
+
+  const slotNames=S.slots.filter(x=>x.n.trim()).map(x=>x.n.trim());
+  const used=[...(core+T("context")+mat).matchAll(/\{\{([^}]+)\}\}/g)].map(m=>m[1].trim());
+  const unreg=[...new Set(used)].filter(n=>!slotNames.includes(n));
+  if(unreg.length)
+    add("注意",3,"本文の {{"+unreg[0]+"}} が変数として登録されていません。差し替え忘れの元になります。");
+
+  if(secs.length===1)
+    add("注意",2,"見出しが1つだけです。構成を指定する意味が薄いので、増やすか外してください。");
+
+  if(mat.length>2000&&S.fmt!=="xml")
+    add("注意",4,"参考資料が"+mat.length+"字あります。XMLタグ形式にすると、指示と資料の境目を取り違えにくくなります。");
+
+  if(ck("prohibit").length>=4&&T("avoid"))
+    add("注意",3,"禁止の指示が多いです（"+ck("prohibit").length+"件＋避けること）。「〜しない」より「〜する」の形の方が通ります。");
+
+  /* ── 改善 ── */
+  if(searching&&!ck("citation").length)
+    add("改善",1,"検索させるなら、出典の示し方を1つ選ぶと内容を検証できます。");
+  if(!ck("method").length)
+    add("改善",3,"進め方が未選択です。1つ入れるだけで出力が安定します。");
+  if(!T("context")&&!T("audience"))
+    add("改善",1,"背景と読み手が空です。「何のために使うか」の一行で結果が変わります。");
+  if(S.use==="creative"&&!T("goodEx")&&!T("badEx"))
+    add("改善",3,"文体が大事な用途です。良い例を短く貼ると、狙いに寄せやすくなります。");
+
+  const rank={"重大":0,"注意":1,"改善":2};
+  return F.sort((a,b)=>rank[a.lv]-rank[b.lv]);
+}
+function renderDiag(){
+  const F=diagnose(),box=$("#diagBox");box.innerHTML="";
+  const cls={"重大":"hi","注意":"mid","改善":"low"};
+  if(!F.length){
+    box.innerHTML='<p class="ok">指摘なし。そのまま使えます。</p>';
+  }else{
+    F.forEach(f=>{
+      const b=document.createElement("button");
+      b.className="d "+cls[f.lv];
+      b.innerHTML='<span class="lvl"></span><span class="tx"></span>';
+      b.querySelector(".lvl").textContent=f.lv;
+      b.querySelector(".tx").textContent=f.msg;
+      b.onclick=()=>go(f.tab);
+      box.appendChild(b);
+    });
+  }
+  const hi=F.filter(f=>f.lv==="重大").length,mid=F.filter(f=>f.lv==="注意").length;
+  $("#dockDiag").textContent=F.length?(hi?"重大"+hi+"件":"")+(hi&&mid?"・":"")+(mid?"注意"+mid+"件":"")||"改善"+F.length+"件":"なし";
+  return F;
+}
+function build(){
+  updateRoleGuide();
+  summary();
+  updateModelGuide();
+  const t=compose();
+  $("#out").textContent=t;
+  $("#count").textContent=t.length.toLocaleString()+"字";
+  $("#dockCount").textContent=t.length.toLocaleString();
+  const c1=$$("#method input:checked").some(i=>i.dataset.n.startsWith("着手前に"));
+  const c2=$$("#prohibit input:checked").some(i=>i.dataset.n.startsWith("質問を返さず"));
+  $("#conflict").hidden=!(c1&&c2);
+  renderDiag();
+  save();
+}
+
+/* ── 保存・復元 ──────────────────── */
+const FIELDS=["role","core","context","audience","known","material","materialUse",
+ "research","srcPref","srcUrl","freshness","flow","cont","vessel",
+ "volUnit","volNum","volStrict","style","tone","lang","level","variantMode","variantNum",
+ "goodEx","badEx","avoid"];
+const GROUPS=["notation","prohibit","method","citation"];
+function snapshot(){
+  const o={use:S.use,tpl:S.tpl,fmt:S.fmt,model:S.model,sections:S.sections,slots:S.slots,f:{},c:{}};
+  FIELDS.forEach(k=>o.f[k]=$("#"+k).value);
+  ["cols","schema","codeLang"].forEach(k=>{if($("#"+k))o.f[k]=$("#"+k).value});
+  GROUPS.forEach(g=>{ o.c[g]=$$("#"+g+" input").map(i=>i.checked); });
+  return o;
+}
+function restore(o){
+  S.use=o.use||"research";S.tpl=o.tpl||"";S.fmt=o.fmt||"heading";S.model=o.model||"general";
+  S.sections=o.sections||[];S.slots=o.slots||[];
+  $$("#useChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.use===S.use));
+  $$("#fmtChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.fmt===S.fmt));
+  $$("#modelChips .chip").forEach(b=>b.setAttribute("aria-pressed",b.dataset.model===S.model));
+  FIELDS.forEach(k=>{if(o.f&&o.f[k]!==undefined)$("#"+k).value=o.f[k]});
+  pendingCols=o.f?.cols||"";
+  renderVesselExtra();
+  if(o.f?.schema&&$("#schema"))$("#schema").value=o.f.schema;
+  if(o.f?.codeLang&&$("#codeLang"))$("#codeLang").value=o.f.codeLang;
+  GROUPS.forEach(g=>{
+    const arr=o.c?.[g]||[];$$("#"+g+" input").forEach((i,n)=>i.checked=!!arr[n]);
+  });
+  renderTpl();renderSections();renderSlots();detectLayout();renderLayouts();build();
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()))}catch(e){}}
+function loadArchive(){try{return JSON.parse(localStorage.getItem(ARC)||"[]")}catch(e){return[]}}
+function renderArchive(){
+  const list=loadArchive(),box=$("#savedList");box.innerHTML="";
+  if(!list.length){box.innerHTML='<p class="empty">保存したプロンプトはありません</p>';return;}
+  list.forEach((it,i)=>{
+    const d=document.createElement("div");d.className="saved-item";
+    d.innerHTML=`<span class="nm"></span><span class="dt"></span>
+      <button data-a="load">読み込む</button><button data-a="del">削除</button>`;
+    d.querySelector(".nm").textContent=it.name;
+    d.querySelector(".dt").textContent=it.date;
+    d.querySelector('[data-a="load"]').onclick=()=>{restore(it.data);toast("読み込みました");go(4)};
+    d.querySelector('[data-a="del"]').onclick=()=>{
+      const l=loadArchive();l.splice(i,1);localStorage.setItem(ARC,JSON.stringify(l));renderArchive();
+    };
+    box.appendChild(d);
+  });
+}
+
+/* ── 操作 ───────────────────────── */
+function toast(msg){
+  const t=$("#toast");t.textContent=msg;t.classList.add("on");
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("on"),1600);
+}
+function go(i){
+  if(S.qm){S.qm=null;S.qmat=null;$("#qm").hidden=true;}
+  $$("#tabs button").forEach((b,n)=>{
+    const sec=$("#"+b.dataset.tab);
+    b.setAttribute("aria-selected",n===i);
+    sec.hidden=(n!==i);
+    sec.classList.remove("in");
+    if(n===i){void sec.offsetWidth;sec.classList.add("in");}
+  });
+  window.scrollTo({top:0,behavior:"instant"});
+}
+$$("#tabs button").forEach((b,i)=>b.onclick=()=>go(i));
+$$("#useChips .chip").forEach(b=>b.onclick=()=>{
+  S.use=b.dataset.use;S.tpl="";
+  $$("#useChips .chip").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  S.layout=null;renderTpl();renderLayouts();build();
+});
+$$("#modelChips .chip").forEach(b=>b.onclick=()=>{
+  S.model=b.dataset.model;
+  $$("#modelChips .chip").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  build();
+});
+$$("#fmtChips .chip").forEach(b=>b.onclick=()=>{
+  S.fmt=b.dataset.fmt;
+  $$("#fmtChips .chip").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  build();
+});
+$("#vessel").onchange=renderVesselExtra;
+FIELDS.forEach(k=>{
+  const el=$("#"+k);if(!el)return;
+  el.addEventListener("input",build);el.addEventListener("change",build);
+});
+$$(".checks input").forEach(i=>i.addEventListener("change",build));
+$("#dockGo").onclick=()=>go(4);
+
+async function copyPrompt(){
+  const hi=diagnose().filter(f=>f.lv==="重大");
+  if(hi.length&&!confirm("重大な指摘が"+hi.length+"件あります。\n\n"+hi.map(f=>"・"+f.msg).join("\n")+"\n\nこのままコピーしますか？")){
+    if(!S.qm)go(4);
+    return;
+  }
+  const t=$("#out").textContent;
+  try{await navigator.clipboard.writeText(t);toast("コピーしました")}
+  catch(e){
+    const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);
+    ta.select();document.execCommand("copy");ta.remove();toast("コピーしました");
+  }
+}
+$("#btnCopy").onclick=copyPrompt;
+$("#qmCopy").onclick=copyPrompt;
+$("#qmNote").addEventListener("input",syncQM);
+$("#qmBack").onclick=()=>{exitQuick();go(0);};
+$("#qmMore").onclick=()=>go(1);
+$("#btnShare").onclick=async()=>{
+  const t=$("#out").textContent;
+  if(navigator.share){try{await navigator.share({text:t})}catch(e){}}
+  else toast("この環境では共有できません");
+};
+$("#btnTxt").onclick=()=>{
+  const blob=new Blob([$("#out").textContent],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="prompt_"+new Date().toISOString().slice(0,10)+".txt";
+  a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+$("#btnStore").onclick=()=>{
+  const def=($("#core").value.trim().slice(0,20))||"名称未設定";
+  const name=prompt("保存する名前",def);
+  if(name===null)return;
+  const l=loadArchive();
+  l.unshift({name:name||def,date:new Date().toLocaleDateString("ja-JP"),data:snapshot()});
+  localStorage.setItem(ARC,JSON.stringify(l.slice(0,30)));
+  renderArchive();toast("保存しました");
+};
+$("#btnClear").onclick=()=>{
+  if(!confirm("すべての入力と設定をリセットします。保存したプロンプトと最近使ったものは残ります。"))return;
+  FIELDS.forEach(k=>{const e=$("#"+k);if(e)e.value=(k==="variantNum")?"3":""});
+  $("#vessel").value="prose";
+  $$(".checks input").forEach(i=>i.checked=false);
+  S.sections=[];S.slots=[];S.tpl="";
+  S.use="research";S.model="general";S.fmt="heading";S.layout=null;
+  $$("#useChips .chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.use===S.use));
+  $$("#modelChips .chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.model===S.model));
+  $$("#fmtChips .chip").forEach(x=>x.setAttribute("aria-pressed",x.dataset.fmt===S.fmt));
+  pendingCols="";renderVesselExtra();renderTpl();renderLayouts();renderSections();renderSlots();build();
+  toast("リセットしました");
+};
+
+/* ── 起動 ───────────────────────── */
+(function init(){
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem(KEY)||"null")}catch(e){}
+  if(saved)restore(saved);
+  else{renderTpl();renderSections();renderSlots();renderVesselExtra();}
+  renderLayouts();
+  renderQuick();renderArchive();
+})();
+</script>
+</body>
+</html>
