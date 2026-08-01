@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>律動検波卓 — 周期音解析器</title>
+<style>
+:root{
+  --ink:#0b0e13;
+  --panel:#141a22;
+  --plate:#1c242f;
+  --rule:#2b3644;
+  --ivory:#ece5d8;
+  --dim:#8b95a3;
+  --trace:#86e8c8;
+  --spl:#f0b24a;
+  --mark:#e2564a;
+  --sel:#4f7fb0;
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+  --gothic:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP","Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--ink);color:var(--ivory);font-family:var(--gothic);}
+body{padding:0 0 48px;-webkit-text-size-adjust:100%}
+.wrap{max-width:960px;margin:0 auto;padding:0 12px}
+
+header{border-bottom:1px solid var(--rule);padding:18px 0 12px;margin-bottom:14px}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase}
+h1{font-family:var(--mincho);font-weight:600;font-size:30px;letter-spacing:.16em;margin:6px 0 4px}
+.sub{font-size:12px;color:var(--dim);line-height:1.7}
+
+.plate{background:var(--panel);border:1px solid var(--rule);border-radius:2px;margin-bottom:14px}
+.plate>.label{font-family:var(--mincho);font-size:13px;letter-spacing:.24em;padding:8px 12px;border-bottom:1px solid var(--rule);color:var(--ivory);display:flex;justify-content:space-between;align-items:baseline}
+.plate>.label .n{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em}
+.body{padding:12px}
+
+#drop{border:1px dashed var(--rule);border-radius:2px;padding:22px 14px;text-align:center;background:var(--plate)}
+#drop.hot{border-color:var(--trace);background:#17262a}
+#drop p{margin:0 0 10px;font-size:13px;color:var(--dim);line-height:1.7}
+.btn{font-family:var(--gothic);font-size:14px;color:var(--ivory);background:var(--plate);border:1px solid var(--rule);border-radius:2px;padding:9px 14px;cursor:pointer;letter-spacing:.06em}
+.btn:hover{border-color:var(--trace)}
+.btn:active{background:#222c38}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{border-color:var(--trace);color:var(--trace)}
+.btn:focus-visible{outline:2px solid var(--trace);outline-offset:2px}
+input[type=file]{display:none}
+
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin-top:12px}
+.meta div{background:var(--panel);padding:8px 10px}
+.meta dt{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--dim);margin:0 0 3px}
+.meta dd{margin:0;font-family:var(--mono);font-size:14px}
+
+.rec{margin-top:12px;border-top:1px solid var(--rule);padding-top:12px}
+.rec-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#rec-dot{width:9px;height:9px;border-radius:50%;background:#3a4757;flex:none}
+#rec-dot.live{background:var(--mark);animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+#rec-time{font-family:var(--mono);font-size:20px;letter-spacing:.06em;min-width:86px}
+#rec-lvl{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em}
+#c-live{display:block;width:100%;height:56px;background:#0a0d11;border:1px solid var(--rule);border-radius:2px;margin-top:10px}
+.opt{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);margin-top:10px;cursor:pointer}
+.opt input{accent-color:var(--trace);width:16px;height:16px}
+#status{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;min-height:16px;letter-spacing:.04em}
+#bar{height:2px;background:var(--rule);margin-top:6px;display:none}
+#bar i{display:block;height:100%;width:0;background:var(--trace)}
+
+.stack{position:relative;background:#0a0d11;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.stack canvas{display:block;width:100%}
+#ovl{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.trk{display:flex;align-items:center;gap:8px;padding:3px 8px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:#101620}
+.trk .name{font-family:var(--mincho);font-size:11px;letter-spacing:.18em;min-width:64px}
+.trk .unit{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em}
+.trk .sw{width:14px;height:2px;border-radius:2px}
+
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.readout{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;line-height:1.8;letter-spacing:.03em}
+.readout b{color:var(--ivory);font-weight:500}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:block;font-size:11px;color:var(--dim);letter-spacing:.08em;margin-bottom:5px}
+input[type=number],select{width:100%;font-family:var(--mono);font-size:16px;color:var(--ivory);background:var(--plate);border:1px solid var(--rule);border-radius:2px;padding:8px}
+input[type=range]{width:100%;accent-color:var(--trace)}
+.hint{font-size:11px;color:var(--dim);margin:10px 0 0;line-height:1.7}
+
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--rule);white-space:nowrap}
+th{font-size:9px;letter-spacing:.12em;color:var(--dim);font-weight:400;text-align:right}
+th:first-child,td:first-child{text-align:left}
+tbody tr{cursor:pointer}
+tbody tr.on{background:#1b232e}
+tbody tr.on td:first-child{box-shadow:inset 3px 0 0 var(--mark)}
+td .sm{display:block;font-size:9px;color:var(--dim);margin-top:2px}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.empty{font-size:12px;color:var(--dim);padding:6px 0;line-height:1.8}
+.bad{color:var(--mark)}
+footer{font-family:var(--mono);font-size:9px;color:#5a6472;letter-spacing:.14em;text-align:center;padding-top:8px}
+@media (max-width:520px){h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Periodic Sound Analyser</div>
+  <h1>律動検波卓</h1>
+  <div class="sub">動画・音声ファイル、またはその場のマイク録音から波形を取り出し、音圧の時系列と、周期的に鳴っている音の周期を検出します。<br>すべて端末内で処理します。音は送信されません。</div>
+</header>
+
+<section class="plate">
+  <div class="label">取込<span class="n">SOURCE</span></div>
+  <div class="body">
+    <div id="drop">
+      <p>音声または動画ファイルを置いてください<br>MP4 / MOV / M4A / MP3 / WAV / AAC / WebM など、ブラウザが復号できる形式</p>
+      <button class="btn primary" id="pick">ファイルを選ぶ</button>
+      <input type="file" id="file" accept="audio/*,video/*">
+    </div>
+    <div class="rec">
+      <div class="rec-head">
+        <span id="rec-dot"></span>
+        <span id="rec-time">0:00.0</span>
+        <button class="btn" id="rec">マイクで録る</button>
+        <button class="btn" id="rec-stop" hidden>止めて解析する</button>
+        <span id="rec-lvl">待機中</span>
+      </div>
+      <canvas id="c-live"></canvas>
+      <label class="opt"><input type="checkbox" id="raw" checked>ノイズ抑制・自動音量調整を切る（測定向き）</label>
+      <p class="hint" id="rec-hint">録音は端末内に留まります。最長15分で自動停止します。</p>
+    </div>
+    <div class="meta" id="meta" hidden>
+      <div><dt>FILE</dt><dd id="m-name">—</dd></div>
+      <div><dt>LENGTH</dt><dd id="m-dur">—</dd></div>
+      <div><dt>SAMPLE RATE</dt><dd id="m-sr">—</dd></div>
+      <div><dt>CHANNELS</dt><dd id="m-ch">—</dd></div>
+      <div><dt>PEAK</dt><dd id="m-peak">—</dd></div>
+    </div>
+    <div id="status"></div>
+    <div id="bar"><i></i></div>
+  </div>
+</section>
+
+<section class="plate" id="sec-view" hidden>
+  <div class="label">掃引<span class="n">TRACES</span></div>
+  <div class="body">
+    <div class="stack" id="stack">
+      <canvas id="c-rule"></canvas>
+      <div class="trk"><span class="name">振幅</span><span class="sw" style="background:var(--trace)"></span><span class="unit">−1 … +1 / PEAK</span></div>
+      <canvas id="c-wave"></canvas>
+      <div class="trk"><span class="name">音圧</span><span class="sw" style="background:var(--spl)"></span><span class="unit" id="u-spl">dB</span></div>
+      <canvas id="c-spl"></canvas>
+      <div class="trk"><span class="name">周波数</span><span class="unit" id="u-spec">0 … 8000 Hz</span></div>
+      <canvas id="c-spec"></canvas>
+      <canvas id="ovl"></canvas>
+    </div>
+    <div class="ctl">
+      <button class="btn" id="play">再生</button>
+      <button class="btn" id="zoom">選択範囲を拡大</button>
+      <button class="btn" id="all">全体表示</button>
+      <button class="btn" id="clr">選択を解除</button>
+    </div>
+    <div class="readout" id="readout"></div>
+  </div>
+</section>
+
+<section class="plate" id="sec-set" hidden>
+  <div class="label">検波設定<span class="n">DETECTION</span></div>
+  <div class="body">
+    <div class="grid">
+      <div>
+        <label class="f" for="minp">最小周期（ミリ秒）</label>
+        <input type="number" id="minp" value="60" min="20" max="5000" step="10">
+      </div>
+      <div>
+        <label class="f" for="maxp">最大周期（秒）</label>
+        <input type="number" id="maxp" value="6" min="0.2" max="60" step="0.5">
+      </div>
+      <div>
+        <label class="f" for="bands">解析帯域の数</label>
+        <select id="bands"><option>6</option><option selected>8</option><option>12</option></select>
+      </div>
+      <div>
+        <label class="f" for="sens">立ち上がり検出の感度 <span id="sens-v" style="font-family:var(--mono)">1.0</span></label>
+        <input type="range" id="sens" min="0.3" max="2.5" step="0.1" value="1.0">
+      </div>
+      <div>
+        <label class="f" for="cal">フルスケールを何 dB とみなすか</label>
+        <input type="number" id="cal" value="94" min="0" max="160" step="1">
+      </div>
+    </div>
+    <div class="ctl">
+      <button class="btn primary" id="detect">検波する</button>
+      <button class="btn" id="detectSel">選択範囲だけ検波</button>
+    </div>
+    <p class="hint">音圧は録音レベルに対する相対値です。フルスケール値は目安の換算で、実測校正ではありません。</p>
+  </div>
+</section>
+
+<section class="plate" id="sec-res" hidden>
+  <div class="label">周期一覧<span class="n">PERIODS</span></div>
+  <div class="body">
+    <div class="tscroll">
+      <table id="tbl">
+        <thead><tr>
+          <th>帯域</th><th>周期</th><th>回/分</th><th>周波数</th><th>ゆらぎ</th><th>一致</th><th>確度</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="empty" id="nores" hidden></div>
+    <p class="hint">行をタップすると、その周期の予測時刻が波形に朱の目印で重なります。同じ周期は帯域をまたいでまとめています。検出できる周期は解析範囲の 1/4 までです。</p>
+  </div>
+</section>
+
+<section class="plate" id="sec-out" hidden>
+  <div class="label">書出<span class="n">EXPORT</span></div>
+  <div class="body">
+    <div class="grid">
+      <div>
+        <label class="f" for="step">音圧CSVの出力間隔（ミリ秒）</label>
+        <input type="number" id="step" value="10" min="8" max="5000" step="10">
+      </div>
+    </div>
+    <div class="ctl">
+      <button class="btn" id="csv1">音圧の時系列をCSVで保存</button>
+      <button class="btn" id="csv2">周期一覧をCSVで保存</button>
+      <button class="btn" id="wav" hidden>録音をWAVで保存</button>
+    </div>
+  </div>
+</section>
+
+<footer>律動検波卓 — LOCAL ANALYSIS ONLY</footer>
+</div>
+
+<script>
+"use strict";
+/* ============================ 定数 ============================ */
+const AN_SR = 16000;      // 解析用サンプリング周波数
+const WIN   = 512;        // 窓長（32 ms）
+let HOP     = 128;        // 送り（8 ms → 125 フレーム/秒。長尺では自動で粗くする）
+let FPS     = AN_SR / HOP;
+const DBFLOOR = -100;
+const FOFF  = WIN/(2*AN_SR);   // フレーム番号→時刻のずれ（窓の中心）
+const tAt = i => FOFF + i/FPS;
+const fAt = t => (t-FOFF)*FPS;
+
+/* ============================ 状態 ============================ */
+const S = {
+  buf:null, name:"", sr:0, ch:0, dur:0,
+  mono:null,                 // 16 kHz モノラル
+  F:0, tMin:null, tMax:null, tRms:null, tDb:null,
+  nB:8, edges:null, bandDb:null, bandFreq:null, totalDb:null,
+  spec:null, specCols:0, specBins:128,
+  view:[0,0], sel:null,
+  rows:[], shown:new Set(),
+  specDirty:true,
+  playing:false, src:null, ac:null, playT0:0, playOff:0, playEnd:0,
+  rec:null
+};
+
+/* ============================ 小道具 ============================ */
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const yieldFrame = () => new Promise(r => setTimeout(r, 0));
+function setStatus(t, bad){ const e=$("#status"); e.textContent=t||""; e.className = bad?"bad":""; }
+function setProg(p){ const b=$("#bar"); if(p==null){b.style.display="none";return;} b.style.display="block"; b.firstElementChild.style.width=(p*100).toFixed(1)+"%"; }
+function fmtTime(t){
+  if(!isFinite(t)) return "—";
+  const m=Math.floor(t/60), s=t-m*60;
+  return m+":"+(s<10?"0":"")+s.toFixed(3);
+}
+function fmtDur(t){
+  const h=Math.floor(t/3600), m=Math.floor(t/60)%60, s=Math.floor(t%60);
+  return (h?h+"h":"")+m+"m"+(s<10?"0":"")+s+"s";
+}
+function fmtPeriod(p){
+  return p<1 ? (p*1000).toFixed(1)+" ms" : p.toFixed(4)+" s";
+}
+function fmtHz(f){
+  if(f>=1000) return (f/1000).toFixed(f>=10000?1:2)+" kHz";
+  return f.toFixed(f<100?1:0)+" Hz";
+}
+
+/* ============================ FFT ============================ */
+class FFT{
+  constructor(n){
+    this.n=n; const bits=Math.round(Math.log2(n));
+    this.rev=new Uint32Array(n);
+    for(let i=0;i<n;i++){ let r=0; for(let b=0;b<bits;b++) if((i>>b)&1) r|=1<<(bits-1-b); this.rev[i]=r; }
+    this.cos=new Float64Array(n>>1); this.sin=new Float64Array(n>>1);
+    for(let i=0;i<(n>>1);i++){ this.cos[i]=Math.cos(-2*Math.PI*i/n); this.sin[i]=Math.sin(-2*Math.PI*i/n); }
+  }
+  run(re,im,inv){
+    const n=this.n, rev=this.rev, C=this.cos, Sn=this.sin;
+    for(let i=0;i<n;i++){ const j=rev[i]; if(j>i){ let t=re[i];re[i]=re[j];re[j]=t; t=im[i];im[i]=im[j];im[j]=t; } }
+    for(let size=2;size<=n;size<<=1){
+      const half=size>>1, step=n/size;
+      for(let i=0;i<n;i+=size){
+        for(let j=i,k=0;j<i+half;j++,k+=step){
+          const c=C[k], s=inv?-Sn[k]:Sn[k], l=j+half;
+          const tr=re[l]*c-im[l]*s, ti=re[l]*s+im[l]*c;
+          re[l]=re[j]-tr; im[l]=im[j]-ti; re[j]+=tr; im[j]+=ti;
+        }
+      }
+    }
+    if(inv) for(let i=0;i<n;i++){ re[i]/=n; im[i]/=n; }
+  }
+}
+const fftCache=new Map();
+const getFFT = n => { let f=fftCache.get(n); if(!f){ f=new FFT(n); fftCache.set(n,f);} return f; };
+
+/* ============================ 読み込み ============================ */
+function ac(){ if(!S.ac) S.ac = new (window.AudioContext||window.webkitAudioContext)(); return S.ac; }
+function decode(ctx, ab){
+  return new Promise((res,rej)=>{
+    const p = ctx.decodeAudioData(ab, res, rej);
+    if(p && p.then) p.then(res, rej);
+  });
+}
+
+async function load(file){
+  try{
+    stopPlay();
+    S.name = file.name;
+    setStatus("読み込み中… "+(file.size/1048576).toFixed(1)+" MB");
+    setProg(0.05);
+    const ab = await file.arrayBuffer();
+    setStatus("音声を復号しています…"); setProg(0.15);
+    let buf;
+    try{ buf = await decode(ac(), ab); }
+    catch(e){
+      setProg(null);
+      setStatus("このファイルの音声を復号できません。MP4 / M4A / MOV / MP3 / WAV に変換してから試してください。", true);
+      return;
+    }
+    if(!buf || !buf.length){ setProg(null); setStatus("音声トラックが見つかりません。", true); return; }
+    S.buf=buf; S.sr=buf.sampleRate; S.ch=buf.numberOfChannels; S.dur=buf.duration;
+    S.view=[0,S.dur]; S.sel=null; S.shown.clear(); S.rows=[]; S.specDirty=true;
+    $("#meta").hidden=false;
+    $("#m-name").textContent = file.name.length>22 ? file.name.slice(0,20)+"…" : file.name;
+    $("#m-dur").textContent = fmtDur(S.dur);
+    $("#m-sr").textContent = (S.sr/1000).toFixed(1)+" kHz";
+    $("#m-ch").textContent = S.ch===1?"モノラル":S.ch===2?"ステレオ":S.ch+"ch";
+    $("#wav").hidden=true;
+    if(S.dur>600) setStatus("10分を超える音声です。解析に時間がかかります…");
+    await analyse();
+  }catch(e){
+    console.error(e); setProg(null); setStatus("読み込みに失敗しました: "+e.message, true);
+  }
+}
+
+/* ============================ 録音 ============================ */
+const REC_MAX = 900;                       // 秒
+const LIVE_SPAN = 12;                      // 生表示の秒数
+const WORKLET_SRC = `
+class Tap extends AudioWorkletProcessor{
+  process(inputs){
+    const ch=inputs[0][0];
+    if(ch) this.port.postMessage(new Float32Array(ch));
+    return true;
+  }
+}
+registerProcessor('tap', Tap);`;
+
+function recBuffer(chunks, total, sr, ctx){
+  const flat=new Float32Array(total);
+  let o=0;
+  for(const c of chunks){ flat.set(c, o); o+=c.length; }
+  if(ctx && ctx.createBuffer){
+    const b=ctx.createBuffer(1, Math.max(1,total), sr);
+    b.getChannelData(0).set(flat);
+    return b;
+  }
+  return { sampleRate:sr, numberOfChannels:1, length:total, duration:total/sr, getChannelData:()=>flat };
+}
+function stampName(){
+  const d=new Date(), z=n=>(n<10?"0":"")+n;
+  return "録音_"+d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+"_"+z(d.getHours())+z(d.getMinutes())+z(d.getSeconds())+".wav";
+}
+function recTime(t){
+  const m=Math.floor(t/60), s=t-m*60;
+  return m+":"+(s<10?"0":"")+s.toFixed(1);
+}
+
+async function startRec(){
+  if(S.rec) return;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setStatus("このブラウザではマイクを使えません。", true); return;
+  }
+  stopPlay();
+  const raw=$("#raw").checked;
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ audio:{
+      channelCount:1,
+      echoCancellation: !raw, noiseSuppression: !raw, autoGainControl: !raw
+    }, video:false });
+  }catch(e){
+    const n=e && e.name;
+    setStatus(
+      n==="NotAllowedError" ? "マイクの使用が許可されていません。ブラウザの設定で許可してから、もう一度押してください。" :
+      n==="NotFoundError"   ? "マイクが見つかりません。" :
+      location.protocol==="file:" ? "ファイルを直接開いた状態ではマイクを使えません。https:// か localhost 経由で開いてください。" :
+      "マイクを開けませんでした: "+(e&&e.message), true);
+    return;
+  }
+  const ctx=ac();
+  if(ctx.state==="suspended"){ try{ await ctx.resume(); }catch(e){} }
+  const sr=ctx.sampleRate;
+  const R = S.rec = { stream, ctx, sr, chunks:[], total:0, t0:performance.now(),
+                      levels:[], peak:0, node:null, src:null, sink:null, af:0, stopping:false };
+  R.src = ctx.createMediaStreamSource(stream);
+  R.sink = ctx.createGain(); R.sink.gain.value = 0;   // 音を出さずに回す
+  R.sink.connect(ctx.destination);
+
+  const take = block => {
+    if(!S.rec || S.rec!==R || R.stopping) return;
+    R.chunks.push(block); R.total += block.length;
+    let sq=0, pk=0;
+    for(let i=0;i<block.length;i++){ const v=block[i]; sq+=v*v; const a=v<0?-v:v; if(a>pk) pk=a; }
+    R.levels.push({ t:R.total/sr, db:20*Math.log10(Math.sqrt(sq/block.length)+1e-12), pk });
+    if(pk>R.peak) R.peak=pk;
+    const span=Math.max(1, Math.round(LIVE_SPAN*sr/block.length)+2);
+    if(R.levels.length>span) R.levels.splice(0, R.levels.length-span);
+    if(R.total/sr>=REC_MAX) stopRec();
+  };
+
+  let ok=false;
+  if(ctx.audioWorklet){
+    try{
+      const url=URL.createObjectURL(new Blob([WORKLET_SRC],{type:"application/javascript"}));
+      await ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      R.node=new AudioWorkletNode(ctx,"tap",{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});
+      R.node.port.onmessage=e=>take(e.data);
+      ok=true;
+    }catch(e){ ok=false; }
+  }
+  if(!ok){
+    R.node=ctx.createScriptProcessor(4096,1,1);
+    R.node.onaudioprocess=e=>take(new Float32Array(e.inputBuffer.getChannelData(0)));
+  }
+  R.src.connect(R.node); R.node.connect(R.sink);
+
+  $("#rec").hidden=true; $("#rec-stop").hidden=false;
+  $("#rec-dot").classList.add("live");
+  $("#pick").disabled=true; $("#raw").disabled=true;
+  setStatus("録音しています。周期音が入るように、しばらく回してください。");
+  liveTick();
+}
+
+function liveTick(){
+  const R=S.rec; if(!R) return;
+  const el=R.total/R.sr;
+  $("#rec-time").textContent=recTime(el);
+  const last=R.levels[R.levels.length-1];
+  $("#rec-lvl").textContent = last
+    ? "入力 "+last.db.toFixed(0)+" dBFS　最大 "+(20*Math.log10(R.peak+1e-12)).toFixed(0)+" dBFS"
+        + (R.peak>0.99?"　※音が割れています":"")
+    : "入力待ち";
+  if(REC_MAX-el<60) $("#rec-hint").textContent="あと "+Math.max(0,Math.round(REC_MAX-el))+" 秒で自動停止します。";
+  drawLive();
+  R.af=requestAnimationFrame(liveTick);
+}
+
+function drawLive(){
+  const c=$("#c-live"), R=S.rec;
+  const r=c.getBoundingClientRect(), dpr=Math.min(2, window.devicePixelRatio||1);
+  if(c.width!==Math.round(r.width*dpr)){ c.width=Math.round(r.width*dpr); c.height=Math.round(56*dpr); }
+  const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  const w=r.width, h=56;
+  g.clearRect(0,0,w,h); g.fillStyle="#0a0d11"; g.fillRect(0,0,w,h);
+  g.strokeStyle="#1a2330"; g.lineWidth=1;
+  for(let k=1;k<4;k++){ const y=Math.round(h*k/4)+.5; g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
+  if(!R || !R.levels.length){
+    g.fillStyle="#5a6472"; g.font="10px ui-monospace,Menlo,monospace"; g.textAlign="center"; g.textBaseline="middle";
+    g.fillText("入力待ち", w/2, h/2); return;
+  }
+  const n=R.levels.length;
+  const bw=Math.max(1, w/n);
+  for(let i=0;i<n;i++){
+    const v=clamp((R.levels[i].db+72)/72, 0, 1);
+    const bh=Math.max(1, v*(h-4));
+    g.fillStyle = R.levels[i].pk>0.99 ? "#e2564a" : "#f0b24a";
+    g.fillRect(i*bw, h-bh-2, Math.max(1,bw-0.5), bh);
+  }
+  g.fillStyle="#5a6472"; g.font="9px ui-monospace,Menlo,monospace"; g.textAlign="right"; g.textBaseline="top";
+  g.fillText("直近 "+LIVE_SPAN+" 秒", w-4, 3);
+}
+
+async function stopRec(){
+  const R=S.rec; if(!R || R.stopping) return;
+  R.stopping=true;
+  cancelAnimationFrame(R.af);
+  try{ R.src.disconnect(); }catch(e){}
+  try{ R.node.disconnect(); if(R.node.port) R.node.port.onmessage=null; R.node.onaudioprocess=null; }catch(e){}
+  try{ R.sink.disconnect(); }catch(e){}
+  R.stream.getTracks().forEach(t=>t.stop());
+  S.rec=null;
+  $("#rec").hidden=false; $("#rec-stop").hidden=true;
+  $("#rec-dot").classList.remove("live");
+  $("#pick").disabled=false; $("#raw").disabled=false;
+  $("#rec-hint").textContent="録音は端末内に留まります。最長15分で自動停止します。";
+  drawLive();
+  const secs=R.total/R.sr;
+  if(secs<1.5){ setStatus("録音が短すぎます。1.5秒以上録ってください。", true); $("#rec-time").textContent="0:00.0"; return; }
+  const buf=recBuffer(R.chunks, R.total, R.sr, R.ctx);
+  R.chunks.length=0;
+  S.buf=buf; S.sr=R.sr; S.ch=1; S.dur=buf.duration; S.name=stampName();
+  S.view=[0,S.dur]; S.sel=null; S.shown.clear(); S.rows=[]; S.specDirty=true;
+  $("#meta").hidden=false;
+  $("#m-name").textContent="マイク録音";
+  $("#m-dur").textContent=fmtDur(S.dur);
+  $("#m-sr").textContent=(S.sr/1000).toFixed(1)+" kHz";
+  $("#m-ch").textContent="モノラル";
+  $("#wav").hidden=false;
+  try{ await analyse(); }
+  catch(e){ console.error(e); setProg(null); setStatus("解析に失敗しました: "+e.message, true); }
+}
+
+/* ============================ 解析 ============================ */
+async function analyse(){
+  const buf=S.buf, sr=S.sr, ch=S.ch, n=buf.length;
+  HOP = S.dur>240 ? 256 : 128;   // 長い音源は時間分解能を落として現実的な待ち時間にする
+  FPS = AN_SR/HOP;
+  const chans=[]; for(let c=0;c<ch;c++) chans.push(buf.getChannelData(c));
+  const ratio = sr/AN_SR;
+
+  // --- 1) モノラル化して 16 kHz へ（箱形平均） ---
+  setStatus("波形を取り出しています…");
+  const outLen = Math.max(WIN, Math.floor(n/ratio));
+  const mono = new Float32Array(outLen);
+  const c0=chans[0], c1=ch>1?chans[1]:null;
+  for(let i=0;i<outLen;i++){
+    const s=Math.floor(i*ratio), e=Math.min(n, Math.max(s+1, Math.floor((i+1)*ratio)));
+    let acc=0;
+    if(ch===1){ for(let j=s;j<e;j++) acc+=c0[j]; }
+    else if(ch===2){ for(let j=s;j<e;j++) acc+=(c0[j]+c1[j])*0.5; }
+    else { for(let j=s;j<e;j++){ let v=0; for(let c=0;c<ch;c++) v+=chans[c][j]; acc+=v/ch; } }
+    mono[i]=acc/(e-s);
+    if((i&0xFFFFF)===0){ setProg(0.15+0.2*i/outLen); if(i){ await yieldFrame(); } }
+  }
+  S.mono=mono;
+
+  const F = Math.max(1, Math.floor((outLen-WIN)/HOP)+1);
+  S.F=F;
+
+  // --- 2) 元波形からフレームごとの最大・最小・実効値 ---
+  setStatus("音圧を測っています…");
+  const tMin=new Float32Array(F), tMax=new Float32Array(F), tRms=new Float32Array(F), tDb=new Float32Array(F);
+  const blk=Math.max(1, Math.round(HOP*ratio));
+  let peak=0;
+  for(let i=0;i<F;i++){
+    let s=Math.round((i*HOP+WIN/2-HOP/2)*ratio);
+    s=clamp(s,0,Math.max(0,n-1));
+    const e=Math.min(n, s+blk);
+    let mn=0, mx=0, sq=0, cnt=0;
+    for(let j=s;j<e;j++){
+      const v = ch===1 ? c0[j] : ch===2 ? (c0[j]+c1[j])*0.5 : (()=>{ let a=0; for(let c=0;c<ch;c++) a+=chans[c][j]; return a/ch; })();
+      if(v<mn) mn=v; if(v>mx) mx=v;
+      sq+=v*v; cnt++;
+    }
+    const rms=cnt?Math.sqrt(sq/cnt):0;
+    tMin[i]=mn; tMax[i]=mx; tRms[i]=rms;
+    tDb[i]=Math.max(DBFLOOR, 20*Math.log10(rms+1e-12));
+    const pk=Math.max(mx,-mn); if(pk>peak) peak=pk;
+    if((i&0x3FFF)===0){ setProg(0.35+0.15*i/F); if(i){ await yieldFrame(); } }
+  }
+  S.tMin=tMin; S.tMax=tMax; S.tRms=tRms; S.tDb=tDb;
+  $("#m-peak").textContent = (20*Math.log10(peak+1e-12)).toFixed(1)+" dBFS";
+  let dbMax=DBFLOOR; for(let i=0;i<F;i++) if(tDb[i]>dbMax) dbMax=tDb[i];
+  S.splHi=Math.min(0, Math.ceil(dbMax/6)*6);
+  S.splLo=S.splHi-72;
+
+  await stft();
+
+  $("#sec-view").hidden=false; $("#sec-set").hidden=false; $("#sec-out").hidden=false;
+  resizeCanvases();
+  runDetect(null);
+  setProg(null);
+  setStatus("解析が終わりました。波形をなぞると範囲を選べます。");
+}
+
+function makeEdges(nB){
+  const lo=40, hi=AN_SR/2, e=new Float64Array(nB+1);
+  for(let i=0;i<=nB;i++) e[i]=lo*Math.pow(hi/lo, i/nB);
+  return e;
+}
+
+async function stft(){
+  setStatus("周波数ごとに分けています…");
+  const mono=S.mono, F=S.F, nB=S.nB=parseInt($("#bands").value,10);
+  const edges=S.edges=makeEdges(nB);
+  const bandDb=new Float32Array(nB*F), totalDb=new Float32Array(F);
+  const bandFreqNum=new Float64Array(nB), bandFreqDen=new Float64Array(nB);
+  const fft=getFFT(WIN), re=new Float64Array(WIN), im=new Float64Array(WIN);
+  const win=new Float64Array(WIN);
+  for(let i=0;i<WIN;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/WIN);
+  const bins=WIN/2, binHz=AN_SR/WIN;
+  const bIdx=new Int32Array(bins);
+  for(let k=0;k<bins;k++){
+    const f=(k+0.5)*binHz;
+    let b=-1;
+    for(let j=0;j<nB;j++) if(f>=edges[j] && f<edges[j+1]) { b=j; break; }
+    bIdx[k]=b;
+  }
+  // 表示用スペクトログラム
+  const cols=Math.min(3000, F), keep=Math.max(1, Math.floor(F/cols));
+  S.specCols=Math.floor((F-1)/keep)+1;
+  const spec=new Float32Array(S.specCols*S.specBins);
+  const perBin=bins/S.specBins;
+  let col=0;
+  const acc=new Float64Array(nB);
+  for(let i=0;i<F;i++){
+    const off=i*HOP;
+    for(let j=0;j<WIN;j++){ re[j]=mono[off+j]*win[j]; im[j]=0; }
+    fft.run(re,im,false);
+    acc.fill(0);
+    let tot=0;
+    for(let k=1;k<bins;k++){
+      const p=re[k]*re[k]+im[k]*im[k];
+      tot+=p;
+      const b=bIdx[k];
+      if(b>=0){ acc[b]+=p; bandFreqNum[b]+=p*(k*binHz); bandFreqDen[b]+=p; }
+    }
+    for(let b=0;b<nB;b++) bandDb[b*F+i]=Math.max(DBFLOOR, 10*Math.log10(acc[b]+1e-14));
+    totalDb[i]=Math.max(DBFLOOR, 10*Math.log10(tot+1e-14));
+    if(i%keep===0 && col<S.specCols){
+      for(let q=0;q<S.specBins;q++){
+        const k0=Math.floor(q*perBin), k1=Math.max(k0+1, Math.floor((q+1)*perBin));
+        let m=0; for(let k=k0;k<k1 && k<bins;k++){ const p=re[k]*re[k]+im[k]*im[k]; if(p>m) m=p; }
+        spec[col*S.specBins+q]=Math.max(DBFLOOR, 10*Math.log10(m+1e-14));
+      }
+      col++;
+    }
+    if((i&0x7FF)===0){ setProg(0.5+0.45*i/F); if(i){ await yieldFrame(); } }
+  }
+  S.bandDb=bandDb; S.totalDb=totalDb; S.spec=spec; S.specKeep=keep;
+  S.bandFreq=new Float64Array(nB);
+  for(let b=0;b<nB;b++) S.bandFreq[b]=bandFreqDen[b]>0 ? bandFreqNum[b]/bandFreqDen[b] : (edges[b]+edges[b+1])/2;
+  buildSpecCanvas();
+  S.specDirty=false;
+}
+
+/* ---------- 自己相関で周期を求める ---------- */
+function acfPeriod(env, minP, maxP){
+  const n=env.length;
+  if(n<64) return null;
+  let m=0; for(let i=0;i<n;i++) m+=env[i]; m/=n;
+  let size=1; while(size<2*n) size<<=1;
+  const re=new Float64Array(size), im=new Float64Array(size);
+  let e0=0;
+  for(let i=0;i<n;i++){ const v=env[i]-m; re[i]=v; e0+=v*v; }
+  if(e0<1e-9) return null;
+  const fft=getFFT(size);
+  fft.run(re,im,false);
+  for(let i=0;i<size;i++){ re[i]=re[i]*re[i]+im[i]*im[i]; im[i]=0; }
+  fft.run(re,im,true);
+  const r0=re[0];
+  if(r0<=1e-12) return null;
+  const kmax=Math.min(Math.floor(maxP*FPS), Math.floor(n/4));
+  const kmin=Math.max(3, Math.ceil(minP*FPS));
+  if(kmax<=kmin+2) return null;
+  const nr=new Float64Array(kmax+2);
+  for(let k=0;k<=kmax+1;k++) nr[k]=re[k]/r0;
+  // 極大の抽出
+  const peaks=[];
+  for(let k=kmin;k<=kmax;k++){
+    if(nr[k]>nr[k-1] && nr[k]>=nr[k+1] && nr[k]>0.10) peaks.push(k);
+  }
+  if(!peaks.length) return null;
+  let vmax=0; for(const k of peaks) if(nr[k]>vmax) vmax=nr[k];
+  // 同じ強さの山が並ぶときは最小の間隔＝基本周期を採る
+  const th=0.80*vmax;
+  let bestK=peaks[peaks.length-1];
+  for(const k of peaks){ if(nr[k]>=th){ bestK=k; break; } }
+  const k=bestK;
+  const den=nr[k-1]-2*nr[k]+nr[k+1];
+  const d=Math.abs(den)>1e-12 ? clamp(0.5*(nr[k-1]-nr[k+1])/den, -1, 1) : 0;
+  return { period:(k+d)/FPS, conf:clamp(nr[k],0,1) };
+}
+
+/* ---------- 立ち上がり（オンセット）検出 ---------- */
+function onsets(env, sens, minGap){
+  const n=env.length;
+  const flux=new Float64Array(n);
+  for(let i=1;i<n;i++){ const d=env[i]-env[i-1]; flux[i]=d>0?d:0; }
+  // 局所平均と標準偏差（±0.5 s）
+  const w=Math.max(4, Math.round(FPS*0.5));
+  const ps=new Float64Array(n+1), pq=new Float64Array(n+1);
+  for(let i=0;i<n;i++){ ps[i+1]=ps[i]+flux[i]; pq[i+1]=pq[i]+flux[i]*flux[i]; }
+  const out=[];
+  const gap=Math.max(1, Math.round(minGap*FPS));
+  let last=-1e9;
+  for(let i=1;i<n-1;i++){
+    const a=Math.max(0,i-w), b=Math.min(n,i+w+1), c=b-a;
+    const mean=(ps[b]-ps[a])/c;
+    const va=Math.max(0,(pq[b]-pq[a])/c-mean*mean);
+    const th=mean+sens*Math.sqrt(va)+0.25;
+    if(flux[i]>th && flux[i]>=flux[i-1] && flux[i]>=flux[i+1] && i-last>=gap){
+      out.push({ i, t:i/FPS, s:flux[i] });
+      last=i;
+    }
+  }
+  return out;
+}
+
+/* ---------- 位相を折り返し平均から求める ---------- */
+function foldPhase(env, period){
+  const n=env.length, K=Math.max(8, Math.round(period*FPS));
+  const acc=new Float64Array(K), cnt=new Float64Array(K);
+  for(let i=0;i<n;i++){ const k=Math.floor((i/FPS/period%1)*K); acc[k]+=env[i]; cnt[k]++; }
+  let bi=0, bv=-1e18;
+  for(let k=0;k<K;k++){ const v=cnt[k]?acc[k]/cnt[k]:-1e18; if(v>bv){bv=v;bi=k;} }
+  return (bi+0.5)/K*period;
+}
+
+/* ---------- オンセット列で周期と揺らぎを詰める ---------- */
+function refine(ons, P){
+  if(ons.length<3) return null;
+  let sx=0, sy=0, sw=0;
+  for(const o of ons){ const a=2*Math.PI*((o.t%P)/P); sx+=o.s*Math.cos(a); sy+=o.s*Math.sin(a); sw+=o.s; }
+  const coh = sw>0 ? Math.hypot(sx,sy)/sw : 0;
+  let phi=Math.atan2(sy,sx)/(2*Math.PI)*P; if(phi<0) phi+=P;
+  let P0=P, b=phi, out=null;
+  // 広めに拾って直線あてはめ → 幅を狭めてもう一度。1周期に1点だけ残す。
+  for(const win of [0.35, 0.18]){
+    const byK=new Map();
+    for(const o of ons){
+      const k=Math.round((o.t-b)/P0);
+      const d=Math.abs(o.t-(b+k*P0));
+      if(d>win*P0) continue;
+      const cur=byK.get(k);
+      // 1周期につき最も強い立ち上がりを代表に選ぶ（雑音の小さな山に引かれないように）
+      if(!cur || o.s>cur.s*1.15 || (o.s>cur.s*0.85 && d<cur.d)) byK.set(k,{t:o.t,d,s:o.s});
+    }
+    if(byK.size<3) break;
+    let sk=0, st=0, skk=0, skt=0;
+    for(const [k,v] of byK){ sk+=k; st+=v.t; skk+=k*k; skt+=k*v.t; }
+    const m=byK.size, den=m*skk-sk*sk;
+    let Pn=P0, bn=b;
+    if(Math.abs(den)>1e-9){ Pn=(m*skt-sk*st)/den; bn=(st-Pn*sk)/m; }
+    if(!(Pn>0) || Math.abs(Pn/P-1)>0.3){ Pn=P0; bn=b; }
+    let sd=0; for(const [,v] of byK){ const r=v.t-(bn+Pn*Math.round((v.t-bn)/Pn)); sd+=r*r; }
+    const ks=[...byK.keys()];
+    const span=Math.max.apply(null,ks)-Math.min.apply(null,ks)+1;
+    out={ period:Pn, phase:bn, jitter:Math.sqrt(sd/m), coverage:clamp(m/span,0,1),
+          count:m, coh, matched:m, total:ons.length };
+    P0=Pn; b=bn;
+  }
+  return out;
+}
+
+/* ---------- 検波 ---------- */
+function runDetect(range){
+  if(!S.F) return;
+  const minP=Math.max(0.02, (+$("#minp").value||60)/1000);
+  const maxP=Math.max(minP*2, +$("#maxp").value||6);
+  const sens=+$("#sens").value||1;
+  let f0=0, f1=S.F;
+  if(range){
+    f0=clamp(Math.floor(fAt(range[0])),0,S.F-1);
+    f1=clamp(Math.ceil(fAt(range[1])),f0+1,S.F);
+  }
+  const n=f1-f0;
+  const tbody=$("#tbl tbody");
+  $("#sec-res").hidden=false;
+  S.rows=[]; S.shown.clear();
+  if(n<96){
+    tbody.innerHTML="";
+    $("#nores").hidden=false;
+    $("#nores").textContent="範囲が短すぎます。1秒以上を選んでください。";
+    drawOverlay(); return;
+  }
+  const cands=[];
+  const tOff=tAt(f0);
+  for(let b=-1;b<S.nB;b++){
+    const env=new Float64Array(n);
+    if(b<0) for(let i=0;i<n;i++) env[i]=S.totalDb[f0+i];
+    else { const base=b*S.F; for(let i=0;i<n;i++) env[i]=S.bandDb[base+f0+i]; }
+    const a=acfPeriod(env, minP, maxP);
+    if(!a) continue;
+    const ons=onsets(env, sens, Math.max(minP*0.6, a.period*0.5));
+    const r=refine(ons, a.period);
+    // 立ち上がりの並びが整っているときだけ、周期をその直線あてはめで詰める
+    const solid = !!r && r.jitter < 0.06*a.period;
+    const period = solid ? r.period : a.period;
+    const phase = solid ? r.phase : foldPhase(env, period);
+    const reg = r ? clamp(1 - r.jitter/(0.22*period), 0, 1) : 0;
+    const prec = r ? clamp(r.matched/Math.max(1,r.total), 0, 1) : 0;
+    const conf = clamp(0.42*a.conf + 0.18*(r?r.coverage:0) + 0.16*(r?r.coh:0) + 0.14*reg + 0.10*prec, 0, 1);
+    if(a.conf<0.20) continue;
+    if(r && r.jitter > 0.25*period) continue;
+    cands.push({
+      band:b, period, phase:phase+tOff, conf,
+      jitter:r?r.jitter:null, coverage:r?r.coverage:null, count:r?r.count:ons.length,
+      freq: b<0 ? null : S.bandFreq[b],
+      lo: b<0?0:S.edges[b], hi: b<0?AN_SR/2:S.edges[b+1],
+      acf:a.conf, range:[tOff, tAt(f1)]
+    });
+  }
+  cands.sort((x,y)=>y.conf-x.conf);
+  const rows=[];
+  for(const c of cands){
+    if(c.conf<0.34) continue;
+    const dup=rows.find(r=>Math.abs(Math.log(r.period/c.period))<0.04);
+    if(dup){
+      dup.lo=Math.min(dup.lo,c.lo); dup.hi=Math.max(dup.hi,c.hi);
+      if(c.band>=0) dup.merged.push(c.band);
+      continue;
+    }
+    c.merged=[]; rows.push(c);
+    if(rows.length>=10) break;
+  }
+  S.rows=rows;
+  tbody.innerHTML="";
+  if(!rows.length){
+    $("#nores").hidden=false;
+    $("#nores").textContent="はっきりした周期は見つかりませんでした。最大周期を伸ばす、感度を上げる、または周期音が鳴っている範囲を選び直してみてください。";
+  }else{
+    $("#nores").hidden=true;
+    rows.forEach((r,idx)=>{
+      const tr=document.createElement("tr");
+      tr.dataset.i=idx;
+      const bandLabel = r.band<0 ? "全帯域" : fmtHz(r.lo)+"–"+fmtHz(r.hi);
+      const repFreq = r.band<0 ? "—" : fmtHz(r.freq);
+      tr.innerHTML =
+        "<td>"+bandLabel+(r.merged.length?"<span class='sm'>他 "+r.merged.length+" 帯域でも検出</span>":"")+"</td>"+
+        "<td>"+fmtPeriod(r.period)+"</td>"+
+        "<td>"+(60/r.period).toFixed(60/r.period<10?2:1)+"</td>"+
+        "<td>"+repFreq+"</td>"+
+        "<td>"+(r.jitter==null?"—":(r.jitter*1000).toFixed(1)+" ms")+"</td>"+
+        "<td>"+(r.coverage==null?"—":Math.round(r.coverage*100)+"%")+"</td>"+
+        "<td>"+Math.round(r.conf*100)+"%</td>";
+      tr.addEventListener("click",()=>{
+        if(S.shown.has(idx)) S.shown.delete(idx); else S.shown.add(idx);
+        tr.classList.toggle("on", S.shown.has(idx));
+        drawOverlay();
+      });
+      tbody.appendChild(tr);
+    });
+    S.shown.add(0);
+    tbody.firstElementChild.classList.add("on");
+  }
+  drawOverlay();
+  updateReadout();
+}
+
+/* ============================ 描画 ============================ */
+const CV = {};
+function cvs(id, h){
+  const c=$(id), r=c.getBoundingClientRect(), dpr=Math.min(2, window.devicePixelRatio||1);
+  c.width=Math.max(1,Math.round(r.width*dpr)); c.height=Math.round(h*dpr);
+  c.style.height=h+"px";
+  const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  return { g, w:r.width, h };
+}
+function resizeCanvases(){
+  if(!S.F) return;
+  const narrow = window.innerWidth<520;
+  CV.rule = cvs("#c-rule", 20);
+  CV.wave = cvs("#c-wave", narrow?96:120);
+  CV.spl  = cvs("#c-spl",  narrow?96:120);
+  CV.spec = cvs("#c-spec", narrow?96:130);
+  const st=$("#stack").getBoundingClientRect();
+  const o=$("#ovl"), dpr=Math.min(2, window.devicePixelRatio||1);
+  o.width=Math.round(st.width*dpr); o.height=Math.round(st.height*dpr);
+  CV.ovl={ g:o.getContext("2d"), w:st.width, h:st.height, dpr };
+  CV.ovl.g.setTransform(dpr,0,0,dpr,0,0);
+  const top = id => $(id).getBoundingClientRect().top - st.top;
+  CV.tops={ wave:top("#c-wave"), spl:top("#c-spl"), spec:top("#c-spec") };
+  drawAll();
+}
+
+function buildSpecCanvas(){
+  const cols=S.specCols, bins=S.specBins;
+  const c=document.createElement("canvas"); c.width=cols; c.height=bins;
+  const g=c.getContext("2d"); const img=g.createImageData(cols,bins);
+  const stops=[[11,14,19],[16,49,58],[31,111,106],[134,232,200],[240,178,74],[253,243,224]];
+  const lut=new Uint8Array(256*3);
+  for(let i=0;i<256;i++){
+    const x=i/255*(stops.length-1), a=Math.floor(x), b=Math.min(stops.length-1,a+1), f=x-a;
+    for(let k=0;k<3;k++) lut[i*3+k]=stops[a][k]+(stops[b][k]-stops[a][k])*f;
+  }
+  let sMax=DBFLOOR;
+  for(let i=0;i<S.spec.length;i++) if(S.spec[i]>sMax) sMax=S.spec[i];
+  const hi=sMax-6, lo=hi-72;
+  for(let x=0;x<cols;x++){
+    for(let q=0;q<bins;q++){
+      const v=S.spec[x*bins+q];
+      const t=clamp((v-lo)/(hi-lo),0,1);
+      const ci=Math.round(t*255)*3;
+      const o=((bins-1-q)*cols+x)*4;
+      img.data[o]=lut[ci]; img.data[o+1]=lut[ci+1]; img.data[o+2]=lut[ci+2]; img.data[o+3]=255;
+    }
+  }
+  g.putImageData(img,0,0);
+  S.specCanvas=c;
+}
+
+function xOf(t, w){ const [a,b]=S.view; return (t-a)/(b-a)*w; }
+function tOf(x, w){ const [a,b]=S.view; return a+x/w*(b-a); }
+
+function gridLines(g,w,h){
+  g.strokeStyle="#1a2330"; g.lineWidth=1;
+  for(const t of timeTicks()){ const x=Math.round(xOf(t,w))+.5; g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); }
+}
+function timeTicks(){
+  const [a,b]=S.view, span=b-a;
+  const steps=[0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10,15,30,60,120,300,600,1800];
+  let st=steps[steps.length-1];
+  for(const s of steps){ if(span/s<=10){ st=s; break; } }
+  const out=[];
+  for(let t=Math.ceil(a/st)*st; t<=b; t+=st) out.push(t);
+  return out;
+}
+
+function tickLabel(t, span){
+  if(span<0.6) return (t*1000).toFixed(0)+"ms";
+  if(span<20) return t.toFixed(2)+"s";
+  const m=Math.floor(t/60), sec=t-m*60;
+  return m ? m+":"+(sec<10?"0":"")+sec.toFixed(0) : sec.toFixed(0)+"s";
+}
+function drawRule(){
+  const {g,w,h}=CV.rule;
+  g.clearRect(0,0,w,h); g.fillStyle="#101620"; g.fillRect(0,0,w,h);
+  g.strokeStyle="#2b3644"; g.beginPath(); g.moveTo(0,h-.5); g.lineTo(w,h-.5); g.stroke();
+  g.fillStyle="#8b95a3"; g.font="10px ui-monospace,Menlo,monospace"; g.textBaseline="middle";
+  for(const t of timeTicks()){
+    const x=xOf(t,w); if(x<0||x>w) continue;
+    g.strokeStyle="#3a4757"; g.beginPath(); g.moveTo(x+.5,h-6); g.lineTo(x+.5,h); g.stroke();
+    const lbl = tickLabel(t, S.view[1]-S.view[0]);
+    g.textAlign = x<24?"left":x>w-24?"right":"center";
+    g.fillText(lbl, x, h/2-1);
+  }
+}
+
+function drawWave(){
+  const {g,w,h}=CV.wave;
+  g.clearRect(0,0,w,h); g.fillStyle="#0a0d11"; g.fillRect(0,0,w,h);
+  gridLines(g,w,h);
+  g.strokeStyle="#243040"; g.beginPath(); g.moveTo(0,h/2+.5); g.lineTo(w,h/2+.5); g.stroke();
+  const px=Math.ceil(w);
+  g.fillStyle="#86e8c8";
+  const fine = (S.view[1]-S.view[0])<0.5 && S.buf;   // 拡大時は元の標本をそのまま
+  const ch0 = fine ? S.buf.getChannelData(0) : null;
+  const ch1 = fine && S.ch>1 ? S.buf.getChannelData(1) : null;
+  for(let x=0;x<px;x++){
+    const t0=tOf(x,w), t1=tOf(x+1,w);
+    let mn=1, mx=-1;
+    if(fine){
+      let j0=Math.floor(t0*S.sr), j1=Math.max(j0+1, Math.ceil(t1*S.sr));
+      j0=clamp(j0,0,S.buf.length-1); j1=clamp(j1,j0+1,S.buf.length);
+      for(let j=j0;j<j1;j++){ const v=ch1?(ch0[j]+ch1[j])*0.5:ch0[j]; if(v<mn) mn=v; if(v>mx) mx=v; }
+    }else{
+      let i0=Math.floor(fAt(t0)), i1=Math.max(i0+1, Math.ceil(fAt(t1)));
+      i0=clamp(i0,0,S.F-1); i1=clamp(i1,i0+1,S.F);
+      for(let i=i0;i<i1;i++){ if(S.tMin[i]<mn) mn=S.tMin[i]; if(S.tMax[i]>mx) mx=S.tMax[i]; }
+    }
+    if(mx<mn) continue;
+    const y0=h/2-mx*(h/2-2), y1=h/2-mn*(h/2-2);
+    g.fillRect(x, y0, 1, Math.max(1, y1-y0));
+  }
+  g.fillStyle="#5a6472"; g.font="9px ui-monospace,Menlo,monospace"; g.textAlign="left"; g.textBaseline="top";
+  g.fillText("+1.0",4,3); g.textBaseline="bottom"; g.fillText("−1.0",4,h-3);
+}
+
+function drawSpl(){
+  const {g,w,h}=CV.spl;
+  const cal=+$("#cal").value||0;
+  g.clearRect(0,0,w,h); g.fillStyle="#0a0d11"; g.fillRect(0,0,w,h);
+  gridLines(g,w,h);
+  const lo=S.splLo!=null?S.splLo:-72, hi=S.splHi!=null?S.splHi:0;
+  const Y = v => h - (clamp(v,lo,hi)-lo)/(hi-lo)*(h-4) - 2;
+  g.strokeStyle="#1f2937"; g.fillStyle="#5a6472"; g.font="9px ui-monospace,Menlo,monospace";
+  g.textAlign="left"; g.textBaseline="middle";
+  for(let v=lo+12;v<=hi;v+=24){
+    const y=Math.round(Y(v))+.5;
+    g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke();
+    g.fillText((v+cal).toFixed(0), 4, y-1);
+  }
+  g.strokeStyle="#f0b24a"; g.lineWidth=1.2; g.beginPath();
+  let started=false;
+  const px=Math.ceil(w);
+  for(let x=0;x<px;x++){
+    const t0=tOf(x,w), t1=tOf(x+1,w);
+    let i0=Math.floor(fAt(t0)), i1=Math.max(i0+1,Math.ceil(fAt(t1)));
+    i0=clamp(i0,0,S.F-1); i1=clamp(i1,i0+1,S.F);
+    let sq=0;
+    for(let i=i0;i<i1;i++) sq+=S.tRms[i]*S.tRms[i];
+    const v=20*Math.log10(Math.sqrt(sq/(i1-i0))+1e-12);
+    const y=Y(v);
+    if(!started){ g.moveTo(x,y); started=true; } else g.lineTo(x,y);
+  }
+  g.stroke();
+  g.textAlign="right"; g.textBaseline="top"; g.fillStyle="#5a6472";
+  g.fillText("dB", w-4, 3);
+  $("#u-spl").textContent=(lo+cal).toFixed(0)+" … "+(hi+cal).toFixed(0)+" dB（相対）";
+}
+
+function drawSpec(){
+  const {g,w,h}=CV.spec;
+  g.clearRect(0,0,w,h); g.fillStyle="#0a0d11"; g.fillRect(0,0,w,h);
+  if(!S.specCanvas) return;
+  const colDur=S.specKeep*HOP/AN_SR;
+  const c0=clamp((S.view[0]-FOFF)/colDur, 0, S.specCols-1);
+  const c1=clamp((S.view[1]-FOFF)/colDur, c0+0.5, S.specCols);
+  g.imageSmoothingEnabled=false;
+  g.drawImage(S.specCanvas, c0, 0, c1-c0, S.specBins, 0, 0, w, h);
+  g.fillStyle="#cfd6df"; g.font="9px ui-monospace,Menlo,monospace"; g.textAlign="right";
+  g.textBaseline="top"; g.fillText("8k", w-4, 3);
+  g.textBaseline="bottom"; g.fillText("0 Hz", w-4, h-3);
+}
+
+function drawOverlay(){
+  const o=CV.ovl; if(!o) return;
+  const {g,w,h}=o;
+  g.clearRect(0,0,w,h);
+  // 選択範囲
+  if(S.sel){
+    const x0=xOf(S.sel[0],w), x1=xOf(S.sel[1],w);
+    g.fillStyle="rgba(79,127,176,0.16)";
+    g.fillRect(Math.min(x0,x1),0,Math.abs(x1-x0),h);
+    g.strokeStyle="rgba(79,127,176,0.75)"; g.lineWidth=1;
+    for(const x of [x0,x1]){ g.beginPath(); g.moveTo(x+.5,0); g.lineTo(x+.5,h); g.stroke(); }
+  }
+  // 周期の目印
+  if(S.rows.length && S.shown.size){
+    const top=CV.tops.wave, bot=CV.tops.spec+CV.spec.h;
+    for(const idx of S.shown){
+      const r=S.rows[idx]; if(!r) continue;
+      const P=r.period;
+      const cols=(S.view[1]-S.view[0])/P;
+      if(cols>Math.max(400, w/2)) continue;
+      g.strokeStyle="rgba(226,86,74,0.85)"; g.lineWidth=1;
+      let k=Math.ceil((S.view[0]-r.phase)/P);
+      for(let t=r.phase+k*P; t<=S.view[1]; t+=P){
+        if(t<r.range[0]-P || t>r.range[1]+P) continue;
+        const x=Math.round(xOf(t,w))+.5;
+        g.beginPath(); g.moveTo(x,top); g.lineTo(x,bot); g.stroke();
+        g.fillStyle="rgba(226,86,74,0.9)"; g.fillRect(x-2,top,4,3);
+      }
+    }
+  }
+  // 再生位置
+  if(S.playing){
+    const t=playPos();
+    const x=xOf(t,w);
+    if(x>=0&&x<=w){
+      g.strokeStyle="#ece5d8"; g.lineWidth=1;
+      g.beginPath(); g.moveTo(x+.5,0); g.lineTo(x+.5,h); g.stroke();
+    }
+  }
+}
+function drawAll(){ if(!S.F) return; drawRule(); drawWave(); drawSpl(); drawSpec(); drawOverlay(); }
+
+function updateReadout(){
+  const [a,b]=S.view;
+  let s="表示 <b>"+fmtTime(a)+"</b> – <b>"+fmtTime(b)+"</b>（"+(b-a).toFixed(3)+" 秒）";
+  if(S.sel) s+="　／　選択 <b>"+fmtTime(S.sel[0])+"</b> – <b>"+fmtTime(S.sel[1])+"</b>（"+(S.sel[1]-S.sel[0]).toFixed(3)+" 秒）";
+  if(S.rows.length){
+    const r=S.rows[0];
+    s+="<br>最有力の周期 <b>"+fmtPeriod(r.period)+"</b>（"+(60/r.period).toFixed(1)+" 回/分・"+fmtHz(1/r.period)+"）確度 "+Math.round(r.conf*100)+"%";
+  }
+  $("#readout").innerHTML=s;
+}
+
+/* ============================ 操作 ============================ */
+let drag=null;
+function ovlPointer(){
+  const o=$("#ovl");
+  o.addEventListener("pointerdown",e=>{
+    if(!S.F) return;
+    o.setPointerCapture(e.pointerId);
+    const w=CV.ovl.w, x=e.offsetX;
+    drag={x0:x, t0:tOf(x,w), moved:false};
+  });
+  o.addEventListener("pointermove",e=>{
+    if(!drag) return;
+    const x=px(e), w=CV.ovl.w, t=tOf(x,w);
+    if(Math.abs(x-drag.x0)>4) drag.moved=true;
+    if(drag.moved){
+      S.sel=[Math.min(drag.t0,t), Math.max(drag.t0,t)];
+      S.sel[0]=clamp(S.sel[0],0,S.dur); S.sel[1]=clamp(S.sel[1],0,S.dur);
+      drawOverlay(); updateReadout();
+    }
+  });
+  o.addEventListener("pointerup",e=>{
+    if(!drag) return;
+    if(!drag.moved){ S.sel=null; drawOverlay(); updateReadout(); }
+    drag=null;
+  });
+  o.addEventListener("pointercancel",()=>{ drag=null; });
+}
+
+function playPos(){
+  if(!S.playing) return 0;
+  return S.playOff + (S.ac.currentTime - S.playT0);
+}
+function stopPlay(){
+  if(S.src){ try{ S.src.stop(); }catch(e){} S.src.disconnect(); S.src=null; }
+  S.playing=false; $("#play").textContent="再生";
+  drawOverlay();
+}
+function startPlay(){
+  const ctx=ac();
+  if(ctx.state==="suspended") ctx.resume();
+  const from = S.sel ? S.sel[0] : S.view[0];
+  const to   = S.sel ? S.sel[1] : S.view[1];
+  const src=ctx.createBufferSource();
+  src.buffer=S.buf; src.connect(ctx.destination);
+  src.start(0, from, Math.max(0.02, to-from));
+  S.src=src; S.playing=true; S.playT0=ctx.currentTime; S.playOff=from; S.playEnd=to;
+  $("#play").textContent="停止";
+  src.onended=()=>{ if(S.playing) stopPlay(); };
+  const tick=()=>{ if(!S.playing) return; drawOverlay(); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+
+/* ============================ 書き出し ============================ */
+function save(name, text){
+  const blob=new Blob([text],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+function baseName(){ return (S.name||"audio").replace(/\.[^.]+$/,""); }
+
+function exportWav(){
+  if(!S.buf){ setStatus("保存できる音がありません。", true); return; }
+  const b=S.buf, sr=b.sampleRate, ch=Math.min(2,b.numberOfChannels), n=b.length;
+  const data=new ArrayBuffer(44+n*ch*2), v=new DataView(data);
+  const tag=(o,t)=>{ for(let i=0;i<t.length;i++) v.setUint8(o+i, t.charCodeAt(i)); };
+  tag(0,"RIFF"); v.setUint32(4, 36+n*ch*2, true); tag(8,"WAVE"); tag(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,ch,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*ch*2,true); v.setUint16(32,ch*2,true); v.setUint16(34,16,true);
+  tag(36,"data"); v.setUint32(40, n*ch*2, true);
+  const cd=[]; for(let c=0;c<ch;c++) cd.push(b.getChannelData(c));
+  let o=44;
+  for(let i=0;i<n;i++) for(let c=0;c<ch;c++){
+    const x=clamp(cd[c][i],-1,1);
+    v.setInt16(o, x<0 ? x*0x8000 : x*0x7FFF, true); o+=2;
+  }
+  const blob=new Blob([data],{type:"audio/wav"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=baseName()+".wav"; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+function exportSpl(){
+  const stepMs=Math.max(HOP/AN_SR*1000, +$("#step").value||10);
+  const cal=+$("#cal").value||0;
+  const r = S.sel || [0,S.dur];
+  const stride=Math.max(1, Math.round(stepMs/1000*FPS));
+  const nB=S.nB;
+  let out="# 律動検波卓 音圧時系列 / "+S.name+"\n";
+  out+="# フルスケール = "+cal+" dB として換算（相対値）\n";
+  out+="時刻[s],RMS[dBFS],推定音圧[dB],RMS振幅,最小値,最大値";
+  for(let b=0;b<nB;b++) out+=","+Math.round(S.edges[b])+"-"+Math.round(S.edges[b+1])+"Hz[dB]";
+  out+="\n";
+  const i0=clamp(Math.floor(fAt(r[0])),0,S.F-1), i1=clamp(Math.ceil(fAt(r[1])),i0+1,S.F);
+  const L=[];
+  for(let i=i0;i<i1;i+=stride){
+    let row=tAt(i).toFixed(4)+","+S.tDb[i].toFixed(2)+","+(S.tDb[i]+cal).toFixed(2)+","+
+      S.tRms[i].toPrecision(5)+","+S.tMin[i].toFixed(5)+","+S.tMax[i].toFixed(5);
+    for(let b=0;b<nB;b++) row+=","+S.bandDb[b*S.F+i].toFixed(2);
+    L.push(row);
+  }
+  save(baseName()+"_音圧.csv", out+L.join("\n")+"\n");
+}
+function exportPeriods(){
+  if(!S.rows.length){ setStatus("書き出せる周期がありません。", true); return; }
+  let out="# 律動検波卓 周期一覧 / "+S.name+"\n";
+  out+="# 解析範囲 "+S.rows[0].range[0].toFixed(3)+" - "+S.rows[0].range[1].toFixed(3)+" s\n";
+  out+="順位,帯域下限[Hz],帯域上限[Hz],代表周波数[Hz],周期[s],回/分,繰返し周波数[Hz],ゆらぎ[ms],一致率,確度,検出回数,基準位相[s]\n";
+  S.rows.forEach((r,i)=>{
+    out+=[i+1, r.lo.toFixed(1), r.hi.toFixed(1), r.freq?r.freq.toFixed(1):"", r.period.toFixed(6),
+      (60/r.period).toFixed(3), (1/r.period).toFixed(4),
+      r.jitter==null?"":(r.jitter*1000).toFixed(2),
+      r.coverage==null?"":r.coverage.toFixed(3),
+      r.conf.toFixed(3), r.count, r.phase.toFixed(4)].join(",")+"\n";
+  });
+  save(baseName()+"_周期.csv", out);
+}
+
+/* ============================ 結線 ============================ */
+$("#pick").addEventListener("click",()=>$("#file").click());
+$("#file").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) load(f); e.target.value=""; });
+const dz=$("#drop");
+["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("hot");}));
+["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("hot");}));
+dz.addEventListener("drop",e=>{ if(S.rec) return; const f=e.dataTransfer.files[0]; if(f) load(f); });
+
+$("#rec").addEventListener("click",startRec);
+$("#rec-stop").addEventListener("click",stopRec);
+$("#file").addEventListener("change",()=>{ if(S.rec) stopRec(); });
+window.addEventListener("pagehide",()=>{ if(S.rec) stopRec(); });
+
+$("#play").addEventListener("click",()=>{ S.playing?stopPlay():startPlay(); });
+$("#zoom").addEventListener("click",()=>{
+  if(!S.sel || S.sel[1]-S.sel[0]<0.01) { setStatus("先に波形をなぞって範囲を選んでください（10 ミリ秒以上）。"); return; }
+  S.view=[S.sel[0],S.sel[1]]; drawAll(); updateReadout();
+});
+$("#all").addEventListener("click",()=>{ S.view=[0,S.dur]; drawAll(); updateReadout(); });
+$("#clr").addEventListener("click",()=>{ S.sel=null; drawOverlay(); updateReadout(); });
+
+$("#sens").addEventListener("input",e=>$("#sens-v").textContent=(+e.target.value).toFixed(1));
+$("#cal").addEventListener("change",()=>{ if(S.F){ drawSpl(); } });
+$("#bands").addEventListener("change",()=>{ S.specDirty=true; });
+
+async function detectNow(useSel){
+  if(!S.F) return;
+  $("#detect").disabled=$("#detectSel").disabled=true;
+  try{
+    if(S.specDirty){ setProg(0.5); await stft(); setProg(null); drawAll(); }
+    runDetect(useSel && S.sel ? S.sel : null);
+    setStatus(useSel && S.sel ? "選択範囲で検波しました。" : "全体で検波しました。");
+  }catch(e){ console.error(e); setStatus("検波に失敗しました: "+e.message, true); }
+  $("#detect").disabled=$("#detectSel").disabled=false;
+}
+$("#detect").addEventListener("click",()=>detectNow(false));
+$("#detectSel").addEventListener("click",()=>detectNow(true));
+$("#csv1").addEventListener("click",exportSpl);
+$("#csv2").addEventListener("click",exportPeriods);
+$("#wav").addEventListener("click",exportWav);
+
+ovlPointer();
+drawLive();
+
+let rz;
+window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(resizeCanvases,150); });
+window.addEventListener("orientationchange",()=>{ setTimeout(resizeCanvases,300); });
+</script>
+</body>
+</html>
