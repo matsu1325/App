@@ -16595,6 +16595,7 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="en">TSUBAKI.2 PROMPT BUILDER</div>
   </div>
   <div class="h-icons">
+    <button class="icon-btn" id="btnRenkei" aria-label="他の器械から受け取る">⇄</button>
     <button class="icon-btn" id="btnProjects" aria-label="プロジェクト">📁</button>
     <button class="icon-btn" id="btnHist" aria-label="履歴とお気に入り">🕘</button>
     <button class="icon-btn" id="btnSettings" aria-label="設定">⚙︎</button>
@@ -16899,6 +16900,26 @@ input[type="range"]::-webkit-slider-thumb {
     </div>
     <div id="bulkCharaPreview" style="margin-top:8px"></div>
     <button class="btn primary wide" id="bulkCharaConfirm" style="margin-top:12px">この内容をライブラリに登録</button>
+  </div>
+</div>
+
+<!-- ============ 連携（他の器械から受け取る） ============ -->
+<div class="sheet" id="sheetRenkei" role="dialog" aria-label="他の器械から受け取る">
+  <div class="sheet-head"><h3 class="serif">他の器械から受け取る</h3><button class="icon-btn" data-close aria-label="閉じる">✕</button></div>
+  <div class="sheet-body">
+    <div class="banner info"><span class="b-ico">⇄</span><span>同じ書庫の<b>人物仕立所</b>で仕立てた人物と、<b>戯曲装置</b>で組んだ場面を受け取れます。向こうで「渡す」を押してから、ここを開いてください。</span></div>
+
+    <div class="card" style="margin-top:12px">
+      <h3 style="font-size:14px">👤 人物仕立所から（人物）</h3>
+      <div id="renkeiCharList"></div>
+      <button class="btn primary wide" id="renkeiCharAdd" style="margin-top:10px">選んだ人物をライブラリに登録</button>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px">🎬 戯曲装置から（場面）</h3>
+      <div id="renkeiSceneList"></div>
+      <button class="btn primary wide" id="renkeiSceneApply" style="margin-top:10px">この場面で指示文を組む</button>
+    </div>
   </div>
 </div>
 
@@ -17481,6 +17502,280 @@ function openCharaLib(listRef, chipsId) {
   renderCharaLibList();
   openSheet("sheetCharaLib");
 }
+
+/* ---------- 連携（他の器械から受け取る） ----------
+   同じ書庫に並ぶ人物仕立所・戯曲装置と localStorage を共有し、
+   人物と場面を受け取る。和文は本アプリの辞書で英タグへ引き直す。 */
+const RENKEI_KEY = "kikai.renkei.v1";
+const Renkei = {
+  read() {
+    try {
+      const d = JSON.parse(localStorage.getItem(RENKEI_KEY));
+      if (!d || typeof d !== "object") return { chars: [], scenes: [] };
+      return { chars: Array.isArray(d.chars) ? d.chars : [], scenes: Array.isArray(d.scenes) ? d.scenes : [] };
+    } catch (e) { return { chars: [], scenes: [] }; }
+  },
+  take(kind) { return this.read()[kind] || []; }
+};
+
+/* 辞書を和名→英タグの引きに組み直す（分野ごとに分けて誤変換を防ぐ） */
+function buildJaMap(keys) {
+  const m = new Map();
+  keys.forEach(k => (DICT[k] || []).forEach(g => {
+    const items = g.items || (g.ja ? [g] : []);
+    items.forEach(it => { if (it.ja && it.en && !m.has(it.ja)) m.set(it.ja, it.en); });
+  }));
+  return m;
+}
+const M_LOOK  = buildJaMap(["appearance_tags"]);
+const M_SUBJ  = buildJaMap(["subject_tags"]);
+const M_SCENE = buildJaMap(["scene_tags"]);
+const M_ACT   = buildJaMap(["action_tags"]);
+
+/* 人物仕立所と辞書とで言い回しが違う語を橋渡しする */
+const LOOK_ALIAS = {
+  "制服":"学生服", "私服":"カジュアル", "和装":"着物", "礼装":"イブニングドレス",
+  "外套":"コート", "法衣":"ローブ", "修道服":"シスター服", "作業着":"つなぎ",
+  "甲冑":"鎧", "古着":"ぼろ布の服", "濡羽色":"黒髪", "亜麻色":"薄茶髪",
+  "細身":"痩せ型", "しなやか":"スレンダー", "均整がとれている":"引き締まった体",
+  "セミロング":"肩までの髪", "おかっぱ":"ボブ", "泣きぼくろ":"泣きぼくろ"
+};
+/* 物語でよく使う場所の言い方を、辞書の見出しへ寄せる */
+const SCENE_ALIAS = {
+  "劇場":"劇場の舞台", "舞台袖":"劇場の舞台", "客席":"劇場の舞台", "楽屋":"楽屋",
+  "教室":"教室", "校舎":"学校の廊下", "廊下":"学校の廊下", "屋上":"屋上",
+  "保健室":"保健室", "図書室":"図書館", "書庫":"図書館",
+  "路地":"路地裏", "裏路地":"路地裏", "酒場":"酒場", "宿":"宿屋",
+  "神殿":"神殿", "聖堂":"大聖堂", "城":"城", "塔":"塔", "牢":"地下牢",
+  "港":"港", "船上":"船の甲板", "戦場":"戦場", "墓":"墓地", "祭":"祭りの夜店"
+};
+/* 一文字でも拾ってよい語（短すぎる見出しの誤爆を防ぐための白名簿） */
+const SHORT_OK = ["雨","雪","夜","朝","昼","海","山","森","空","星","月","火","炎","水","川","湖","街","町","駅","橋","door","窓"];
+
+/* 語に接尾辞を足しながら辞書を引く。「黒」→「黒髪」を「黒＝black」より先に当てる。 */
+function lookupJa(tok, maps, sfx) {
+  if (!tok) return null;
+  const al = LOOK_ALIAS[tok];
+  const base = al || tok;
+  const cands = (sfx || []).map(s => base + s).concat([base]);   // 接尾辞つきを先に
+  for (const c of cands) for (const m of maps) if (m.has(c)) return m.get(c);
+  let best = null;                       // 部分一致は長い見出しを優先
+  for (const m of maps) for (const [ja, en] of m) {
+    if (ja.length >= 2 && tok.includes(ja) && (!best || ja.length > best[0].length)) best = [ja, en];
+  }
+  return best ? best[1] : null;
+}
+function jaTags(text, maps, sfx) {
+  const out = [];
+  String(text || "").split(/[、,．。／\/・\n！？!?\s]+/).map(s => s.trim()).filter(Boolean).forEach(tok => {
+    const en = lookupJa(tok, maps, sfx);
+    if (en && !out.includes(en)) out.push(en);
+  });
+  return out;
+}
+/* 地の文から辞書語を拾う。場面や動作は文章で来るので、語ごとに切らず全体を走査する。 */
+const _sortedKeys = new WeakMap();
+function scanJa(text, map, alias) {
+  const t = String(text || "");
+  if (!t) return [];
+  if (!_sortedKeys.has(map)) {
+    _sortedKeys.set(map, [...map.keys()]
+      .filter(k => k.length >= 2 || SHORT_OK.includes(k))
+      .sort((a, b) => b.length - a.length));
+  }
+  const out = [];
+  let rest = t;
+  if (alias) Object.keys(alias).forEach(k => {          // 言い換えを先に当てる
+    if (rest.includes(k) && map.has(alias[k])) {
+      const en = map.get(alias[k]);
+      if (!out.includes(en)) out.push(en);
+      rest = rest.split(k).join(" ");
+    }
+  });
+  for (const k of _sortedKeys.get(map)) {
+    if (rest.includes(k)) {
+      const en = map.get(k);
+      if (!out.includes(en)) out.push(en);
+      rest = rest.split(k).join(" ");     // 拾った語は伏せ、短い語での二重取りを防ぐ
+    }
+  }
+  return out;
+}
+
+/* 人物仕立所の項目 → 英語の外見タグ列 */
+function charaAppearanceEn(v) {
+  v = v || {};
+  const g = k => String(v[k] || "").trim();
+  const out = [];
+  const push = arr => arr.forEach(t => { if (t && !out.includes(t)) out.push(t); });
+  const sex = g("sex");
+  if (/女/.test(sex)) push(["1girl"]);
+  else if (/男/.test(sex)) push(["1boy"]);
+  push(jaTags(g("race"), [M_SUBJ], []).filter(t => t !== "human"));
+  push(jaTags(g("haircol"), [M_LOOK], ["髪", "色の髪", "の髪"]));
+  push(jaTags(g("hair"), [M_LOOK], ["ヘア", "の髪"]));
+  push(jaTags(g("eye"), [M_LOOK], ["色の目", "い目", "の目"]));
+  push(jaTags(g("skin"), [M_LOOK], ["肌"]));
+  push(jaTags(g("build"), [M_LOOK], ["体型", "な体"]));
+  push(jaTags(g("wear"), [M_LOOK], ["姿"]));
+  push(jaTags(g("mark"), [M_LOOK], []));
+  push(jaTags(g("face"), [M_LOOK], []));
+  return out;
+}
+/* 戯曲装置から来た配役（すでに札化された項目）→ 英語の外見タグ列 */
+function castAppearanceEn(c) {
+  const out = [];
+  const push = arr => arr.forEach(t => { if (t && !out.includes(t)) out.push(t); });
+  push(jaTags(c.race || "", [M_SUBJ], []).filter(t => t !== "human"));
+  push(jaTags(c.hairColor || "", [M_LOOK], ["髪", "色の髪"]));
+  push(jaTags(c.hairLen || "", [M_LOOK], []));
+  push(jaTags(c.hairStyle || "", [M_LOOK], []));
+  push(jaTags(c.eye || "", [M_LOOK], ["色の目", "い目", "の目"]));
+  push(jaTags(c.skin || "", [M_LOOK], ["肌"]));
+  push(jaTags(c.outfit || "", [M_LOOK], ["姿"]));
+  push(jaTags((c.feats || []).join("、"), [M_LOOK], []));
+  if (!out.length) push(jaTags(c.look || "", [M_LOOK], []));
+  return out;
+}
+/* かな→ローマ字（仮のキャラタグを作るためだけの簡易変換） */
+const KANA2ROMA = (() => {
+  const m = [];
+  Object.keys(ROMAJI_TABLE).forEach(r => m.push([ROMAJI_TABLE[r], r]));
+  m.sort((a, b) => b[0].length - a[0].length);
+  return m;
+})();
+function kanaToRomaji(s) {
+  let t = toKatakana(String(s || "")).replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  let out = "";
+  while (t.length) {
+    const hit = KANA2ROMA.find(([k]) => t.startsWith(k));
+    if (hit) { out += hit[1]; t = t.slice(hit[0].length); }
+    else if (/[\s　]/.test(t[0])) { out += "_"; t = t.slice(1); }
+    else if (/[ぁ-ん]/.test(t[0])) { t = t.slice(1); }
+    else { out += /[A-Za-z0-9]/.test(t[0]) ? t[0] : ""; t = t.slice(1); }
+  }
+  return out.replace(/_+/g, "_").replace(/^_|_$/g, "").toLowerCase();
+}
+function ocSlug(c) {
+  const fromYomi = kanaToRomaji(c.yomi || "");
+  if (fromYomi.length >= 2) return fromYomi;
+  const ascii = String(c.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+  return ascii.length >= 2 ? ascii : "oc_" + Math.random().toString(36).slice(2, 7);
+}
+
+/* ── 受け取り画面 ── */
+let renkeiCharPick = new Set(), renkeiScenePick = 0;
+function renderRenkei() {
+  const chars = Renkei.take("chars"), scenes = Renkei.take("scenes");
+  renkeiCharPick = new Set(chars.map((_, i) => i));
+  renkeiScenePick = 0;
+  $("#renkeiCharList").innerHTML = chars.length ? chars.map((c, i) => {
+    const app = charaAppearanceEn(c.v).join(", ");
+    return `<label class="chk-row" style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">
+      <input type="checkbox" data-rc="${i}" checked style="margin-top:4px">
+      <span style="flex:1;min-width:0">
+        <b style="color:var(--kin)">${esc(c.name || "名無しの人物")}</b>
+        <span style="display:block;font-size:11.5px;color:var(--sub)">${esc([c.v && c.v.age, c.v && c.v.sex, c.v && c.v.role].filter(Boolean).join("／") || "—")}</span>
+        <span style="display:block;font-size:11.5px;color:var(--c-look);margin-top:3px">🧬 ${esc(app || "（外見の記述が足りず、英タグに引けませんでした）")}</span>
+        ${app ? `<button class="btn small gold" data-rcbuild="${i}" style="margin-top:6px">この人物で指示文を組む</button>` : ""}
+      </span></label>`;
+  }).join("") : '<div class="empty">受渡箱に人物がありません。<br>人物仕立所の「台本」画面で『椿ノ工房へ渡す』を押してください。</div>';
+  $("#renkeiCharAdd").style.display = chars.length ? "" : "none";
+
+  $("#renkeiSceneList").innerHTML = scenes.length ? scenes.map((s, i) => `
+    <label class="chk-row" style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">
+      <input type="radio" name="renkeiScene" data-rs="${i}" ${i === 0 ? "checked" : ""} style="margin-top:4px">
+      <span style="flex:1;min-width:0">
+        <b style="color:var(--kin)">${esc(s.title || "無題の場面")}</b>
+        <span style="display:block;font-size:11.5px;color:var(--sub)">${esc(s.note || "")}</span>
+        <span style="display:block;font-size:11.5px;color:var(--c-scene);margin-top:3px">👥 ${esc((s.cast || []).map(c => c.name).filter(Boolean).join("、") || "人物の指定なし")}</span>
+      </span></label>`).join("") : '<div class="empty">受渡箱に場面がありません。<br>戯曲装置の「設計図」で場面カードを開き『この場面を絵にする』を押してください。</div>';
+  $("#renkeiSceneApply").style.display = scenes.length ? "" : "none";
+}
+$("#btnRenkei").addEventListener("click", () => { renderRenkei(); openSheet("sheetRenkei"); });
+$("#renkeiCharList").addEventListener("click", e => {
+  const b = e.target.closest("[data-rcbuild]"); if (!b) return;
+  e.preventDefault();
+  const c = Renkei.take("chars")[+b.dataset.rcbuild]; if (!c) return;
+  const app = charaAppearanceEn(c.v);
+  if (!app.length) { toast("外見を英タグに引けませんでした"); return; }
+  state.adv.lookMain = app.join(", ");
+  const wantScene = String((c.v && c.v.scene) || "").trim();
+  if (wantScene) state.adv.scene = scanJa(wantScene, M_SCENE, SCENE_ALIAS).join(", ");
+  $("#a-lookMain").value = state.adv.lookMain;
+  $("#a-scene").value = state.adv.scene;
+  state.manualEdit = false;
+  if (state.mode !== "adv") switchMode("adv"); else render();
+  updateAccStates();
+  closeSheet("sheetRenkei");
+  toast((c.name || "人物") + "で指示文を組みました 🎨");
+});
+$("#renkeiCharList").addEventListener("change", e => {
+  const cb = e.target.closest("[data-rc]"); if (!cb) return;
+  const i = +cb.dataset.rc;
+  if (cb.checked) renkeiCharPick.add(i); else renkeiCharPick.delete(i);
+});
+$("#renkeiSceneList").addEventListener("change", e => {
+  const rb = e.target.closest("[data-rs]"); if (!rb) return;
+  renkeiScenePick = +rb.dataset.rs;
+});
+$("#renkeiCharAdd").addEventListener("click", () => {
+  const picked = Renkei.take("chars").filter((_, i) => renkeiCharPick.has(i));
+  if (!picked.length) { toast("選ばれていません"); return; }
+  const lib = getCharaLib();
+  let added = 0;
+  picked.forEach(c => {
+    const tag = formatCharaTag(ocSlug(c));
+    if (lib.some(x => x.tag.toLowerCase() === tag.toLowerCase())) return;
+    lib.unshift({
+      id: "c" + Date.now() + Math.floor(Math.random() * 999),
+      work: "人物仕立所",
+      name: c.name || "名無しの人物",
+      tag,
+      note: "人物仕立所から受け取り。キャラタグは仮の名です。PixAIに実在するLoRAタグがあれば書き換えてください。外見メモだけでも絵は作れます。",
+      appearance: charaAppearanceEn(c.v).join(", "),
+      fav: false, ts: Date.now()
+    });
+    added++;
+  });
+  store.set(K.charaLib, lib);
+  renderCharaLibList();
+  toast(added ? `${added}人をライブラリに登録しました 📇` : "すでに登録済みです");
+});
+
+/* 場面と配役から、詳細（高度）公式の各欄を組み立てる */
+$("#renkeiSceneApply").addEventListener("click", () => {
+  const s = Renkei.take("scenes")[renkeiScenePick];
+  if (!s) { toast("場面が選ばれていません"); return; }
+  const cast = s.cast || [];
+  const heads = [];
+  const f = cast.filter(c => /女/.test(c.gender || "")).length;
+  const m = cast.filter(c => /男/.test(c.gender || "")).length;
+  if (f) heads.push(f === 1 ? "1girl" : f + "girls");
+  if (m) heads.push(m === 1 ? "1boy" : m + "boys");
+  if (cast.length === 1) heads.push("solo");
+
+  const looks = cast.map(c => {
+    const a = castAppearanceEn(c).filter(t => !/^\d+(girl|boy)s?$/.test(t));
+    return a.length ? (cast.length > 1 && c.name ? a.join(", ") : a.join(", ")) : "";
+  }).filter(Boolean);
+
+  state.adv.lookMain = heads.concat(looks).join(", ");
+  state.adv.scene = scanJa([s.title, s.note, s.setting].filter(Boolean).join("、"), M_SCENE, SCENE_ALIAS).join(", ");
+  state.adv.pose  = scanJa([s.note, s.extra].filter(Boolean).join("、"), M_ACT).join(", ");
+
+  $("#a-lookMain").value = state.adv.lookMain;
+  $("#a-scene").value = state.adv.scene;
+  $("#a-pose").value = state.adv.pose;
+  state.manualEdit = false;
+  if (state.mode !== "adv") switchMode("adv"); else render();
+  updateAccStates();
+  closeSheet("sheetRenkei");
+  const miss = [];
+  if (!state.adv.scene) miss.push("場面");
+  if (!state.adv.pose) miss.push("姿勢・動作");
+  toast(miss.length ? `組みました（${miss.join("・")}は引けず空です）` : "場面から指示文を組みました 🎨");
+});
 
 /* ---------- キャラクターまとめて登録（一括追加） ----------
    1行1件。「タグのみ」でも「表示名 | タグ | メモ」（半角/全角｜区切り）でも可。 */

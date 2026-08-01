@@ -358,6 +358,7 @@ footer.credit{padding:8px 0 28px;text-align:center;font-family:var(--mono);font-
         <label class="lb">人物名簿 <span class="req">必須</span></label>
         <div id="cast"></div>
         <button class="addcast" id="btnAddCast" type="button">＋ 人物を追加</button>
+        <button class="addcast" id="btnRecvChars" type="button" style="margin-top:8px">⇄ 人物仕立所から受け取る</button>
         <p class="hint">名前だけでも動きます。埋めた項目だけが台本に載ります。</p>
       </div>
       <div class="field">
@@ -502,6 +503,9 @@ footer.credit{padding:8px 0 28px;text-align:center;font-family:var(--mono);font-
       <button class="act-btn ghost" id="genNodeCancel" type="button">キャンセル</button>
       <button class="act-btn primary" id="genNodeSave" type="button">保存</button>
     </div>
+    <div class="modal-actions" style="margin-top:8px">
+      <button class="act-btn" id="genNodeToImage" type="button">🎨 この場面を絵にする</button>
+    </div>
   </div>
 </div>
 
@@ -532,6 +536,39 @@ footer.credit{padding:8px 0 28px;text-align:center;font-family:var(--mono);font-
       <button class="act-btn ghost" id="genLinkCancel" type="button">キャンセル</button>
       <button class="act-btn primary" id="genLinkSave" type="button">保存</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="recvOverlay">
+  <div class="modal" id="recvModal">
+    <p class="modal-title">人物仕立所から受け取る</p>
+    <p class="hint" id="recvHint" style="margin:-8px 0 14px"></p>
+    <div id="recvList"></div>
+    <div class="modal-actions">
+      <button class="act-btn ghost" id="recvCancel" type="button">閉じる</button>
+      <button class="act-btn primary" id="recvConfirm" type="button">名簿に加える</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sendSceneOverlay">
+  <div class="modal" id="sendSceneModal">
+    <p class="modal-title">この場面を絵にする</p>
+    <p class="hint" style="margin:-8px 0 14px">椿ノ工房（プロンプトビルダー）へ場面と登場人物を渡します。向こうで「戯曲装置から受け取る」を押すと、絵の指示文が組み上がります。</p>
+    <div class="field">
+      <label class="lb">この場面に出る人物</label>
+      <div class="chips" id="sendSceneCast"></div>
+      <p class="hint">押して選ぶ。選んだ人物の外見が絵の指示文に入ります。</p>
+    </div>
+    <div class="field">
+      <label class="lb" for="sendSceneExtra">絵にしたい様子 <span class="opt">任意</span></label>
+      <textarea id="sendSceneExtra" placeholder="例：向かい合って睨み合っている。雨が降っている。"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="act-btn ghost" id="sendSceneCancel" type="button">やめる</button>
+      <button class="act-btn primary" id="sendSceneGo" type="button">椿ノ工房へ渡す</button>
+    </div>
+    <p class="hint" id="sendSceneNote" style="margin-top:10px"></p>
   </div>
 </div>
 
@@ -1200,6 +1237,258 @@ function updateNarrationHints(){
     warn.classList.remove("show");
   }
 }
+
+/* ═══ 連携（受渡箱） ═══
+   同じ書庫に並ぶ器械と人物・場面を受け渡す。同一オリジンなので
+   localStorage を共有できる。 */
+const RENKEI_KEY = "kikai.renkei.v1";
+const Renkei = {
+  read(){
+    try{
+      const d = JSON.parse(localStorage.getItem(RENKEI_KEY));
+      if (!d || typeof d !== "object") return {chars:[], scenes:[]};
+      return {chars: Array.isArray(d.chars)?d.chars:[], scenes: Array.isArray(d.scenes)?d.scenes:[]};
+    }catch(e){ return {chars:[], scenes:[]}; }
+  },
+  write(d){ try{ localStorage.setItem(RENKEI_KEY, JSON.stringify(d)); return true; }catch(e){ return false; } },
+  put(kind, items, from){
+    const d = this.read(), now = Date.now();
+    d[kind] = items.map((x,i) => Object.assign({rid:"r"+now+"-"+i, ts:now, from:from||""}, x));
+    return this.write(d);
+  },
+  take(kind){ return this.read()[kind] || []; },
+  /* 台帳（apps.json）から兄弟器械の実ファイル名を引く。名が変わっても追える。 */
+  async appUrl(frag){
+    try{
+      if (!Renkei._led){
+        const r = await fetch("../apps.json", {cache:"no-cache"});
+        Renkei._led = r.ok ? await r.json() : {apps:[]};
+      }
+      const as = Renkei._led.apps || [];
+      const hit = as.find(a => String(a.name||"").includes(frag)) || as.find(a => String(a.file||"").includes(frag));
+      return hit ? "../" + hit.file.split("/").map(encodeURIComponent).join("/") : null;
+    }catch(e){ return null; }
+  }
+};
+
+/* ── 人物仕立所の項目を、この装置の名簿の形に均す ──
+   向こうは自由記述、こちらは選択肢。合う札を探し、無ければ自由記述へ落とす。 */
+const toks = v => String(v||"").split(/[、,／\/・\n]+/).map(s=>s.trim()).filter(Boolean);
+function matchOpt(text, opts, alias){
+  const t = String(text||"").trim();
+  if (!t) return "";
+  const list = toks(t);
+  for (const tk of list){ if (opts.includes(tk)) return tk; }               // そのまま在る
+  if (alias) for (const tk of list){
+    for (const [pat, to] of alias){ if (tk.includes(pat) && opts.includes(to)) return to; }
+  }
+  if (alias) for (const [pat, to] of alias){ if (t.includes(pat) && opts.includes(to)) return to; }
+  for (const o of opts){ if (t.includes(o)) return o; }                      // 札が文に含まれる
+  return "";
+}
+function matchChips(text, opts, alias){
+  const got = [];
+  toks(text).forEach(tk => {
+    if (opts.includes(tk)){ if(!got.includes(tk)) got.push(tk); return; }
+    if (alias) for (const [pat, to] of alias){
+      if (tk.includes(pat) && opts.includes(to) && !got.includes(to)){ got.push(to); return; }
+    }
+    for (const o of opts){ if (tk.includes(o) && !got.includes(o)){ got.push(o); return; } }
+  });
+  return got;
+}
+const A_GENDER = [["女","女性"],["男","男性"],["中性","中性的"],["両性","その他"],["無性","その他"],["不定","その他"],["明かさない","不明・非公開"],["不明","不明・非公開"]];
+const A_RACE   = [["人間","人間"],["エルフ","エルフ"],["獣人","獣人"],["獣","獣人"],["吸血鬼","吸血鬼"],["不死","異形・怪異"],["幽霊","異形・怪異"],["精霊","精霊・妖"],["妖","精霊・妖"],["鬼","異形・怪異"],["竜","異形・怪異"],["人魚","異形・怪異"],["天使","神・超越者"],["堕天使","神・超越者"],["悪魔","神・超越者"],["神","神・超越者"],["機械","アンドロイド"],["人造","アンドロイド"],["亜人","獣人"]];
+const A_HAIRC  = [["濡羽","黒"],["黒","黒"],["焦茶","焦茶"],["茶","焦茶"],["栗","栗色"],["亜麻","亜麻色"],["白金","白銀"],["銀","白銀"],["白","白銀"],["金","金"],["灰","灰"],["朱","赤"],["赤","赤"],["紅","赤"],["群青","青"],["蒼","青"],["青","青"],["緑","緑"],["翠","緑"],["紫","紫"],["桃","桃"],["虹","混色・グラデーション"],["二色","混色・グラデーション"],["混色","混色・グラデーション"]];
+const A_HAIRLEN= [["ベリーショート","坊主・極短"],["坊主","坊主・極短"],["刈り上げ","坊主・極短"],["おかっぱ","ボブ"],["ボブ","ボブ"],["ショート","ショート"],["セミロング","セミロング"],["ミディアム","セミロング"],["肩","肩まで"],["腰","腰まで"],["床","腰まで"],["ロング","ロング"]];
+const A_HAIRSTY= [["ポニーテール","ポニーテール"],["ツインテール","ツインテール"],["サイドテール","ポニーテール"],["三つ編み","三つ編み"],["編み込み","三つ編み"],["お団子","結い上げ"],["夜会巻き","結い上げ"],["結","結い上げ"],["ウェーブ","ウェーブ"],["巻き","ウェーブ"],["くせ","くせ毛"],["寝癖","くせ毛"],["無造作","無造作"],["目が隠れ","前髪で目が隠れる"],["ストレート","ストレート"]];
+const A_EYE    = [["琥珀","琥珀"],["榛","茶"],["茶","茶"],["黒","黒"],["碧","碧"],["翠","碧"],["蒼","青"],["青","青"],["灰","灰"],["緋","紅"],["紅","紅"],["金","金"],["銀","灰"],["紫","紫"],["桃","紫"],["左右で色が違","オッドアイ"],["縦に裂け","瞳孔が人ならざる形"],["白目がない","瞳孔が人ならざる形"],["黒目がない","瞳孔が人ならざる形"]];
+const A_SKIN   = [["色白","色白"],["透けるように白","色白"],["血の気","血色が悪い"],["青白","血色が悪い"],["小麦","日焼け"],["日焼","日焼け"],["黒褐色","褐色"],["褐色","褐色"],["浅黒","褐色"],["鱗","人ならざる質感"],["毛皮","人ならざる質感"],["金属","人ならざる質感"],["陶器","人ならざる質感"]];
+const A_VOICE  = [["高く澄んだ","高く澄んだ声"],["よく通る","高く澄んだ声"],["張りがある","高く澄んだ声"],["艶","柔らかい声"],["囁","かすれた声"],["か細","かすれた声"],["消え入り","かすれた声"],["だみ声","抑揚のない声"],["重い","落ち着いた低音"],["鈴","高く澄んだ声"],["甘い","柔らかい声"],["柔らか","柔らかい声"],["低く落ち着い","落ち着いた低音"],["低","落ち着いた低音"],["掠れ","かすれた声"],["かすれ","かすれた声"],["中性","中性的な声"],["威圧","威圧的な声"],["機械","抑揚のない声"],["硬質","抑揚のない声"],["冷た","抑揚のない声"]];
+const A_OUTFIT = [["学生服","制服"],["制服","制服"],["振袖","和装"],["浴衣","和装"],["和装","和装"],["着物","和装"],["巫女","ローブ・法衣"],["修道","ローブ・法衣"],["法衣","ローブ・法衣"],["ローブ","ローブ・法衣"],["外套","ローブ・法衣"],["礼装","礼装・ドレス"],["ドレス","礼装・ドレス"],["喪服","礼装・ドレス"],["白衣","作業着・白衣"],["作業着","作業着・白衣"],["軍服","鎧・軍装"],["甲冑","鎧・軍装"],["鎧","鎧・軍装"],["古着","擦り切れた古着"],["襤褸","擦り切れた古着"],["スーツ","スーツ"],["私服","現代の私服"]];
+const A_FEATS  = [["泣きぼくろ","泣きぼくろ"],["ほくろ","泣きぼくろ"],["そばかす","そばかす"],["眼鏡","眼鏡"],["眼帯","隻眼・眼帯"],["隻眼","隻眼・眼帯"],["包帯","包帯"],["刺青","入れ墨"],["刻印","入れ墨"],["呪印","入れ墨"],["入れ墨","入れ墨"],["頬の傷","顔の傷跡"],["傷跡","顔の傷跡"],["火傷","顔の傷跡"],["痣","顔の傷跡"],["縫合","顔の傷跡"],["八重歯","八重歯"],["獣","獣の耳と尾"],["尖った耳","尖った耳"],["角","角"],["翼","翼"],["鱗","鱗"],["義手","義手・義足"],["義足","義手・義足"],["香","強い香り"],["無表情","常に無表情"],["微笑","絶えず微笑んでいる"]];
+const A_SPEECH = [["丁寧","丁寧語"],["慇懃","硬い敬語"],["堅苦し","硬い敬語"],["敬語","硬い敬語"],["砕け","砕けたタメ口"],["タメ口","砕けたタメ口"],["ぶっきらぼう","ぶっきらぼう"],["乱暴","ぶっきらぼう"],["武骨","ぶっきらぼう"],["古風","古風・文語調"],["文語","古風・文語調"],["方言","方言"],["訛","方言"],["喋らない","口数が少ない"],["単語だけ","口数が少ない"],["饒舌","饒舌"],["回りくどい","饒舌"],["皮肉","皮肉屋"],["甘い","甘えた口調"],["威圧","高圧的"],["命令","高圧的"]];
+const A_PERS   = [["冷静","冷静"],["情熱","情熱的"],["楽観","楽観的"],["短気","短気"],["穏やか","おだやか"],["おだやか","おだやか"],["傲慢","傲慢"],["気位が高い","傲慢"],["内向","内向的"],["社交","社交的"],["生真面目","生真面目"],["真面目","生真面目"],["怠惰","怠惰"],["好奇心","好奇心旺盛"],["臆病","臆病"],["献身","献身的"],["計算高い","計算高い"],["天真爛漫","天真爛漫"],["無感情","無感情"],["面倒見","面倒見が良い"],["嘘をつく","嘘つき"],["嘘つき","嘘つき"],["負けず嫌い","負けず嫌い"],["博愛","博愛的"],["優しい","面倒見が良い"],["粘り強い","負けず嫌い"],["機転","好奇心旺盛"],["自罰","内向的"],["飄々","楽観的"]];
+const A_HEIGHT = [["掌に乗る","人外の背丈"],["2mを超え","人外の背丈"],["見上げるほど","人外の背丈"],["長身","長身"],["高い","高め"],["小柄","低め"],["低い","低め"],["並","標準"],["標準","標準"]];
+const A_AGE    = [["幼年","幼年"],["十歳前後","幼年"],["十代前半","10代前半"],["十代半ば","10代前半"],["十代後半","10代後半"],["二十代前半","20代前半"],["二十代後半","20代後半"],["三十代","30代"],["四十代","40代"],["五十代","50代以上"],["老齢","50代以上"],["百歳","不老・年齢不詳"],["千年","不老・年齢不詳"],["万年","不老・年齢不詳"],["不老","不老・年齢不詳"],["不死","不老・年齢不詳"],["年を取らない","不老・年齢不詳"],["不詳","不老・年齢不詳"],["不明","不老・年齢不詳"]];
+const AGE_OPTS = ["幼年","10代前半","10代後半","20代前半","20代後半","30代","40代","50代以上","不老・年齢不詳"];
+function ageBucket(raw){
+  const t = String(raw||"").trim();
+  const n = parseInt(t.replace(/[^\d]/g,""), 10);
+  if (Number.isFinite(n) && /^\D{0,2}\d{1,3}\D{0,3}$/.test(t)){
+    if (n < 10) return "幼年";
+    if (n < 15) return "10代前半";
+    if (n < 20) return "10代後半";
+    if (n < 25) return "20代前半";
+    if (n < 30) return "20代後半";
+    if (n < 40) return "30代";
+    if (n < 50) return "40代";
+    if (n < 200) return "50代以上";
+    return "不老・年齢不詳";
+  }
+  return matchOpt(t, AGE_OPTS, A_AGE);
+}
+const OPT_OF = k => { const f = CFIELDS.find(x => x.k === k); return f && f.o ? f.o : []; };
+/* 「162cm」のような実寸は、この装置の段階表現へ丸める */
+function heightBucket(raw){
+  const t = String(raw||"").trim();
+  const cm = t.match(/(\d{2,3})\s*cm/i);
+  if (cm){
+    const n = +cm[1];
+    if (n < 140) return "とても低い";
+    if (n < 155) return "低め";
+    if (n < 168) return "標準";
+    if (n < 178) return "高め";
+    return "長身";
+  }
+  return matchOpt(t, OPT_OF("height"), A_HEIGHT);
+}
+/* 拾いきれなかった記述は、丸ごと自由記述へ回して取りこぼしを防ぐ */
+function shitateToCast(src){
+  const v = src.v || {}, g = (k) => String(v[k]||"").trim();
+  const joined = ks => ks.map(g).filter(Boolean).join("、");
+  const c = newChar({
+    name: src.name || g("name") || "",
+    role: 0,
+    age: ageBucket(g("age")),
+    ageNote: [g("lookage"), (/^\d+$/.test(g("age")) ? g("age")+"歳" : "")].filter(Boolean).join("／"),
+    gender: matchOpt(g("sex"), OPT_OF("gender"), A_GENDER),
+    race: matchOpt(g("race"), OPT_OF("race"), A_RACE),
+    job: joined(["role","belong"]),
+    height: heightBucket(g("height")),
+    bust: g("bust"), waist: g("waist"), hip: g("hip"),
+    hairColor: matchOpt(g("haircol"), OPT_OF("hairColor"), A_HAIRC),
+    hairLen: matchOpt(g("hair"), OPT_OF("hairLen"), A_HAIRLEN),
+    hairStyle: matchOpt(g("hair"), OPT_OF("hairStyle"), A_HAIRSTY),
+    eye: matchOpt(g("eye"), OPT_OF("eye"), A_EYE),
+    skin: matchOpt(g("skin"), OPT_OF("skin"), A_SKIN),
+    voice: matchOpt(g("voice"), OPT_OF("voice"), A_VOICE),
+    outfit: matchOpt(g("wear"), OPT_OF("outfit"), A_OUTFIT),
+    feats: matchChips(joined(["mark","face"]), OPT_OF("feats"), A_FEATS),
+    look: joined(["height","build","hair","haircol","eye","skin","face","wear","mark","scent"]),
+    pronoun: OPT_OF("pronoun").includes(g("i")) ? g("i") : "",
+    speech: matchOpt(g("tone"), OPT_OF("speech"), A_SPEECH),
+    pers: matchChips(joined(["person","merit","fault","emo","social"]), OPT_OF("pers"), A_PERS),
+    like: joined(["like","food","hobby"]),
+    hate: joined(["dislike","weak_to"]),
+    relation: [g("dist"), (src.rels||[]).filter(r=>r.who||r.tie)
+      .map(r => `${r.who||"？"}＝${[r.tie,r.feel,r.note].filter(Boolean).join("・")}`).join("／")].filter(Boolean).join("／"),
+    secret: joined(["secret","wound","hidden","face2"]),
+  });
+  const extra = [];
+  const add = (l,k) => { const s = g(k); if (s) extra.push(l+"："+s.replace(/\n+/g,"　")); };
+  if (g("yomi")) extra.push("読み："+g("yomi"));
+  add("呼ばれ方","alias"); add("一人称","i"); add("二人称","you"); add("語尾","end"); add("笑い方","laugh");
+  add("決め台詞","line"); add("信条","value"); add("望み","want"); add("恐れ","fear"); add("癖","habit");
+  add("生い立ち","birth"); add("転機","turn"); add("生業","work"); add("住まい","home"); add("暮らし向き","money");
+  add("家族","family"); add("今の状況","now"); add("得意","good"); add("不得意","bad"); add("特別な力","power");
+  add("腕っぷし","combat"); add("持ち物","item"); add("弱み","weak");
+  add("演じ方の指針","policy"); add("初対面の態度","first"); add("やらせたくないこと","ng"); add("想定場面","scene");
+  add("備考","free");
+  c.free = extra.join("\n");
+  c._open = false;
+  return c;
+}
+
+/* ── 受け取り（人物） ── */
+let recvPicked = new Set();
+function openRecv(){
+  const items = Renkei.take("chars");
+  recvPicked = new Set(items.map((_,i) => i));
+  $("recvHint").textContent = items.length
+    ? "人物仕立所で「戯曲装置へ渡す」を押した人物です。加えたいものを選んでください。"
+    : "受渡箱が空です。人物仕立所の「台本」画面で『戯曲装置へ渡す』を押してから、もう一度ここを開いてください。";
+  $("recvList").innerHTML = items.length ? items.map((c,i) => `
+    <label class="chk" style="margin-bottom:10px">
+      <input type="checkbox" data-ri="${i}" checked>
+      <span><b style="font-family:var(--mincho);font-size:15px">${esc(c.name||"名無しの人物")}</b>
+      <span style="display:block;color:var(--hai);font-size:11.5px">${esc([c.v&&c.v.age,c.v&&c.v.sex,c.v&&c.v.role].filter(Boolean).join("／")||"—")}</span></span>
+    </label>`).join("") : "";
+  $("recvConfirm").style.display = items.length ? "" : "none";
+  $("recvOverlay").classList.add("show");
+}
+$("btnRecvChars").addEventListener("click", openRecv);
+$("recvCancel").addEventListener("click", () => $("recvOverlay").classList.remove("show"));
+$("recvList").addEventListener("change", e => {
+  const cb = e.target.closest("[data-ri]"); if (!cb) return;
+  const i = +cb.dataset.ri;
+  if (cb.checked) recvPicked.add(i); else recvPicked.delete(i);
+});
+$("recvConfirm").addEventListener("click", () => {
+  const items = Renkei.take("chars").filter((_,i) => recvPicked.has(i));
+  if (!items.length){ toast("選ばれていません"); return; }
+  items.forEach(src => cast.push(shitateToCast(src)));
+  $("recvOverlay").classList.remove("show");
+  renderCast(); render(); save();
+  toast(items.length + "名を名簿に加えました");
+  $("cast").scrollIntoView({behavior:"smooth", block:"center"});
+});
+
+/* ── 場面を椿ノ工房へ渡す ── */
+let sendSceneNode = null, sendSceneCast = new Set();
+function openSendScene(n){
+  sendSceneNode = n;
+  sendSceneCast = new Set();
+  const box = $("sendSceneCast");
+  box.innerHTML = cast.map((c,i) =>
+    `<button class="chip" type="button" data-sc="${i}">${esc(c.name || "名無し"+(i+1))}</button>`).join("")
+    || '<span class="hint">名簿がまだ空です。人物なしでも場面だけ渡せます。</span>';
+  /* 場面の記述に名前が出ている人物は、最初から選んでおく */
+  const text = (n.label||"") + " " + (n.note||"");
+  cast.forEach((c,i) => { if (c.name && text.includes(c.name)){ sendSceneCast.add(i); } });
+  [...box.querySelectorAll("[data-sc]")].forEach(b => b.classList.toggle("on", sendSceneCast.has(+b.dataset.sc)));
+  $("sendSceneExtra").value = "";
+  $("sendSceneNote").textContent = "";
+  $("sendSceneOverlay").classList.add("show");
+}
+$("sendSceneCast").addEventListener("click", e => {
+  const b = e.target.closest("[data-sc]"); if (!b) return;
+  const i = +b.dataset.sc;
+  if (sendSceneCast.has(i)) sendSceneCast.delete(i); else sendSceneCast.add(i);
+  b.classList.toggle("on", sendSceneCast.has(i));
+});
+$("sendSceneCancel").addEventListener("click", () => $("sendSceneOverlay").classList.remove("show"));
+$("genNodeToImage").addEventListener("click", () => {
+  const data = SCEN[scenarioMode];
+  const n = data.nodes.find(x => x.id === genEditingNodeId);
+  if (!n) return;
+  n.label = $("genNodeLabel").value.trim();
+  n.note = $("genNodeNote").value.trim();
+  renderGenBoard(); renderGenList(); save();
+  closeGenNodeModal();
+  openSendScene(n);
+});
+$("sendSceneGo").addEventListener("click", async () => {
+  const n = sendSceneNode; if (!n) return;
+  const chosen = [...sendSceneCast].sort((a,b)=>a-b).map(i => cast[i]).filter(Boolean);
+  const payload = {
+    title: n.label || "無題の場面",
+    note: n.note || "",
+    extra: $("sendSceneExtra").value.trim(),
+    kind: scenarioMode,
+    setting: $("setting").value.trim(),
+    genre: [$("genre").value, $("genreFree").value.trim()].filter(Boolean).join("／"),
+    tone: (OPT.tone[+$("tone").value]||[""])[0] || "",
+    cast: chosen.map(c => ({
+      name: c.name, gender: c.gender, age: c.age, race: c.race,
+      hairColor: c.hairColor, hairLen: c.hairLen, hairStyle: c.hairStyle,
+      eye: c.eye, skin: c.skin, height: c.height, outfit: c.outfit,
+      feats: c.feats || [], look: c.look || ""
+    }))
+  };
+  const note = $("sendSceneNote");
+  if (!Renkei.put("scenes", [payload], "戯曲装置")){
+    note.style.color = "var(--shu)";
+    note.textContent = "この端末では受渡箱が使えません（保存が塞がれています）。";
+    return;
+  }
+  toast("場面を渡しました");
+  const url = await Renkei.appUrl("椿ノ工房");
+  note.style.color = "";
+  note.innerHTML = "受渡箱に入れました。"
+    + (url ? ` <a href="${url}" style="color:var(--shinchu)">椿ノ工房を開く</a> → 「戯曲装置から受け取る」を押す。`
+           : " 椿ノ工房を開いて「戯曲装置から受け取る」を押してください。");
+});
 
 /* ═══ 保存 ═══ */
 const KEY = "gikyoku.v2";
