@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#12151d">
+<title>人物仕立所</title>
+<style>
+:root{
+  --sumi:#12151d;
+  --nuno:#191e28;
+  --nuno2:#222937;
+  --line:#39424f;
+  --chalk:#e6e9ef;
+  --dim:#96a0b0;
+  --brass:#c8a04a;
+  --akane:#a55159;
+  --disp:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
+  --body:"Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,"Courier New",monospace;
+  --pad:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--sumi);
+  color:var(--chalk);
+  font-family:var(--body);
+  font-size:15px;line-height:1.7;
+  -webkit-text-size-adjust:100%;
+  padding-bottom:calc(84px + var(--pad));
+}
+/* 型紙の罫 */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 39px,rgba(230,233,239,.035) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,rgba(230,233,239,.035) 39px 40px);
+}
+header{
+  position:sticky;top:0;z-index:20;
+  background:linear-gradient(180deg,#12151d 70%,rgba(18,21,29,.86));
+  border-bottom:1px solid var(--line);
+  padding:calc(10px + env(safe-area-inset-top,0px)) 14px 0;
+}
+.brand{display:flex;align-items:baseline;gap:10px}
+h1{
+  font-family:var(--disp);font-weight:600;font-size:21px;letter-spacing:.28em;
+  margin:0;text-indent:.28em;
+}
+.tagline{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--dim);margin-left:auto}
+nav{display:flex;gap:2px;margin-top:8px}
+nav button{
+  flex:1;background:none;border:0;border-bottom:2px solid transparent;
+  color:var(--dim);font-family:var(--disp);font-size:15px;letter-spacing:.18em;
+  padding:9px 0 8px;cursor:pointer;
+}
+nav button .n{font-family:var(--mono);font-size:9px;letter-spacing:.1em;display:block;opacity:.7;letter-spacing:.08em}
+nav button[aria-selected="true"]{color:var(--brass);border-bottom-color:var(--brass)}
+main{position:relative;z-index:1;padding:14px 12px 24px;max-width:720px;margin:0 auto}
+.view{display:none}
+.view.on{display:block}
+
+/* ── 名簿 ── */
+.roster-head{display:flex;align-items:center;gap:8px;margin:2px 0 12px}
+.roster-head .cnt{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.card{
+  position:relative;display:flex;gap:0;margin-bottom:12px;
+  background:var(--nuno);border:1px solid var(--line);border-radius:3px;overflow:hidden;
+  background-image:repeating-linear-gradient(0deg,transparent 0 23px,rgba(230,233,239,.03) 23px 24px);
+}
+.seam{
+  width:34px;flex:none;border-right:1px dashed var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  background:rgba(200,160,74,.05);
+}
+.seam .no{font-family:var(--mono);font-size:12px;color:var(--brass);letter-spacing:.05em}
+.seam .notch{width:9px;height:9px;border:1px solid var(--line);transform:rotate(45deg)}
+.card-body{flex:1;min-width:0;padding:11px 12px 12px}
+.card-name{font-family:var(--disp);font-size:18px;letter-spacing:.06em;display:block;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-name.empty{color:var(--dim)}
+.card-sub{font-size:12px;color:var(--dim);margin-top:1px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 巻尺ゲージ */
+.tape{margin-top:9px;height:16px;position:relative;border:1px solid var(--line);border-radius:2px;background:#141924;overflow:hidden}
+.tape .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(180deg,rgba(200,160,74,.55),rgba(200,160,74,.22));width:0}
+.tape .ticks{position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(90deg,rgba(230,233,239,.30) 0 1px,transparent 1px 20px),
+    repeating-linear-gradient(90deg,rgba(230,233,239,.14) 0 1px,transparent 1px 4px);
+  background-size:100% 9px,100% 5px;background-repeat:repeat-x;background-position:0 0,0 0;
+}
+.tape .pct{position:absolute;right:5px;bottom:0;font-family:var(--mono);font-size:9.5px;line-height:14px;color:var(--chalk);letter-spacing:.04em;text-shadow:0 0 4px #141924}
+.card-acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+button.mini{
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+  background:none;color:var(--dim);border:1px solid var(--line);border-radius:2px;
+  padding:5px 9px;cursor:pointer;
+}
+button.mini:active{background:var(--nuno2)}
+button.mini.warn{color:var(--akane);border-color:rgba(165,81,89,.5)}
+.add{
+  display:block;width:100%;padding:13px;margin-top:4px;cursor:pointer;
+  background:none;border:1px dashed var(--line);border-radius:3px;color:var(--brass);
+  font-family:var(--disp);font-size:15px;letter-spacing:.2em;
+}
+.empty-note{border:1px dashed var(--line);border-radius:3px;padding:22px 16px;text-align:center;color:var(--dim);margin-bottom:12px}
+.empty-note b{display:block;font-family:var(--disp);color:var(--chalk);font-size:16px;letter-spacing:.1em;margin-bottom:6px;font-weight:500}
+
+/* ── 仕立（編集） ── */
+.picker{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+.picker button{
+  flex:none;background:var(--nuno);border:1px solid var(--line);color:var(--dim);
+  border-radius:2px;padding:6px 11px;font-size:13px;cursor:pointer;max-width:44vw;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--disp);letter-spacing:.05em;
+}
+.picker button[aria-current="true"]{color:var(--sumi);background:var(--brass);border-color:var(--brass);font-weight:600}
+details.sec{border:1px solid var(--line);border-radius:3px;background:var(--nuno);margin-bottom:9px}
+details.sec[open]{background:var(--nuno)}
+summary.sec-h{
+  list-style:none;cursor:pointer;padding:11px 13px;display:flex;align-items:baseline;gap:9px;
+}
+summary.sec-h::-webkit-details-marker{display:none}
+summary.sec-h .jp{font-family:var(--disp);font-size:16px;letter-spacing:.16em}
+summary.sec-h .yomi{font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.1em}
+summary.sec-h .fill-n{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--brass)}
+summary.sec-h .car{color:var(--dim);font-size:11px;transition:transform .18s}
+details[open] summary.sec-h .car{transform:rotate(90deg)}
+.sec-in{padding:2px 13px 14px;border-top:1px dashed var(--line)}
+.f{margin-top:13px}
+.f-l{display:flex;align-items:baseline;gap:7px;margin-bottom:5px}
+.f-l label{font-size:13px;letter-spacing:.08em;color:var(--chalk)}
+.f-l .hint{font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+input[type=text],textarea{
+  width:100%;background:#141924;border:1px solid var(--line);border-radius:2px;
+  color:var(--chalk);font-family:var(--body);font-size:16px;line-height:1.6;
+  padding:8px 9px;outline:none;
+}
+input[type=text]:focus,textarea:focus{border-color:var(--brass);box-shadow:0 0 0 1px rgba(200,160,74,.3)}
+textarea{resize:vertical;min-height:74px}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.chip{
+  background:none;border:1px solid var(--line);border-radius:11px;color:var(--dim);
+  font-size:12.5px;padding:3px 10px;cursor:pointer;font-family:var(--body);
+}
+.chip[aria-pressed="true"]{border-color:var(--brass);color:var(--brass);background:rgba(200,160,74,.1)}
+.chip.more{border-style:dashed;color:var(--brass);opacity:.85}
+.chips.rest{margin-top:5px;padding-top:6px;border-top:1px dotted var(--line)}
+/* 縁（関係） */
+.rel{border:1px solid var(--line);border-radius:2px;padding:9px 10px 11px;margin-top:10px;background:#141924}
+.rel .row{display:flex;gap:7px}
+.rel .row>div{flex:1;min-width:0}
+.rel .row+.row{margin-top:7px}
+.rel .rm{margin-top:8px}
+.tiny-l{font-family:var(--mono);font-size:9.5px;color:var(--dim);display:block;margin-bottom:3px;letter-spacing:.06em}
+
+/* ── 台本（出力） ── */
+.opt-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center}
+.opt-row .lbl{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em;width:100%}
+.seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{
+  background:none;border:0;border-right:1px solid var(--line);color:var(--dim);
+  padding:7px 12px;font-size:13px;cursor:pointer;font-family:var(--body);
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--brass);color:var(--sumi);font-weight:600}
+pre.out{
+  background:#0e1219;border:1px solid var(--line);border-radius:3px;
+  padding:12px;font-family:var(--mono);font-size:11.5px;line-height:1.75;
+  white-space:pre-wrap;word-break:break-word;color:#cfd6e2;max-height:56vh;overflow:auto;margin:0;
+}
+.big-acts{display:flex;gap:7px;margin:11px 0 4px;flex-wrap:wrap}
+button.act{
+  flex:1;min-width:110px;background:none;border:1px solid var(--brass);color:var(--brass);
+  border-radius:2px;padding:11px 8px;font-family:var(--disp);font-size:14px;letter-spacing:.14em;cursor:pointer;
+}
+button.act:active{background:rgba(200,160,74,.14)}
+button.act.sub{border-color:var(--line);color:var(--dim)}
+.io{margin-top:22px;border-top:1px dashed var(--line);padding-top:16px}
+.io h2,.sec-title{font-family:var(--disp);font-size:15px;letter-spacing:.18em;margin:0 0 4px;font-weight:500}
+.io p{font-size:12px;color:var(--dim);margin:0 0 9px}
+.file-btn{display:inline-block;border:1px solid var(--line);border-radius:2px;padding:8px 12px;
+  font-family:var(--mono);font-size:11px;color:var(--dim);cursor:pointer}
+input[type=file]{display:none}
+footer{color:var(--dim);font-family:var(--mono);font-size:10px;text-align:center;padding:26px 0 6px;letter-spacing:.08em}
+/* トースト */
+#toast{
+  position:fixed;left:50%;bottom:calc(22px + var(--pad));transform:translateX(-50%) translateY(12px);
+  background:var(--nuno2);border:1px solid var(--brass);color:var(--chalk);
+  padding:9px 16px;border-radius:2px;font-size:13px;z-index:60;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;max-width:88vw;text-align:center;
+}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>人物仕立所</h1>
+    <span class="tagline">CHARACTER ATELIER</span>
+  </div>
+  <nav role="tablist">
+    <button role="tab" id="tab-roster" aria-selected="true" data-v="roster">名簿<span class="n">ROSTER</span></button>
+    <button role="tab" id="tab-edit" aria-selected="false" data-v="edit">仕立<span class="n">TAILOR</span></button>
+    <button role="tab" id="tab-out" aria-selected="false" data-v="out">台本<span class="n">EXPORT</span></button>
+  </nav>
+</header>
+
+<main>
+  <section class="view on" id="v-roster">
+    <div class="roster-head"><span class="sec-title">仕立て中の人物</span><span class="cnt" id="cnt"></span></div>
+    <div id="roster"></div>
+    <button class="add" id="btn-add">＋ 人物を起こす</button>
+    <div class="big-acts" style="margin-top:14px">
+      <button class="act sub" id="btn-sample">見本を入れる</button>
+      <button class="act sub" id="btn-clear">全部ほどく</button>
+    </div>
+  </section>
+
+  <section class="view" id="v-edit">
+    <div class="picker" id="picker"></div>
+    <div id="editor"></div>
+  </section>
+
+  <section class="view" id="v-out">
+    <div class="opt-row">
+      <span class="lbl">書式</span>
+      <div class="seg" id="seg-fmt">
+        <button data-f="full" aria-pressed="true">詳細</button>
+        <button data-f="brief" aria-pressed="false">簡潔</button>
+        <button data-f="script" aria-pressed="false">台本用</button>
+      </div>
+    </div>
+    <div class="opt-row">
+      <span class="lbl">範囲</span>
+      <div class="seg" id="seg-scope">
+        <button data-s="all" aria-pressed="true">全員</button>
+        <button data-s="one" aria-pressed="false">選択中の一人</button>
+      </div>
+    </div>
+    <pre class="out" id="out"></pre>
+    <div class="big-acts">
+      <button class="act" id="btn-copy">コピー</button>
+      <button class="act" id="btn-dl">.md で保存</button>
+    </div>
+    <div class="io">
+      <h2>読み込み</h2>
+      <p>この所で書き出した .md を貼れば、そのまま続きを仕立てられます。書き出し文の末尾には人物データが注記として埋め込んであり、他のアプリでは表示されません。</p>
+      <textarea id="imp" placeholder="ここにマークダウンを貼る"></textarea>
+      <div class="big-acts">
+        <button class="act sub" id="btn-imp">貼った文を読む</button>
+        <label class="act sub" for="file" style="text-align:center;line-height:1.4">ファイルを選ぶ
+          <input type="file" id="file" accept=".md,.markdown,.txt,text/markdown,text/plain"></label>
+      </div>
+    </div>
+    <footer>人物仕立所 ／ 単票形式 rp-character v1</footer>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ============ 寸法帳（項目定義） ============ */
+const SCHEMA=[
+{id:"sujo",jp:"素性",yomi:"SUJO",fields:[
+ {id:"name",l:"名前",ph:"綾辻 かなめ",o:["綾辻 かなめ","九条 灯","柊 ひなた","東雲 律","白瀬 みお","黒木 冴","五十嵐 蓮","天羽 すず","御堂 千夜","橘 あかり","鷺沼 蛍","朝比奈 いつき","アリシア・ヴェルナー","ロザリンド","ミレイユ","エルフリーデ","セラフィナ","ヴィクトル","ノエル","イリヤ","カイ","無名"]},
+ {id:"yomi",l:"読み",ph:"あやつじ かなめ"},
+ {id:"alias",l:"呼ばれ方",ph:"かなめ先輩／かなちゃん",o:["姓で呼ばれる","名で呼ばれる","呼び捨て","さん付け","ちゃん付け","君付け","様付け","殿付け","あだ名がある","二つ名がある","役職で呼ばれる","番号で呼ばれる","記号で呼ばれる","先生と呼ばれる","お嬢様と呼ばれる","姐さんと呼ばれる","兄貴と呼ばれる","師匠と呼ばれる","隊長と呼ばれる","偽名を名乗る","本名を隠している","名前が複数ある","名を捨てた","名前を持たない","誰も正しく読めない","蔑称で呼ばれる","畏れを込めて呼ばれる","真名は秘匿","呼ばれると力を失う","呼び方でしか関係が測れない"]},
+ {id:"age",l:"年齢",ph:"17",o:["幼年","十歳前後","十代前半","十代半ば","十代後半","二十代前半","二十代後半","三十代","四十代","五十代","老齢","百歳超","千年以上","万年を生きる","生まれたばかり","数日前に生まれた","年を取らない","不老","不死","年齢を偽っている","実年齢は見た目の十倍","記憶が無く不明","死んでから数えている","二周目","時が巻き戻っている","概念に年齢はない","年齢不詳","本人も知らない"]},
+ {id:"lookage",l:"見た目の年頃",o:["年相応","幼く見える","かなり幼く見える","童顔","大人びて見える","実年齢より十は上に見える","老成している","年齢不詳","日によって変わる","姿を変えられる","人前では別の姿","一切老いない","急速に老いていく"]},
+ {id:"sex",l:"性別",o:["女","男","中性","両性","無性","不定","性別の概念がない","女装している","男装している","本人は明かさない","不明"]},
+ {id:"race",l:"種族・出自",o:["人間","半人半妖","亜人","獣人","竜人","エルフ","ドワーフ","人魚","鬼","妖狐","吸血鬼","不死者","幽霊","精霊","天使","堕天使","悪魔","神","半神","使い魔","人形","自動人形","機械","人工生命","改造人間","異星人","異界の住人","概念が形を得たもの","元は人間だった","人ならざる何か"]},
+ {id:"role",l:"立場・肩書",ph:"生徒会書記",o:["学生","教師","会社員","公務員","医師","看護師","研究者","技師","職人","商人","農夫","漁師","料理人","作家","画家","音楽家","役者","踊り子","記者","探偵","弁護士","僧侶","神官","巫女","魔術師","錬金術師","冒険者","傭兵","騎士","将軍","暗殺者","盗賊","海賊","賞金稼ぎ","王族","貴族","奴隷","囚人","逃亡者","浮浪者","無職","教祖","裏社会の顔役","組織の長","最終兵器","世界の敵"]},
+ {id:"belong",l:"所属",ph:"私立霧生高校 二年A組",o:["学校","会社","官庁","軍","騎士団","教団","寺","神社","劇団","楽団","病院","研究所","工房","商会","ギルド","傭兵団","盗賊団","海賊船","王宮","貴族家","裏組織","秘密結社","自警団","どこにも属さない","破門された","全て失った","自分で作った","表と裏で所属が違う","組織そのものが本人"]},
+ {id:"from",l:"出身",ph:"港町の外れ",o:["城下町","港町","山村","漁村","農村","宿場町","首都","下町","貧民街","スラム","遊郭","孤児院","修道院","辺境","国境","異国","異界","海の底","天上","地下","廃墟","戦場","滅んだ国","地図にない場所","研究所の培養槽","墓の中","出自不明","自分の生まれを知らない"]}]},
+
+{id:"sugata",jp:"見姿",yomi:"SUGATA",fields:[
+ {id:"height",l:"身長",ph:"158cm",o:["120cm未満","140cm","145cm","150cm","155cm","158cm","160cm","165cm","170cm","175cm","180cm","190cm","2mを超える","掌に乗るほど小さい","見上げるほど巨大","小柄","並","長身","伸縮する","一定しない","測れない"]},
+ {id:"weight",l:"体重",ph:"46kg",o:["30kg台","40kg","45kg","50kg","55kg","60kg","70kg","80kg","100kg超","羽のように軽い","見た目より遥かに重い","重量がない","本人は知らない","秘密","量れない"]},
+ {id:"build",l:"体つき",o:["骨と皮","痩せぎす","病的に細い","華奢","細身","しなやか","均整がとれている","並","筋肉質","鍛え抜かれている","がっしり","小太り","豊満","肉感的","規格外の巨躯","子供のような体つき","傷だらけ","作り物めいた完璧さ","体の一部が欠けている","継ぎ接ぎ","実体がない"]},
+ {id:"bust",l:"バスト",ph:"84 / Cカップ",o:["ほぼ平坦","控えめ","Aカップ","Bカップ","Cカップ","Dカップ","Eカップ","Fカップ","Gカップ以上","規格外","76","80","84","88","92","96","晒しで潰している","測っていない","その概念がない"]},
+ {id:"waist",l:"ウエスト",ph:"58",o:["50","53","55","58","60","63","65","70","75","80以上","くびれが際立つ","寸胴","締め付けている","測っていない"]},
+ {id:"hip",l:"ヒップ",ph:"86",o:["76","80","84","86","88","90","95","100以上","小さい","豊か","均整がとれている","測っていない"]},
+ {id:"hair",l:"髪型",o:["ベリーショート","ショート","坊主","刈り上げ","ボブ","おかっぱ","ミディアム","セミロング","ロング","腰まで","床につくほど長い","ポニーテール","ツインテール","サイドテール","三つ編み","編み込み","お団子","夜会巻き","ハーフアップ","アシンメトリー","寝癖のまま","癖っ毛","天然パーマ","直毛","狼のような鬣","逆立っている","濡れそぼっている","自分で切っている","髪がない","髪が蠢く"]},
+ {id:"haircol",l:"髪の色",o:["黒","濡羽色","焦茶","栗色","亜麻色","金","白金","銀","白","灰","赤","朱","桃","橙","黄","緑","青","群青","紫","藤","二色","グラデーション","内側だけ色が違う","一房だけ白い","根元が黒い","白髪が混じる","虹色","透明","光を吸う黒","燃えている","季節で変わる"]},
+ {id:"eye",l:"瞳",o:["黒","茶","琥珀","榛","碧","蒼","灰","紅","緋","金","銀","紫","翠","桃","左右で色が違う","瞳孔が縦に裂けている","白目がない","黒目がない","眼球がない","義眼","眼帯","眼鏡","盲目","切れ長","垂れ目","吊り目","丸く大きい","眠たげ","据わっている","睨むよう","笑っていない","光を宿さない","覗くと引き込まれる"]},
+ {id:"skin",l:"肌",o:["色白","透けるように白","血の気がない","病的に青白い","健康的な小麦色","褐色","黒褐色","浅黒い","赤みがある","そばかす","傷跡がある","火傷の痕","縫合跡がある","刺青が刻まれている","鱗に覆われている","毛皮","金属","陶器のよう","罅割れている","腐りかけている","体温がない","触れると冷たい","発光している","一切傷がつかない"]},
+ {id:"face",l:"顔立ち",o:["整っている","息を呑むほど美しい","可憐","端正","涼やか","中性的","幼い","素朴","平凡","愛嬌がある","人懐こい","険しい","鋭い","酷薄","無表情","能面のよう","疲れている","隈が濃い","笑みが貼り付いている","顔を隠している","仮面をつけている","包帯で覆っている","傷で崩れている","作り物のよう","見る者を不安にさせる","顔を思い出せない","見た者が正気を失う"]},
+ {id:"wear",l:"装い",ph:"着崩した制服に古いカーディガン",o:["制服","学生服","和装","振袖","浴衣","礼装","ドレス","喪服","修道服","法衣","巫女装束","白衣","作業着","軍服","鎧","甲冑","外套","ローブ","黒衣","襤褸","病衣","囚人服","露出が多い","着ぶくれている","季節外れ","血で汚れている","一糸乱れぬ","着崩している","同じ服しか着ない","裸に外套一枚","肌を一切見せない","服を纏う概念がない"]},
+ {id:"mark",l:"目印になる特徴",ph:"左目の下の泣きぼくろ",o:["ほくろ","泣きぼくろ","そばかす","傷跡","頬の傷","首の縫合痕","火傷","痣","刻印","刺青","呪印","眼鏡","眼帯","包帯","マスク","仮面","首輪","指輪","鎖","鈴","義手","義足","義眼","機械の埋め込み","角","牙","獣の耳","尻尾","翼","鱗","浮遊する輪","影がない","鏡に映らない","写真に写らない"]},
+ {id:"scent",l:"纏う気配・匂い",o:["石鹸","花","薔薇","白檀","香を焚いた匂い","墨","古い紙","煙草","酒","珈琲","甘い菓子","薬品","消毒液","鉄錆","血","潮","土","雨","草いきれ","獣","腐臭","硝煙","機械油","線香","無臭","嗅いだ者が眩暈を起こす"]}]},
+
+{id:"kishitsu",jp:"気質",yomi:"KISHITSU",fields:[
+ {id:"person",l:"性格",o:["朗らか","快活","天真爛漫","人懐こい","おっとり","物静か","内向的","生真面目","几帳面","堅物","律儀","実直","臆病","気弱","泣き虫","甘えたがり","寂しがり","天邪鬼","へそ曲がり","皮肉屋","飄々","掴みどころがない","自由奔放","気まぐれ","豪胆","勇猛","熱血","負けず嫌い","頑固","短気","気位が高い","高慢","冷静","冷淡","酷薄","面倒見がいい","世話焼き","お節介","執念深い","偏執的","狂信的","虚無的","感情が壊れている","人形のよう","別人格がある","ずっと演じている"]},
+ {id:"merit",l:"美点",o:["義理堅い","情に厚い","粘り強い","忍耐強い","機転が利く","頭が回る","公平","潔癖","勇敢","献身的","優しい","誠実","正直","器用","責任感がある","約束を守る","礼儀正しい","諦めない","恩を忘れない","誰にでも敬意を払う","自分より他人を先に助ける","間違いを認められる","一度決めたら曲げない"]},
+ {id:"fault",l:"欠点",o:["嫉妬深い","嘘をつく","飽きっぽい","独善的","怠惰","短気","依存的","無神経","自罰的","自己中心的","傲慢","優柔不断","頑迷","浪費癖","酒癖が悪い","人を信じない","すぐ手が出る","約束を忘れる","責任を取らない","他人を試す","平気で裏切る","手段を選ばない","人の命を軽く見る","壊すことに快を覚える","自分の言葉を信じていない"]},
+ {id:"emo",l:"感情の出方",o:["表に出さない","すぐ顔に出る","抑えているが漏れる","極端に振れる","笑って誤魔化す","怒りだけが出る","泣かない","泣き虫","無感情","感情がわからない","演技で作る","爆発すると止まらない","後から効いてくる","体調に出る","言葉より先に手が出る","感情を持つことを禁じられている"]},
+ {id:"social",l:"人への構え",o:["誰にでも懐く","礼儀正しく距離を取る","一線を引く","警戒が強い","人を信じない","相手に合わせる","機嫌を伺う","見下しがち","値踏みする","試すように接する","馴れ馴れしい","支配したがる","依存する","執着する","誰も寄せ付けない","道具として見る","全て見透かしている風","相手によって別人になる"]},
+ {id:"value",l:"信条・譲れないもの",ph:"約束は違えない",o:["約束は違えない","恩は必ず返す","嘘だけはつかない","弱い者を見捨てない","家族が第一","仲間を裏切らない","実力が全て","金が全て","自由であること","美しくあること","筋を通す","恥を知る","秩序を守る","力こそ正義","生き延びることが最優先","命より優先するものがある","目的のためなら何でもする","信じるものは何もない"]},
+ {id:"want",l:"望み",ph:"もう一度あの舞台に立つこと",o:["生き延びたい","認められたい","強くなりたい","自由になりたい","家に帰りたい","失ったものを取り戻したい","会いたい人がいる","復讐を果たしたい","守りたいものがある","真実を知りたい","罪を償いたい","許されたい","終わらせたい","死にたい","全てを壊したい","世界を変えたい","何も望んでいない","望みを忘れた"]},
+ {id:"fear",l:"恐れ",ph:"また置いていかれること",o:["死","痛み","孤独","裏切り","忘却","見捨てられること","失敗","他人","暗闇","閉所","高所","水","火","雷","虫","血","自分自身","自分の力","同じことが繰り返されること","誰かを傷つけること","忘れられること","救われてしまうこと","何も怖くない"]},
+ {id:"habit",l:"癖・仕草",ph:"考え事をすると髪先を弄る",o:["髪を触る","髪先を弄る","目を逸らす","視線を合わせすぎる","貧乏ゆすり","唇を噛む","爪を噛む","指を鳴らす","腕を組む","後ろ手に組む","独り言","溜息","舌打ち","笑って誤魔化す","敬語が混じる","語尾が消える","早口になる","黙り込む","人の物を勝手に触る","刃物を弄ぶ","数を数える","同じ動作を繰り返す","嘘をつく時だけ丁寧になる"]}]},
+
+{id:"koe",jp:"声色",yomi:"KOE",fields:[
+ {id:"i",l:"一人称",o:["私","わたし","わたくし","あたし","あたい","僕","ぼく","俺","おれ","俺様","自分","儂","我","我輩","うち","小生","某","朕","此方","名前で呼ぶ","一人称を使わない","相手で変わる"]},
+ {id:"you",l:"二人称",o:["あなた","あんた","君","きみ","お前","てめえ","貴様","汝","そなた","貴方様","お前様","名前呼び","さん付け","ちゃん付け","君付け","様付け","呼び捨て","役職で呼ぶ","あだ名で呼ぶ","二人称を使わない","その他大勢として扱う"]},
+ {id:"tone",l:"口調",o:["丁寧","慇懃","堅苦しい","敬語が抜けない","柔らかい","穏やか","甘い","砕けている","ぶっきらぼう","乱暴","威圧的","命令口調","早口","間延び","たどたどしい","片言","古風","文語調","武骨","芝居がかった","詩的","回りくどい","簡潔","単語だけ","方言","訛りがある","独特の言い回し","誰にでも同じ","相手で変える","ほとんど喋らない"]},
+ {id:"end",l:"語尾・口癖",ph:"〜だよね／〜かしら",o:["〜だよね","〜だね","〜かしら","〜ですわ","〜だぜ","〜だぞ","〜のじゃ","〜でござる","〜ですの","〜っス","〜なのだ","〜だわ","〜さ","〜ね","〜よ","〜かも","〜ますか","〜であるか","語尾を伸ばす","語尾が消える","語尾を濁す","文末に笑いが混じる","口癖はない"]},
+ {id:"voice",l:"声質",o:["高く澄んだ","鈴のような","甘い","幼い","少し掠れた","かすれた","低く落ち着いた","重い","硬質","冷たい","よく通る","張りがある","囁くよう","か細い","消え入りそう","だみ声","艶がある","機械的","複数の声が重なる","聞くと不安になる","喉を潰している","声が出ない"]},
+ {id:"laugh",l:"笑い方",o:["声を上げて","腹を抱えて","口元だけ","目が笑わない","肩を震わせ","忍び笑い","冷笑","嘲笑","高笑い","引き攣った笑い","笑うと幼くなる","ほとんど笑わない","笑い方を知らない","泣きながら笑う"]},
+ {id:"line",l:"決め台詞・象徴的な一言",ph:"「——見逃してあげる。今日だけね」",t:"area",o:["「——見逃してあげる。今日だけね」","「なんだ、来たのか」","「それで、あなたはどうしたいの」","「悪いね、こっちも仕事なんだ」","「……もう一度だけ言う」","「壊れるまで付き合ってもらうよ」","「どうか、忘れないで」","「知らない。わたし、なにも知らない」","「あなたが望むなら、なんでも」","「くだらない」","「触れてよいのは、選ばれた者だけです」","「————」"]}]},
+
+{id:"raireki",jp:"来歴",yomi:"RAIREKI",fields:[
+ {id:"birth",l:"生い立ち",t:"area",ph:"港町の宿屋の三女として育った。",o:["平穏な家庭で育った","裕福な家に生まれた","没落した家の出","孤児院で育った","親の顔を知らない","捨て子だった","養子に出された","片親に育てられた","祖父母に育てられた","兄弟が多い","一人っ子","戦火の中で育った","幼くして家を出た","人買いに売られた","実験体として作られた","育ての親は人ではなかった","気がついた時には独りだった"]},
+ {id:"turn",l:"転機になった出来事",t:"area",o:["家族を失った","故郷が滅んだ","師と出会った","師を失った","初めて人を殺した","殺されかけた","裏切られた","裏切った","力に目覚めた","力を失った","戦争が始まった","戦争が終わった","大切な約束をした","約束を破った","街を追われた","罪を犯した","罰を受けた","死んで、生き返った","別の世界に落ちた","まだ何も起きていない"]},
+ {id:"work",l:"今の暮らし・生業",ph:"昼は書店、夜は劇団の稽古",o:["学生","教師","会社勤め","店番","給仕","職人の弟子","行商","傭兵稼業","依頼で食っている","研究に没頭","療養中","隠居","放浪","逃亡生活","収監中","働いていない","働く必要がない","二つの顔を使い分けている"]},
+ {id:"home",l:"住まい",o:["実家","下宿","寮","一人暮らし","同居人がいる","居候","間借り","屋敷","城","塔","地下","宿を転々","野宿","宿無し","馬車","船上","研究所","牢獄","墓所","定住しない"]},
+ {id:"money",l:"暮らし向き",o:["有り余る","裕福","人並み","やや苦しい","切り詰めている","困窮","その日暮らし","借金がある","多額の負債","浪費家","守銭奴","金に無頓着","金の概念がない"]},
+ {id:"family",l:"家族",ph:"母と、疎遠な兄が一人",o:["両親健在","母だけ","父だけ","両親を亡くした","兄がいる","姉がいる","弟がいる","妹がいる","双子","大家族","一人っ子","配偶者がいる","子がいる","疎遠","絶縁","勘当された","家族に憎まれている","家族を殺した","家族が敵","血の繋がらない家族","家族という概念がない"]},
+ {id:"now",l:"今の状況",t:"area",ph:"物語が始まる時点で、この人物が置かれている状況。",o:["平穏に暮らしている","新しい土地に来たばかり","追われている","探している","待っている","潜伏している","療養中","任務の最中","復讐の途上","立て直そうとしている","借りを返そうとしている","死期が近い","記憶を失っている","正体を隠して暮らしている","何かが起きるのを予感している"]}]},
+
+{id:"giryo",jp:"技倆",yomi:"GIRYO",fields:[
+ {id:"good",l:"得意",o:["剣術","槍","弓","格闘","体術","暗殺","狙撃","魔術","召喚","治癒","結界","錬金","薬学","医術","機械いじり","発明","交渉","演説","詐術","情報収集","潜入","隠形","盗み","鍵開け","指揮","統率","料理","裁縫","掃除","歌","踊り","楽器","絵","彫刻","文章","暗算","記憶","観察","嘘","人たらし","賭け事","酒","生き延びること"]},
+ {id:"bad",l:"不得意",o:["運動","勉強","読み書き","計算","料理","家事","片付け","早起き","夜更かし","人付き合い","会話","人前","機械","泳ぎ","馬","方向感覚","金勘定","嘘","隠し事","怒ること","断ること","謝ること","甘えること","泣くこと","諦めること","手加減","酒","辛いもの","甘いもの","苦手なものがない"]},
+ {id:"power",l:"特別な力",t:"area",ph:"能力の名前、できること、代償や制限。",o:["特別な力はない","身体能力が常人離れ","怪力","俊足","不死身","驚異的な再生","傷を癒す","病を移す","炎を操る","水を操る","風を操る","雷を纏う","氷を生む","土を動かす","光を操る","闇を操る","影に潜む","時を止める","時を巻き戻す","未来を視る","過去を読む","心を読む","記憶を操る","幻を見せる","姿を変える","消える","瞬間移動","死者と話す","獣と話す","契約で力を借りる","代償に寿命を払う","使うたび記憶を失う","制御できない","一度しか使えない"]},
+ {id:"combat",l:"腕っぷし",o:["非戦闘員","身を守る程度","喧嘩慣れ","一通り戦える","訓練を受けている","手練れ","達人","一騎当千","軍を一人で潰す","規格外","戦えるが戦いたくない","戦い方を忘れた","武器を持てない","殺しはしない","殺す以外を知らない"]},
+ {id:"item",l:"持ち物",ph:"祖母の形見の懐中時計、擦り切れた台本",o:["懐中時計","擦り切れた台本","古びた手帳","万年筆","眼鏡","煙草","酒瓶","薬瓶","護符","指輪","首飾り","髪飾り","形見の短刀","愛用の剣","銃","弓","杖","魔導書","地図","鍵","写真","手紙","人形","鈴","仮面","仕込み刃","何も持たない","持ち物を全て失った"]}]},
+
+{id:"kouo",jp:"好悪",yomi:"KOUO",fields:[
+ {id:"like",l:"好きなもの",ph:"雨上がりの匂い、古本",o:["甘いもの","辛いもの","酒","茶","珈琲","煙草","動物","猫","犬","鳥","花","本","音楽","絵","芝居","星","月","夜","朝","雨","雪","海","山","火","静けさ","賑わい","子供","老人","強い相手","勝負","金","宝石","血","痛み","壊れていくもの","人の泣き顔","何も好きではない"]},
+ {id:"dislike",l:"嫌いなもの",o:["虫","蛇","雷","暗闇","人混み","狭い場所","高い場所","水","火","煙草","酒","甘いもの","苦いもの","嘘つき","権威","説教","子供","老人","群れること","馴れ合い","同情","憐れみ","自分","鏡","静けさ","騒音","暑さ","寒さ","朝","待たされること","触れられること"]},
+ {id:"food",l:"食の好み",ph:"辛いものが好きで、甘いものは苦手",o:["甘いものに目がない","辛党","酒好き","下戸","少食","大食い","好き嫌いが多い","何でも食べる","偏食","肉しか食べない","菜食","生食","食事を摂らない","味がわからない","人前で食べない","作るのが好き","他人の作ったものを食べない","血を糧にする"]},
+ {id:"hobby",l:"趣味・休日",ph:"寄り道して古い映画を観る",o:["読書","古本屋巡り","映画","芝居見物","音楽","楽器","作曲","絵","写真","園芸","料理","菓子作り","裁縫","編み物","収集","模型","散歩","登山","釣り","泳ぎ","鍛錬","賭け事","酒場","人間観察","昼寝","掃除","日記","手紙を書く","星を見る","墓参り","無趣味"]},
+ {id:"weak_to",l:"苦手な相手",ph:"やたらと距離を詰めてくる人",o:["距離を詰めてくる人","馴れ馴れしい人","声の大きい人","説教する人","子供","老人","泣く人","褒めてくる人","年上","年下","異性","同性","自分に似た人","頭のいい人","嘘のつけない人","権力者","過去を知る人","かつての仲間","師","家族","誰も苦手ではない"]}]},
+
+{id:"kage",jp:"陰",yomi:"KAGE",fields:[
+ {id:"secret",l:"秘密",t:"area",ph:"本人が誰にも言えずにいること。",o:["出自を偽っている","名前が本名ではない","人ではない","敵と通じている","組織を裏切っている","人を殺したことがある","大切な人を見殺しにした","記憶を消されている","余命が短い","呪われている","体が壊れかけている","別人になりすましている","恋心を隠している","既に死んでいる","自分の秘密を自分が知らない"]},
+ {id:"wound",l:"古傷",t:"area",o:["幼い頃に捨てられた","目の前で家族を失った","助けられなかった","助けを求めて誰も来なかった","裏切られた","信じたものが偽りだった","自分の手で殺した","罪を着せられた","罰を受け続けた","忘れられた","必要とされなかった","恐怖で体が動かなかった","救われてしまった"]},
+ {id:"weak",l:"弱み・付け入る隙",ph:"褒められると断れない",o:["褒められると断れない","頼られると弱い","泣かれると駄目","子供に弱い","酒に弱い","情に脆い","挑発に乗る","名を呼ばれると止まる","古傷が痛む","夜になると力が落ちる","水に触れられない","特定の言葉が引き金になる","守るものがあると戦えない","嘘を見抜かれると崩れる"]},
+ {id:"hidden",l:"隠している目的",t:"area",o:["特にない","復讐","捜索","贖罪","裏切り","内偵","逃亡","保護","破壊","自死","延命","契約の履行","誰かの身代わり","世界の終わりを止める","世界を終わらせる"]},
+ {id:"face2",l:"裏の顔",ph:"表向きは優等生、実際は…",o:["表と裏が同じ","表向きは優等生","表向きは無害","人の良い顔の下に打算","組織の間諜","裏社会の顔役","殺し屋","教団の使徒","別人格がいる","夜だけ別人","演じているうちに本物になった"]}]},
+
+{id:"enshutsu",jp:"演出",yomi:"DIRECTION",fields:[
+ {id:"policy",l:"演じ方の指針",t:"area",ph:"感情を直接言わせず、仕草と間で示す。",o:["感情を直接言わせず仕草で示す","台詞を短く","饒舌に喋らせる","間を多く取る","心情を地の文で書かない","必ず一度は嘘をつく","相手の言葉尻を拾う","質問に質問で返す","敬語を崩さない","絶対に本音を言わない","触れられると動揺する","退場際に一言残す","名を呼ぶ時だけ声が変わる","場を支配させる","常に受け身にする"]},
+ {id:"first",l:"初対面での態度",o:["よそよそしい","礼儀正しい","人懐こい","馴れ馴れしい","値踏みする","警戒する","敵意を向ける","無視する","怯える","興味を示さない","やたらと親切","挑発する","敬語で距離を取る","初対面と思わせない"]},
+ {id:"dist",l:"相手役との距離感",o:["初対面","顔見知り","同僚","級友","友人","親友","相棒","師弟","主従","上司と部下","幼馴染","家族","恋仲","片想い","既に別れた","許婚","因縁がある","敵対","不倶戴天","利害だけの関係","一方的に知っている","記憶にないが会っている"]},
+ {id:"ng",l:"やらせたくないこと",ph:"安易に心を許す、口調が崩れる",o:["急に性格が変わる","一人称がぶれる","現代語を使う","説明台詞","即座に和解する","簡単に心を許す","簡単に泣く","簡単に謝る","敬語が崩れる","過去を軽く語る","秘密をすぐ明かす","能力を無制限に使う","不死身に扱う","作者の代弁をする","勝手に物語を終わらせる","他人の描写を奪う"]},
+ {id:"scene",l:"想定する場面",t:"area",ph:"この人物を出したい状況。",o:["閉館後の劇場","深夜の教室","雨宿りの軒下","終電間際の駅","病室","取調室","戦場の後始末","祭りの夜","墓前","別れ際の港","敵陣のただ中","二人きりの牢","初めての邂逅","再会","最後の対話"]},
+ {id:"free",l:"自由記述",t:"area",ph:"どの欄にも収まらないことは全部ここへ。",o:["元ネタ","演者へのメモ","没案","声のイメージ","テーマ曲","象徴する色","象徴する花","この人物の結末"]}]}
+];
+const FIELD_BY_LABEL={};
+SCHEMA.forEach(s=>s.fields.forEach(f=>{FIELD_BY_LABEL[f.l]=[s.id,f.id]}));
+const REL_KEYS=[["who","相手"],["tie","間柄"],["feel","感情"],["note","経緯"]];
+const REL_TIE=["幼馴染","家族","兄弟","親子","親戚","恋人","元恋人","許婚","親友","友人","級友","同僚","相棒","師","弟子","先輩","後輩","主","従者","雇い主","仲間","上官","部下","恩人","仇","宿敵","初対面","顔見知り","一方的に知っている","偽りの関係","血の繋がらない家族","同じ人を愛している"];
+const REL_FEEL=["信頼","敬愛","好意","恋情","執着","依存","庇護","感謝","負い目","罪悪感","羨望","嫉妬","対抗心","畏れ","警戒","不信","侮蔑","憎悪","殺意","憐憫","諦め","未練","無関心","本心を隠している","愛憎が入り混じる","理解できない","理解しすぎている"];
+
+/* ============ 状態と保存 ============ */
+const store={
+  async get(k){
+    try{ if(window.storage){const r=await window.storage.get(k,false); return r?r.value:null;} }catch(e){}
+    try{ return localStorage.getItem(k); }catch(e){ return null; }
+  },
+  async set(k,v){
+    try{ if(window.storage){ await window.storage.set(k,v,false); return; } }catch(e){}
+    try{ localStorage.setItem(k,v); }catch(e){}
+  }
+};
+const KEY="jinbutsu-shitatejo-v1";
+let S={chars:[],sel:0};
+let fmt="full", scope="all", saveTimer=null;
+
+function uid(){return Math.random().toString(36).slice(2,9)}
+function newChar(){const c={id:uid(),v:{},rels:[]};return c}
+function cur(){return S.chars[S.sel]||null}
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{store.set(KEY,JSON.stringify(S))},250);
+}
+async function load(){
+  const raw=await store.get(KEY);
+  if(raw){ try{ const d=JSON.parse(raw); if(d&&Array.isArray(d.chars)){S.chars=d.chars.map(normalize);S.sel=Math.min(d.sel||0,Math.max(0,S.chars.length-1));} }catch(e){} }
+  renderAll();
+}
+function normalize(c){
+  return {id:c.id||uid(), v:c.v&&typeof c.v==="object"?c.v:{}, rels:Array.isArray(c.rels)?c.rels:[]};
+}
+function nameOf(c){return (c.v.name||"").trim()}
+function subOf(c){
+  const p=[c.v.age&&(/^\d+$/.test(c.v.age.trim())?c.v.age.trim()+"歳":c.v.age),c.v.sex,c.v.role].filter(Boolean);
+  return p.join("／")||"まだ何も決まっていない";
+}
+function totalFields(){return SCHEMA.reduce((n,s)=>n+s.fields.length,0)}
+function filledCount(c){let n=0;SCHEMA.forEach(s=>s.fields.forEach(f=>{if((c.v[f.id]||"").trim())n++}));return n}
+function secFilled(c,s){let n=0;s.fields.forEach(f=>{if((c.v[f.id]||"").trim())n++});return n}
+
+/* ============ 画面遷移 ============ */
+const $=id=>document.getElementById(id);
+function showView(v){
+  document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));
+  document.querySelectorAll(".view").forEach(el=>el.classList.toggle("on",el.id==="v-"+v));
+  if(v==="edit")renderEditor();
+  if(v==="out")renderOut();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.v)));
+
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),1800)}
+function esc(s){return String(s).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))}
+
+/* ============ 名簿 ============ */
+function renderRoster(){
+  const box=$("roster"), tot=totalFields();
+  $("cnt").textContent=S.chars.length?S.chars.length+"名":"";
+  if(!S.chars.length){
+    box.innerHTML='<div class="empty-note"><b>まだ誰もいない</b>下から一人起こして、寸法を取っていく。<br>書き出したマークダウンは、そのままシナリオ作成側へ渡せる。</div>';
+    return;
+  }
+  box.innerHTML=S.chars.map((c,i)=>{
+    const nm=nameOf(c), pc=Math.round(filledCount(c)/tot*100);
+    return `<article class="card">
+      <div class="seam"><span class="no">${String(i+1).padStart(2,"0")}</span><span class="notch"></span></div>
+      <div class="card-body">
+        <span class="card-name${nm?"":" empty"}">${nm?esc(nm):"名無しの人物"}</span>
+        <div class="card-sub">${esc(subOf(c))}</div>
+        <div class="tape"><div class="fill" style="width:${pc}%"></div><div class="ticks"></div><span class="pct">${pc}%</span></div>
+        <div class="card-acts">
+          <button class="mini" data-a="edit" data-i="${i}">仕立てる</button>
+          <button class="mini" data-a="dup" data-i="${i}">写しを取る</button>
+          <button class="mini" data-a="up" data-i="${i}">↑</button>
+          <button class="mini" data-a="down" data-i="${i}">↓</button>
+          <button class="mini warn" data-a="del" data-i="${i}">ほどく</button>
+        </div>
+      </div></article>`;
+  }).join("");
+}
+$("roster").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-a]"); if(!b)return;
+  const i=+b.dataset.i, a=b.dataset.a;
+  if(a==="edit"){S.sel=i;save();showView("edit");return}
+  if(a==="dup"){const c=JSON.parse(JSON.stringify(S.chars[i]));c.id=uid();if(c.v.name)c.v.name=c.v.name+"（写し）";S.chars.splice(i+1,0,c);S.sel=i+1;toast("写しを取った")}
+  if(a==="up"&&i>0){[S.chars[i-1],S.chars[i]]=[S.chars[i],S.chars[i-1]];if(S.sel===i)S.sel=i-1;else if(S.sel===i-1)S.sel=i}
+  if(a==="down"&&i<S.chars.length-1){[S.chars[i+1],S.chars[i]]=[S.chars[i],S.chars[i+1]];if(S.sel===i)S.sel=i+1;else if(S.sel===i+1)S.sel=i}
+  if(a==="del"){
+    const nm=nameOf(S.chars[i])||"名無しの人物";
+    if(!confirm(nm+" をほどきます。元に戻せません。")) return;
+    S.chars.splice(i,1); S.sel=Math.max(0,Math.min(S.sel,S.chars.length-1)); toast("ほどいた");
+  }
+  save();renderAll();
+});
+$("btn-add").addEventListener("click",()=>{
+  S.chars.push(newChar());S.sel=S.chars.length-1;save();renderRoster();showView("edit");
+});
+$("btn-clear").addEventListener("click",()=>{
+  if(!S.chars.length){toast("ほどくものがない");return}
+  if(!confirm("全ての人物を消します。元に戻せません。"))return;
+  S.chars=[];S.sel=0;save();renderAll();toast("全部ほどいた");
+});
+$("btn-sample").addEventListener("click",()=>{
+  const c=newChar();
+  c.v={name:"綾辻 かなめ",yomi:"あやつじ かなめ",alias:"名で呼ばれる、かなめ先輩",age:"17",lookage:"大人びて見える",sex:"女",race:"人間",
+   role:"学生、劇団の看板役者",belong:"私立霧生高校 演劇部",from:"海沿いの町",
+   height:"162cm",build:"細身、しなやか",hair:"セミロング",haircol:"濡羽色",eye:"琥珀、切れ長",skin:"色白",face:"整っている",
+   wear:"着崩した制服に、色の褪せた赤いカーディガン",mark:"左目の下の泣きぼくろ",scent:"古い紙と、雨の匂い",
+   person:"飄々、気位が高い",merit:"粘り強い、機転が利く",fault:"嘘をつく、自罰的",emo:"笑って誤魔化す",social:"試すように接する",
+   value:"舞台の上では嘘をつかない",want:"もう一度、あの芝居を最後まで演じきること",fear:"また途中で幕が下りること",habit:"考え事をすると台本の角を折る",
+   i:"あたし",you:"君",tone:"芝居がかった、柔らかい",end:"〜でしょ／〜ってわけ",voice:"よく通る",laugh:"口元だけ",
+   line:"「——見逃してあげる。今日だけね」",
+   birth:"港町の小さな宿屋の三女。客の前で歌うのが、最初の舞台だった。",turn:"二年前、公演の途中で劇場が閉鎖された。",
+   work:"昼は学校、夜は潰れかけの劇団に通う",home:"下宿",money:"切り詰めている",family:"母と、疎遠な兄が一人",
+   now:"廃業寸前の劇団を、たった一人で立て直そうとしている。",
+   good:"歌、踊り、嘘",bad:"早起き、料理",combat:"非戦闘員",item:"擦り切れた台本、祖母の懐中時計",
+   like:"雨上がりの匂い、古本、夜",dislike:"人混み、説教",food:"辛いものが好きで、甘いものは苦手",hobby:"寄り道して古い映画を観る",
+   secret:"劇場を閉鎖に追い込んだ密告者が、自分の兄だと知っている。",weak:"褒められると断れない",
+   policy:"感情を直接言葉にさせない。仕草と間、そして芝居の引用で示す。",first:"値踏みする",dist:"顔見知り",
+   ng:"急に性格が変わる、安易に心を許す",scene:"閉館後の劇場、明かりの落ちた舞台袖での二人きりの会話。"};
+  c.rels=[{who:"綾辻 智",tie:"家族",feel:"憎悪、負い目",note:"劇場閉鎖の密告者。二年間、口をきいていない。"}];
+  S.chars.push(c);S.sel=S.chars.length-1;save();renderAll();toast("見本を一人入れた");
+});
+
+/* ============ 仕立（編集） ============ */
+function renderPicker(){
+  const p=$("picker");
+  p.innerHTML=S.chars.map((c,i)=>`<button data-i="${i}" aria-current="${i===S.sel}">${esc(nameOf(c)||"名無し "+(i+1))}</button>`).join("")
+    +`<button data-i="new" style="color:var(--brass)">＋</button>`;
+}
+$("picker").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  if(b.dataset.i==="new"){S.chars.push(newChar());S.sel=S.chars.length-1}
+  else S.sel=+b.dataset.i;
+  save();renderPicker();renderEditor();window.scrollTo(0,0);
+});
+function fieldHTML(c,s,f){
+  const val=c.v[f.id]||"";
+  const tokens=splitTokens(val);
+  const input=f.t==="area"
+    ? `<textarea data-f="${f.id}" placeholder="${esc(f.ph||"")}">${esc(val)}</textarea>`
+    : `<input type="text" data-f="${f.id}" value="${esc(val)}" placeholder="${esc(f.ph||"")}">`;
+  const cb=o=>`<button class="chip" data-chip="${esc(o)}" data-f="${f.id}" aria-pressed="${tokens.includes(o)}">${esc(o)}</button>`;
+  const HEAD=14, all=f.o||[];
+  let chips="";
+  if(all.length){
+    const hidden=all.slice(HEAD).filter(o=>!tokens.includes(o));
+    const shown=all.slice(0,HEAD).concat(all.slice(HEAD).filter(o=>tokens.includes(o)));
+    chips=`<div class="chips">${shown.map(cb).join("")}`
+      +(hidden.length?`<button class="chip more" data-more="${f.id}">＋他${hidden.length}</button>`:"")+`</div>`
+      +(hidden.length?`<div class="chips rest" data-rest="${f.id}" hidden>${hidden.map(cb).join("")}</div>`:"");
+  }
+  return `<div class="f" data-fw="${f.id}">
+    <div class="f-l"><label>${esc(f.l)}</label>${f.o?'<span class="hint">選ぶ・書く</span>':'<span class="hint">書く</span>'}</div>
+    ${input}${chips}</div>`;
+}
+function relHTML(r,i){
+  return `<div class="rel" data-ri="${i}">
+    <div class="row">
+      <div><span class="tiny-l">相手</span><input type="text" data-rk="who" value="${esc(r.who||"")}" placeholder="相手の名前"></div>
+      <div><span class="tiny-l">間柄</span><input type="text" data-rk="tie" value="${esc(r.tie||"")}" placeholder="幼馴染"></div>
+    </div>
+    <div class="chips">${REL_TIE.map(t=>`<button class="chip" data-relchip="tie" data-v="${esc(t)}" data-ri="${i}" aria-pressed="${splitTokens(r.tie||"").includes(t)}">${esc(t)}</button>`).join("")}</div>
+    <div class="row" style="margin-top:9px"><div><span class="tiny-l">向ける感情</span><input type="text" data-rk="feel" value="${esc(r.feel||"")}" placeholder="信頼、負い目"></div></div>
+    <div class="chips">${REL_FEEL.map(t=>`<button class="chip" data-relchip="feel" data-v="${esc(t)}" data-ri="${i}" aria-pressed="${splitTokens(r.feel||"").includes(t)}">${esc(t)}</button>`).join("")}</div>
+    <div class="row" style="margin-top:9px"><div><span class="tiny-l">経緯</span><textarea data-rk="note" placeholder="二人の間にあったこと">${esc(r.note||"")}</textarea></div></div>
+    <button class="mini warn rm" data-relrm="${i}">この縁を切る</button>
+  </div>`;
+}
+function renderEditor(){
+  renderPicker();
+  const c=cur(), box=$("editor");
+  if(!c){box.innerHTML='<div class="empty-note"><b>誰も選ばれていない</b>上の＋から一人起こす。</div>';return}
+  const open=new Set([...box.querySelectorAll("details.sec[open]")].map(d=>d.dataset.s));
+  if(!open.size)open.add("sujo");
+  box.innerHTML=SCHEMA.map(s=>`
+    <details class="sec" data-s="${s.id}"${open.has(s.id)?" open":""}>
+      <summary class="sec-h"><span class="car">▸</span><span class="jp">${s.jp}</span><span class="yomi">${s.yomi}</span>
+      <span class="fill-n">${secFilled(c,s)}/${s.fields.length}</span></summary>
+      <div class="sec-in">${s.fields.map(f=>fieldHTML(c,s,f)).join("")}</div>
+    </details>`).join("")
+  +`<details class="sec" data-s="enishi"${open.has("enishi")?" open":""}>
+      <summary class="sec-h"><span class="car">▸</span><span class="jp">縁</span><span class="yomi">RELATIONS</span>
+      <span class="fill-n">${c.rels.length}</span></summary>
+      <div class="sec-in">
+        <p style="color:var(--dim);font-size:12px;margin:10px 0 0">他の人物や、名簿にいない誰かとの関わり。</p>
+        <div id="rels">${c.rels.map(relHTML).join("")}</div>
+        <button class="add" id="btn-rel" style="margin-top:10px">＋ 縁を結ぶ</button>
+      </div>
+    </details>`;
+}
+function splitTokens(v){return String(v).split(/[、,]/).map(x=>x.trim()).filter(Boolean)}
+function toggleToken(v,t){
+  const a=splitTokens(v), i=a.indexOf(t);
+  if(i>=0)a.splice(i,1); else a.push(t);
+  return a.join("、");
+}
+$("editor").addEventListener("input",e=>{
+  const c=cur(); if(!c)return;
+  const t=e.target;
+  if(t.dataset.f){
+    c.v[t.dataset.f]=t.value; save(); syncChips(t.dataset.f,t.value); refreshCount(t);
+  }else if(t.dataset.rk){
+    const wrap=t.closest(".rel"); const i=+wrap.dataset.ri;
+    c.rels[i][t.dataset.rk]=t.value; save();
+    if(t.dataset.rk==="tie"||t.dataset.rk==="feel"){
+      wrap.querySelectorAll(`[data-relchip="${t.dataset.rk}"]`).forEach(ch=>
+        ch.setAttribute("aria-pressed",String(splitTokens(t.value).includes(ch.dataset.v))));
+    }
+  }
+});
+function syncChips(fid,val){
+  const toks=splitTokens(val);
+  document.querySelectorAll(`#editor .chip[data-f="${fid}"]`).forEach(ch=>
+    ch.setAttribute("aria-pressed",String(toks.includes(ch.dataset.chip))));
+}
+function refreshCount(el){
+  const d=el.closest("details.sec"); if(!d)return;
+  const s=SCHEMA.find(x=>x.id===d.dataset.s); if(!s)return;
+  d.querySelector(".fill-n").textContent=secFilled(cur(),s)+"/"+s.fields.length;
+  if((el.dataset.f)==="name")renderPicker();
+}
+$("editor").addEventListener("click",e=>{
+  const c=cur(); if(!c)return;
+  const more=e.target.closest("[data-more]");
+  if(more){
+    const rest=document.querySelector(`#editor .rest[data-rest="${more.dataset.more}"]`);
+    if(rest){const now=rest.hasAttribute("hidden");
+      if(now)rest.removeAttribute("hidden");else rest.setAttribute("hidden","");
+      more.textContent=now?"－閉じる":`＋他${rest.children.length}`;}
+    return;
+  }
+  const chip=e.target.closest(".chip[data-chip]");
+  if(chip){
+    const fid=chip.dataset.f;
+    c.v[fid]=toggleToken(c.v[fid]||"",chip.dataset.chip);
+    const inp=document.querySelector(`#editor [data-f="${fid}"]:not(.chip)`);
+    if(inp)inp.value=c.v[fid];
+    syncChips(fid,c.v[fid]); refreshCount(chip); save(); return;
+  }
+  const rc=e.target.closest(".chip[data-relchip]");
+  if(rc){
+    const i=+rc.dataset.ri,k=rc.dataset.relchip;
+    c.rels[i][k]=toggleToken(c.rels[i][k]||"",rc.dataset.v);
+    const wrap=document.querySelector(`.rel[data-ri="${i}"]`);
+    wrap.querySelector(`[data-rk="${k}"]`).value=c.rels[i][k];
+    wrap.querySelectorAll(`[data-relchip="${k}"]`).forEach(ch=>
+      ch.setAttribute("aria-pressed",String(splitTokens(c.rels[i][k]).includes(ch.dataset.v))));
+    save(); return;
+  }
+  const rm=e.target.closest("[data-relrm]");
+  if(rm){ c.rels.splice(+rm.dataset.relrm,1); save(); renderEditor(); return; }
+  if(e.target.id==="btn-rel"){ c.rels.push({who:"",tie:"",feel:"",note:""}); save(); renderEditor();
+    const els=document.querySelectorAll(".rel"); if(els.length)els[els.length-1].scrollIntoView({block:"center"}); }
+});
+
+/* ============ 台本（マークダウン） ============ */
+function mdFull(c,idx){
+  const nm=nameOf(c)||"名無しの人物";
+  let o=`# 人物設定書：${nm}\n\n`;
+  if(c.v.yomi)o+=`> ${c.v.yomi}\n\n`;
+  SCHEMA.forEach(s=>{
+    const rows=s.fields.filter(f=>(c.v[f.id]||"").trim());
+    if(!rows.length)return;
+    o+=`## ${s.jp}\n`;
+    rows.forEach(f=>{
+      const v=(c.v[f.id]||"").trim();
+      o+= v.includes("\n") ? `- **${f.l}**:\n${v.split("\n").map(l=>"  "+l).join("\n")}\n` : `- **${f.l}**: ${v}\n`;
+    });
+    o+="\n";
+  });
+  const rels=c.rels.filter(r=>(r.who||r.tie||r.feel||r.note));
+  if(rels.length){
+    o+=`## 縁\n| 相手 | 間柄 | 感情 | 経緯 |\n| --- | --- | --- | --- |\n`;
+    rels.forEach(r=>{o+=`| ${cell(r.who)} | ${cell(r.tie)} | ${cell(r.feel)} | ${cell(r.note)} |\n`});
+    o+="\n";
+  }
+  return o;
+}
+function cell(v){return String(v||"").replace(/\|/g,"\\|").replace(/\n/g,"　")||"—"}
+function mdBrief(c){
+  const nm=nameOf(c)||"名無しの人物";
+  let o=`# ${nm}\n\n`;
+  SCHEMA.forEach(s=>{
+    const vals=s.fields.filter(f=>(c.v[f.id]||"").trim())
+      .map(f=>`${f.l}＝${(c.v[f.id]||"").replace(/\n+/g,"　").trim()}`);
+    if(vals.length)o+=`**${s.jp}**：${vals.join("／")}\n\n`;
+  });
+  const rels=c.rels.filter(r=>r.who||r.tie);
+  if(rels.length)o+=`**縁**：${rels.map(r=>`${r.who||"？"}（${[r.tie,r.feel].filter(Boolean).join("・")||"関係未定"}）`).join("／")}\n\n`;
+  return o;
+}
+function pick(c,ids){return ids.map(i=>(c.v[i]||"").replace(/\n+/g,"　").trim()).filter(Boolean).join("、")}
+function mdScript(c){
+  const nm=nameOf(c)||"名無しの人物";
+  const L=[];
+  const push=(k,v)=>{if(v&&v.trim())L.push(`- ${k}: ${v.trim()}`)};
+  push("年齢・性別",pick(c,["age","sex","race"]));
+  push("立場",pick(c,["role","belong","from"]));
+  push("外見",pick(c,["height","build","hair","haircol","eye","skin","face","wear","mark"]));
+  push("体格",pick(c,["bust","waist","hip"]));
+  push("性格",pick(c,["person","merit","fault","emo","social","habit"]));
+  push("価値観",pick(c,["value","want","fear"]));
+  push("口調",[c.v.i?`一人称「${c.v.i}」`:"",c.v.you?`二人称「${c.v.you}」`:"",pick(c,["tone","end","voice"])].filter(Boolean).join("、"));
+  push("決め台詞",(c.v.line||"").replace(/\n+/g,"　"));
+  push("背景",pick(c,["birth","turn","work","family","now"]));
+  push("技能",pick(c,["good","bad","power","combat","item"]));
+  push("好悪",pick(c,["like","dislike","food","hobby"]));
+  push("秘密",pick(c,["secret","wound","weak","hidden","face2"]));
+  const rels=c.rels.filter(r=>r.who||r.tie);
+  if(rels.length)push("関係",rels.map(r=>`${r.who||"？"}＝${[r.tie,r.feel,r.note].filter(Boolean).join("・").replace(/\n+/g,"　")}`).join("／"));
+  push("演じ方",pick(c,["policy","first","dist"]));
+  push("禁止事項",(c.v.ng||"").replace(/\n+/g,"　"));
+  push("想定場面",(c.v.scene||"").replace(/\n+/g,"　"));
+  push("備考",(c.v.free||"").replace(/\n+/g,"　"));
+  return `## 人物：${nm}\n${L.join("\n")}\n\n`;
+}
+function buildMd(){
+  const list = scope==="one" ? (cur()?[cur()]:[]) : S.chars;
+  if(!list.length)return "";
+  let body="";
+  if(fmt==="script"){
+    body=`# 登場人物\n\n`+list.map(mdScript).join("");
+  }else{
+    body=list.map((c,i)=>(fmt==="brief"?mdBrief(c):mdFull(c,i))).join("\n---\n\n");
+  }
+  const data={format:"rp-character/1",chars:list.map(c=>({v:c.v,rels:c.rels}))};
+  return body.replace(/\n+$/,"\n")+`\n<!-- 人物仕立所 rp-character/1\n`+JSON.stringify(data)+`\n-->\n`;
+}
+function renderOut(){
+  const md=buildMd();
+  $("out").textContent=md||"まだ書き出すものがない。名簿から一人起こす。";
+}
+$("seg-fmt").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  fmt=b.dataset.f;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderOut()});
+$("seg-scope").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  scope=b.dataset.s;[...e.currentTarget.children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderOut()});
+$("btn-copy").addEventListener("click",async()=>{
+  const md=buildMd(); if(!md){toast("書き出すものがない");return}
+  try{ await navigator.clipboard.writeText(md); toast("コピーした"); }
+  catch(e){
+    const ta=document.createElement("textarea");ta.value=md;ta.style.position="fixed";ta.style.opacity="0";
+    document.body.appendChild(ta);ta.focus();ta.select();
+    try{document.execCommand("copy");toast("コピーした")}catch(e2){toast("コピーできない。長押しで選んで写す")}
+    document.body.removeChild(ta);
+  }
+});
+$("btn-dl").addEventListener("click",()=>{
+  const md=buildMd(); if(!md){toast("書き出すものがない");return}
+  const nm=(scope==="one"&&cur()?(nameOf(cur())||"人物"):"人物設定");
+  const blob=new Blob([md],{type:"text/markdown;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nm+".md";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  toast("保存した");
+});
+
+/* ============ 読み込み ============ */
+function parseMd(text){
+  const m=text.match(/<!--\s*人物仕立所 rp-character\/1\s*([\s\S]*?)-->/);
+  if(m){
+    try{
+      const d=JSON.parse(m[1].trim());
+      if(d&&Array.isArray(d.chars))return d.chars.map(c=>normalize({v:c.v,rels:c.rels}));
+    }catch(e){}
+  }
+  // 注記が無い場合は見出しと箇条書きから拾う
+  const out=[]; let c=null, sec=null, inRel=false;
+  text.split(/\r?\n/).forEach(line=>{
+    let h=line.match(/^#\s*(?:人物設定書：)?(.+?)\s*$/);
+    if(h&&!/^##/.test(line)){
+      if(/^(登場人物|人物設定|キャラクター)$/.test(h[1]))return;
+      c=normalize({}); c.v.name=h[1]; out.push(c); sec=null; inRel=false; return;
+    }
+    const h2=line.match(/^##\s*(人物[：:])?(.+?)\s*$/);
+    if(h2){
+      if(h2[1]){ c=normalize({}); c.v.name=h2[2]; out.push(c); sec=null; inRel=false; return; }
+      sec=h2[2]; inRel=(sec==="縁"||sec==="関係"); return;
+    }
+    if(!c)return;
+    // 簡潔形式：**素性**：名前＝…／年齢＝…
+    const bl=line.match(/^\*\*(.+?)\*\*\s*[：:]\s*(.+)$/);
+    if(bl){
+      bl[2].split("／").forEach(pair=>{
+        const kv=pair.split(/[＝=]/);
+        if(kv.length>=2&&FIELD_BY_LABEL[kv[0].trim()])c.v[FIELD_BY_LABEL[kv[0].trim()][1]]=kv.slice(1).join("＝").trim();
+      });
+      return;
+    }
+    if(inRel&&/^\|/.test(line)){
+      const cells=line.split("|").slice(1,-1).map(s=>s.trim());
+      if(cells.length<4||/^-+$/.test(cells[0])||cells[0]==="相手")return;
+      const r={who:cells[0],tie:cells[1],feel:cells[2],note:cells[3]};
+      REL_KEYS.forEach(([k])=>{if(r[k]==="—")r[k]=""});
+      if(r.who||r.tie||r.feel||r.note)c.rels.push(r);
+      return;
+    }
+    const li=line.match(/^-\s*\*\*(.+?)\*\*\s*[:：]\s*(.*)$/);
+    if(li){
+      const key=FIELD_BY_LABEL[li[1]];
+      if(key)c.v[key[1]]=li[2].trim();
+      return;
+    }
+    const li2=line.match(/^-\s*(.+?)\s*[:：]\s*(.+)$/);
+    if(li2&&FIELD_BY_LABEL[li2[1]])c.v[FIELD_BY_LABEL[li2[1]][1]]=li2[2].trim();
+  });
+  return out.filter(x=>Object.keys(x.v).length||x.rels.length);
+}
+function importText(text){
+  const got=parseMd(text);
+  if(!got.length){toast("人物が見つからない");return}
+  const add=S.chars.length?confirm(got.length+"名を読み込みます。\nOK＝今の名簿に足す／キャンセル＝入れ替える"):true;
+  if(add)S.chars=S.chars.concat(got); else S.chars=got;
+  S.sel=S.chars.length-got.length;
+  save();renderAll();showView("roster");toast(got.length+"名を読み込んだ");
+}
+$("btn-imp").addEventListener("click",()=>{
+  const t=$("imp").value.trim();
+  if(!t){toast("貼り付け欄が空");return}
+  importText(t); $("imp").value="";
+});
+$("file").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>importText(String(r.result));
+  r.onerror=()=>toast("ファイルを読めない");
+  r.readAsText(f,"utf-8");
+  e.target.value="";
+});
+
+function renderAll(){renderRoster();if($("v-edit").classList.contains("on"))renderEditor();if($("v-out").classList.contains("on"))renderOut()}
+load();
+</script>
+</body>
+</html>
