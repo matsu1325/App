@@ -397,7 +397,7 @@ function save(){
 }
 async function load(){
   const raw=await store.get(KEY);
-  if(raw){ try{ const d=JSON.parse(raw); if(d&&Array.isArray(d.chars)){S.chars=d.chars.map(normalize);S.sel=Math.min(d.sel||0,Math.max(0,S.chars.length-1));} }catch(e){} }
+  if(raw){ try{ const d=JSON.parse(raw); if(d&&Array.isArray(d.chars)){S.chars=d.chars.map(normalize);S.sel=Math.min(d.sel||0,Math.max(0,S.chars.length-1));} if(d&&Array.isArray(d.open))S.open=d.open; }catch(e){} }
   renderAll();
 }
 function normalize(c){
@@ -546,8 +546,9 @@ function renderEditor(){
   renderPicker();
   const c=cur(), box=$("editor");
   if(!c){box.innerHTML='<div class="empty-note"><b>誰も選ばれていない</b>上の＋から一人起こす。</div>';return}
-  const open=new Set([...box.querySelectorAll("details.sec[open]")].map(d=>d.dataset.s));
-  if(!open.size)open.add("sujo");
+  /* 開閉は控えに覚えておく。閉じたものが勝手に開き直さないよう、
+     「一度も触っていない」ときだけ素性を開いた形にする。 */
+  const open=Array.isArray(S.open)?new Set(S.open):new Set(["sujo"]);
   box.innerHTML=SCHEMA.map(s=>`
     <details class="sec" data-s="${s.id}"${open.has(s.id)?" open":""}>
       <summary class="sec-h"><span class="car">▸</span><span class="jp">${s.jp}</span><span class="yomi">${s.yomi}</span>
@@ -563,6 +564,12 @@ function renderEditor(){
         <button class="add" id="btn-rel" style="margin-top:10px">＋ 縁を結ぶ</button>
       </div>
     </details>`;
+  /* toggle は上がってこないので、各欄に直に付ける（描き直すたびに張り替わる） */
+  box.querySelectorAll("details.sec").forEach(d=>d.addEventListener("toggle",noteOpen));
+}
+function noteOpen(){
+  S.open=[...$("editor").querySelectorAll("details.sec[open]")].map(d=>d.dataset.s);
+  save();
 }
 function splitTokens(v){return String(v).split(/[、,]/).map(x=>x.trim()).filter(Boolean)}
 function toggleToken(v,t){
