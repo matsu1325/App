@@ -417,6 +417,7 @@ const $=id=>document.getElementById(id);
 function showView(v){
   document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));
   document.querySelectorAll(".view").forEach(el=>el.classList.toggle("on",el.id==="v-"+v));
+  if(v==="roster")renderRoster();   /* 仕立てた名前や埋まり具合を持ち帰る */
   if(v==="edit")renderEditor();
   if(v==="out")renderOut();
   window.scrollTo(0,0);
