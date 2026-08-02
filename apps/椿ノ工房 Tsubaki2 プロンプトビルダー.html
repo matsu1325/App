@@ -16200,6 +16200,9 @@
   --c-style: #d0885a;
   --radius: 14px;
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
 }
 body[data-theme="light"] {
   --sumi: #f7f3ec; --surface: #ffffff; --surface2: #f1ece1; --surface3: #e8e0d0;
@@ -16242,26 +16245,37 @@ textarea { resize: vertical; min-height: 72px; }
 /* ---------- ヘッダー ---------- */
 header {
   position: relative; z-index: 1;
-  padding: 18px 16px 14px;
-  display: flex; align-items: center; gap: 12px;
+  /* ホーム画面から開くと画面いっぱいに広がるので、時計やノッチの下に潜らせない */
+  padding: calc(18px + var(--safe-t)) calc(16px + var(--safe-r)) 14px calc(16px + var(--safe-l));
+  display: flex; align-items: center; gap: 10px;
   border-bottom: 1px solid var(--line);
 }
 .camellia { width: 40px; height: 40px; flex: none; }
 .h-title { flex: 1; min-width: 0; }
 .h-title h1 { font-size: 21px; font-weight: 600; letter-spacing: .12em; line-height: 1.2; }
-.h-title .en { font-size: 11px; color: var(--kin); letter-spacing: .18em; margin-top: 2px; }
-.h-icons { display: flex; gap: 6px; }
+.h-title .en { font-size: 11px; color: var(--kin); letter-spacing: .18em; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-icons { display: flex; gap: 4px; flex: none; }
 .icon-btn {
-  width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line);
+  width: 44px; height: 44px; flex: none;      /* 指で押せる大きさを確保する */
+  border-radius: 10px; border: 1px solid var(--line);
   background: var(--surface); display: flex; align-items: center; justify-content: center;
   font-size: 17px; color: var(--sub);
 }
 .icon-btn:active { background: var(--surface2); }
 
+@media (max-width: 420px){
+  .camellia { width: 32px; height: 32px; }
+  .h-title h1 { font-size: 18px; letter-spacing: .06em; }
+  .h-title .en { font-size: 9.5px; letter-spacing: .1em; }
+  header { gap: 8px; }
+}
+
 /* ---------- モードタブ ---------- */
 nav.modes {
   position: sticky; top: 0; z-index: 20;
-  display: flex; gap: 6px; padding: 10px 12px;
+  display: flex; gap: 6px;
+  padding: 10px calc(12px + var(--safe-r)) 10px calc(12px + var(--safe-l));
   background: rgba(23,19,25,.92); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
