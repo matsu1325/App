@@ -17649,6 +17649,23 @@ function scanJa(text, map, alias) {
   return out;
 }
 
+/* 身長を絵の札へ。「162cm」でも「小柄」でも受ける。 */
+function heightTagJa(raw) {
+  const t = String(raw || "").trim();
+  if (!t) return null;
+  const cm = t.match(/(\d{2,3})\s*cm/i);
+  if (cm) {
+    const n = +cm[1];
+    if (n < 145) return "小柄";
+    if (n < 155) return "低身長";
+    if (n >= 175) return "長身";
+    return null;                      // 並の背丈は札にしない
+  }
+  if (/とても低い|掌に乗る/.test(t)) return "小柄";
+  if (/低め|小柄/.test(t)) return "低身長";
+  if (/長身|高め|見上げるほど|2mを超え/.test(t)) return "長身";
+  return null;
+}
 /* 人物仕立所の項目 → 英語の外見タグ列 */
 function charaAppearanceEn(v) {
   v = v || {};
@@ -17666,6 +17683,8 @@ function charaAppearanceEn(v) {
   push(jaTags(g("eye"), [M_LOOK], ["色の目", "い目", "の目"], AL_EYE));
   push(jaTags(g("skin"), [M_LOOK], ["肌"], AL_SKIN));
   push(jaTags(g("build"), [M_LOOK], ["体型", "な体"], AL_BUILD));
+  const ht = heightTagJa(g("height"));
+  if (ht && M_LOOK.has(ht)) push([M_LOOK.get(ht)]);
   push(jaTags(g("wear"), [M_LOOK], ["姿"], AL_WEAR));
   push(jaTags(g("mark"), [M_LOOK], [], AL_MARK));
   push(jaTags(g("face"), [M_LOOK], [], null));
@@ -17683,6 +17702,8 @@ function castAppearanceEn(c) {
   push(jaTags(c.eye || "", [M_LOOK], ["色の目", "い目", "の目"], AL_EYE));
   push(jaTags(c.skin || "", [M_LOOK], ["肌"], AL_SKIN));
   push(jaTags(c.outfit || "", [M_LOOK], ["姿"], AL_WEAR));
+  const ht2 = heightTagJa(c.heightNote || c.height || "");
+  if (ht2 && M_LOOK.has(ht2)) push([M_LOOK.get(ht2)]);
   push(jaTags((c.feats || []).join("、"), [M_LOOK], [], AL_MARK));
   if (!out.length) push(jaTags(c.look || "", [M_LOOK], [], null));
   return out;
@@ -17705,6 +17726,15 @@ function kanaToRomaji(s) {
     else { out += /[A-Za-z0-9]/.test(t[0]) ? t[0] : ""; t = t.slice(1); }
   }
   return out.replace(/_+/g, "_").replace(/^_|_$/g, "").toLowerCase();
+}
+/* 身長・体重・3サイズは絵の札にならないので、控えに文字で残す */
+function sizeNote(v) {
+  v = v || {};
+  const g = k => String(v[k] || "").trim();
+  const three = ["bust", "waist", "hip"].map(k => g(k)).filter(Boolean).length
+    ? "3サイズ" + [g("bust") && "B" + g("bust"), g("waist") && "W" + g("waist"), g("hip") && "H" + g("hip")].filter(Boolean).join("/")
+    : "";
+  return [g("height") && "身長" + g("height"), g("weight") && "体重" + g("weight"), three].filter(Boolean).join(" ");
 }
 function ocSlug(c) {
   const fromYomi = kanaToRomaji(c.yomi || "");
@@ -17782,7 +17812,7 @@ $("#renkeiCharAdd").addEventListener("click", () => {
       work: "人物仕立所",
       name: c.name || "名無しの人物",
       tag,
-      note: "人物仕立所から受け取り。キャラタグは仮の名です。PixAIに実在するLoRAタグがあれば書き換えてください。外見メモだけでも絵は作れます。",
+      note: [sizeNote(c.v), "人物仕立所から受け取り。キャラタグは仮の名です。PixAIに実在するLoRAタグがあれば書き換えてください。外見メモだけでも絵は作れます。"].filter(Boolean).join(" ／ "),
       appearance: charaAppearanceEn(c.v).join(", "),
       fav: false, ts: Date.now()
     });
