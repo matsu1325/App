@@ -766,6 +766,8 @@ const CFIELDS = [
 
   {g:"外見"},
   {k:"height",t:"select", l:"身長",     o:S("とても低い","低め","標準","高め","長身","人外の背丈")},
+  {k:"heightNote",t:"text", l:"身長の実寸", ph:"例：162cm"},
+  {k:"weight",t:"text",   l:"体重",     ph:"例：48kg"},
   {k:"bust",  t:"text",   l:"バスト(B)", ph:"例：82"},
   {k:"waist", t:"text",   l:"ウエスト(W)", ph:"例：58"},
   {k:"hip",   t:"text",   l:"ヒップ(H)", ph:"例：86"},
@@ -801,7 +803,7 @@ let uid = 1;
 
 const newChar = (over={}) => Object.assign({
   _id: uid++, _open: true, name:"", role:0, age:"", ageNote:"", gender:"", race:"", job:"",
-  height:"", bust:"", waist:"", hip:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"", outfit:"",
+  height:"", heightNote:"", weight:"", bust:"", waist:"", hip:"", hairColor:"", hairLen:"", hairStyle:"", eye:"", skin:"", voice:"", outfit:"",
   feats:[], look:"", pronoun:"", speech:"", pers:[], like:"", hate:"", relation:"", secret:"", free:""
 }, over);
 
@@ -1015,7 +1017,8 @@ function charBlock(c, idx){
   if (c.job) L.push("・立場：" + c.job);
 
   const body = j([
-    c.height ? "身長は" + c.height : "",
+    c.height ? "身長は" + c.height + (c.heightNote ? "（" + c.heightNote + "）" : "") : (c.heightNote ? "身長は" + c.heightNote : ""),
+    c.weight ? "体重は" + c.weight : "",
     (c.bust || c.waist || c.hip) ? "スリーサイズは" + j([
       c.bust ? "B" + c.bust : "",
       c.waist ? "W" + c.waist : "",
@@ -1356,6 +1359,7 @@ function shitateToCast(src){
     race: matchOpt(g("race"), OPT_OF("race"), A_RACE),
     job: joined(["role","belong"]),
     height: heightBucket(g("height")),
+    heightNote: g("height"), weight: g("weight"),
     bust: g("bust"), waist: g("waist"), hip: g("hip"),
     hairColor: matchOpt(g("haircol"), OPT_OF("hairColor"), A_HAIRC),
     hairLen: matchOpt(g("hair"), OPT_OF("hairLen"), A_HAIRLEN),
@@ -1365,7 +1369,7 @@ function shitateToCast(src){
     voice: matchOpt(g("voice"), OPT_OF("voice"), A_VOICE),
     outfit: matchOpt(g("wear"), OPT_OF("outfit"), A_OUTFIT),
     feats: matchChips(joined(["mark","face"]), OPT_OF("feats"), A_FEATS),
-    look: joined(["height","build","hair","haircol","eye","skin","face","wear","mark","scent"]),
+    look: joined(["build","hair","haircol","eye","skin","face","wear","mark","scent"]),
     pronoun: OPT_OF("pronoun").includes(g("i")) ? g("i") : "",
     speech: matchOpt(g("tone"), OPT_OF("speech"), A_SPEECH),
     pers: matchChips(joined(["person","merit","fault","emo","social"]), OPT_OF("pers"), A_PERS),
@@ -1473,6 +1477,8 @@ $("sendSceneGo").addEventListener("click", async () => {
       name: c.name, gender: c.gender, age: c.age, race: c.race,
       hairColor: c.hairColor, hairLen: c.hairLen, hairStyle: c.hairStyle,
       eye: c.eye, skin: c.skin, height: c.height, outfit: c.outfit,
+      heightNote: c.heightNote, weight: c.weight,
+      bust: c.bust, waist: c.waist, hip: c.hip,
       feats: c.feats || [], look: c.look || ""
     }))
   };
