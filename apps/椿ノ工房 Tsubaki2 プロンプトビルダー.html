@@ -17409,6 +17409,8 @@ function seedCharaLib() {
     { id: "seed2", work: "ガイド例", name: "Mio（地雷系バリアント）", tag: "character: mio(jiraikei)_(pixai)", note: "PixAI公式ガイド掲載の参考例。同一キャラの衣装違いタグ", fav: false, ts: 0 }
   ];
 }
+/* 人物仕立所から受け取った人物か。控えの出し入れで消えない work 欄で見分ける。 */
+function isOcEntry(c) { return (c && c.work) === "人物仕立所"; }
 function getCharaLib() {
   const lib = store.get(K.charaLib, null);
   return (Array.isArray(lib) ? lib : seedCharaLib()).map(c => ({ ...c, work: (c.work || "未分類").trim() || "未分類" }));
@@ -17431,8 +17433,15 @@ function renderCharaLibList() {
       ${c.note ? `<div class="h-body" style="color:var(--faint); margin-top:3px">${esc(c.note)}</div>` : ""}
       ${c.appearance ? `<div class="h-body" style="color:var(--c-look); margin-top:3px">🧬 ${esc(c.appearance)}</div>` : ""}
       <div class="h-acts">
-        <button class="btn small primary grow" data-act="use">この欄に追加</button>
-        ${c.appearance ? `<button class="btn small gold" data-act="useapp">外見欄に追加</button>` : ""}
+        ${c.appearance
+          ? (isOcEntry(c)
+              /* 人物仕立所から来た人物。キャラタグは実在しない仮の名なので、外見を主役にする */
+              ? `<button class="btn small primary grow" data-act="useapp">この人物を追加（外見）</button>
+                 <button class="btn small" data-act="use">仮のキャラタグも追加</button>`
+              : `<button class="btn small primary grow" data-act="useboth">タグ＋外見を追加</button>
+                 <button class="btn small" data-act="use">タグのみ</button>
+                 <button class="btn small gold" data-act="useapp">外見のみ</button>`)
+          : `<button class="btn small primary grow" data-act="use">この欄に追加</button>`}
         <button class="btn small danger" data-act="del">削除</button>
       </div>
     </div>`;
@@ -17466,6 +17475,24 @@ $("#charaLibList").addEventListener("click", e => {
     state.manualEdit = false;
     renderCharaChips(listRef, chipsId); render(); updateAccStates();
     toast("追加しました: " + item.tag);
+  }
+  if (act === "useboth") {
+    const { listRef, chipsId } = charaLibCtx;
+    let done = [];
+    if (listRef && !listRef.includes(item.tag)) { listRef.push(item.tag); done.push("タグ"); }
+    if (item.appearance) {
+      const cur = state.adv.lookMain.trim();
+      if (!cur.includes(item.appearance)) {
+        state.adv.lookMain = cur ? cur + ", " + item.appearance : item.appearance;
+        $("#a-lookMain").value = state.adv.lookMain;
+        done.push("外見");
+      }
+    }
+    if (!done.length) { toast("すでに追加済みです"); return; }
+    state.manualEdit = false;
+    if (listRef) renderCharaChips(listRef, chipsId);
+    render(); updateAccStates();
+    toast(done.join("と") + "を追加しました");
   }
   if (act === "useapp") {
     if (!item.appearance) return;
@@ -17532,14 +17559,32 @@ const M_SUBJ  = buildJaMap(["subject_tags"]);
 const M_SCENE = buildJaMap(["scene_tags"]);
 const M_ACT   = buildJaMap(["action_tags"]);
 
-/* 人物仕立所と辞書とで言い回しが違う語を橋渡しする */
-const LOOK_ALIAS = {
-  "制服":"学生服", "私服":"カジュアル", "和装":"着物", "礼装":"イブニングドレス",
-  "外套":"コート", "法衣":"ローブ", "修道服":"シスター服", "作業着":"つなぎ",
-  "甲冑":"鎧", "古着":"ぼろ布の服", "濡羽色":"黒髪", "亜麻色":"薄茶髪",
-  "細身":"痩せ型", "しなやか":"スレンダー", "均整がとれている":"引き締まった体",
-  "セミロング":"肩までの髪", "おかっぱ":"ボブ", "泣きぼくろ":"泣きぼくろ"
-};
+/* 人物仕立所と辞書とで言い回しが違う語を、項目ごとに橋渡しする。
+   「桃」は髪なら「ピンク髪」、瞳なら「ピンクの目」と行き先が変わるため項目別に持つ。 */
+const AL_HAIRC = { "濡羽色":"黒髪","焦茶":"茶髪","栗色":"栗毛","亜麻色":"砂色髪","白金":"プラチナブロンド",
+  "朱":"深紅の髪","桃":"ピンク髪","橙":"オレンジ髪","黄":"金髪","群青":"紺髪","虹":"虹色髪","混色":"複数色髪" };
+const AL_EYE = { "碧":"緑の目","蒼":"青い目","翠":"翠玉の目","紅":"緋色の目","緋":"緋色の目","榛":"茶色の目",
+  "銀":"灰色の目","桃":"ピンクの目","左右で色が違う":"オッドアイ","瞳孔が縦に裂けている":"縦長の瞳孔",
+  "白目がない":"光る目","黒目がない":"白い目" };
+const AL_SKIN = { "透けるように白":"白い肌","血の気がない":"青白い肌","病的に青白い":"青白い肌",
+  "健康的な小麦色":"小麦肌","黒褐色":"褐色肌","浅黒い":"日焼け肌","赤みがある":"頬の紅潮",
+  "陶器のよう":"陶器のような肌","傷跡がある":"傷跡","火傷の痕":"傷跡","縫合跡がある":"傷跡","刺青が刻まれている":"刺青" };
+const AL_BUILD = { "骨と皮":"痩せ型","痩せぎす":"痩せ型","病的に細い":"痩せ型","細身":"スレンダー","しなやか":"スレンダー",
+  "均整がとれている":"引き締まった体","鍛え抜かれている":"筋肉質","がっしり":"広い肩幅","小太り":"ぽっちゃり",
+  "豊満":"グラマー","子供のような体つき":"小柄","規格外の巨躯":"長身" };
+const AL_WEAR = { "制服":"学生服","私服":"カジュアル","和装":"着物","ドレス":"ロングドレス","礼装":"イブニングドレス",
+  "喪服":"ロングドレス","修道服":"ローブ","法衣":"ローブ","外套":"コート","甲冑":"全身鎧","古着":"ぼろ布の服" };
+const AL_MARK = { "頬の傷":"顔の傷","首の縫合痕":"傷跡","火傷":"傷跡","痣":"傷跡","刻印":"刺青","呪印":"刺青" };
+const AL_HAIR = { "セミロング":"肩までの髪","おかっぱ":"ボブ","坊主":"ベリーショート","床につくほど長い":"床につく髪",
+  "腰まで":"腰までの髪","編み込み":"三つ編み","お団子":"低めお団子","夜会巻き":"メッシーバン","サイドテール":"サイドテール" };
+const AL_RACE = { "獣人":"獣耳娘","亜人":"獣耳娘","妖狐":"狐娘","半人半妖":"獣耳娘","竜人":"竜人",
+  "幽霊":"幽霊","精霊":"妖精","堕天使":"堕天使","悪魔":"悪魔娘","神":"神" };
+/* 辞書には「悪魔娘」のように性別を含む札がある。主体と食い違うものは落とす。 */
+function dropMismatchedGender(tags, sex) {
+  if (/男/.test(sex || "")) return tags.filter(t => !/\bgirl\b|\bgirls\b|\bwoman\b|goddess/i.test(t));
+  if (/女/.test(sex || "")) return tags.filter(t => !/\bboy\b|\bboys\b|\bman\b/i.test(t));
+  return tags;
+}
 /* 物語でよく使う場所の言い方を、辞書の見出しへ寄せる */
 const SCENE_ALIAS = {
   "劇場":"劇場の舞台", "舞台袖":"劇場の舞台", "客席":"劇場の舞台", "楽屋":"楽屋",
@@ -17553,11 +17598,13 @@ const SCENE_ALIAS = {
 const SHORT_OK = ["雨","雪","夜","朝","昼","海","山","森","空","星","月","火","炎","水","川","湖","街","町","駅","橋","door","窓"];
 
 /* 語に接尾辞を足しながら辞書を引く。「黒」→「黒髪」を「黒＝black」より先に当てる。 */
-function lookupJa(tok, maps, sfx) {
+function lookupJa(tok, maps, sfx, alias) {
   if (!tok) return null;
-  const al = LOOK_ALIAS[tok];
-  const base = al || tok;
-  const cands = (sfx || []).map(s => base + s).concat([base]);   // 接尾辞つきを先に
+  const base = (alias && alias[tok]) || tok;
+  const cands = [];
+  if (alias && alias[tok]) cands.push(base);                     // 言い換えが一番強い
+  (sfx || []).forEach(x => cands.push(base + x));                // 次に接尾辞つき（黒→黒髪）
+  cands.push(base);                                              // 最後に素の語
   for (const c of cands) for (const m of maps) if (m.has(c)) return m.get(c);
   let best = null;                       // 部分一致は長い見出しを優先
   for (const m of maps) for (const [ja, en] of m) {
@@ -17565,10 +17612,10 @@ function lookupJa(tok, maps, sfx) {
   }
   return best ? best[1] : null;
 }
-function jaTags(text, maps, sfx) {
+function jaTags(text, maps, sfx, alias) {
   const out = [];
   String(text || "").split(/[、,．。／\/・\n！？!?\s]+/).map(s => s.trim()).filter(Boolean).forEach(tok => {
-    const en = lookupJa(tok, maps, sfx);
+    const en = lookupJa(tok, maps, sfx, alias);
     if (en && !out.includes(en)) out.push(en);
   });
   return out;
@@ -17607,34 +17654,37 @@ function charaAppearanceEn(v) {
   v = v || {};
   const g = k => String(v[k] || "").trim();
   const out = [];
-  const push = arr => arr.forEach(t => { if (t && !out.includes(t)) out.push(t); });
+  /* 辞書の値は "elf, pointy ears" のように複数語を持つので、札単位でほぐして重複を落とす */
+  const push = arr => arr.forEach(t => String(t || "").split(",").map(x => x.trim()).filter(Boolean)
+    .forEach(x => { if (!out.includes(x)) out.push(x); }));
   const sex = g("sex");
   if (/女/.test(sex)) push(["1girl"]);
   else if (/男/.test(sex)) push(["1boy"]);
-  push(jaTags(g("race"), [M_SUBJ], []).filter(t => t !== "human"));
-  push(jaTags(g("haircol"), [M_LOOK], ["髪", "色の髪", "の髪"]));
-  push(jaTags(g("hair"), [M_LOOK], ["ヘア", "の髪"]));
-  push(jaTags(g("eye"), [M_LOOK], ["色の目", "い目", "の目"]));
-  push(jaTags(g("skin"), [M_LOOK], ["肌"]));
-  push(jaTags(g("build"), [M_LOOK], ["体型", "な体"]));
-  push(jaTags(g("wear"), [M_LOOK], ["姿"]));
-  push(jaTags(g("mark"), [M_LOOK], []));
-  push(jaTags(g("face"), [M_LOOK], []));
+  push(dropMismatchedGender(jaTags(g("race"), [M_SUBJ], [], AL_RACE).filter(t => t !== "human"), sex));
+  push(jaTags(g("haircol"), [M_LOOK], ["髪", "色の髪", "の髪"], AL_HAIRC));
+  push(jaTags(g("hair"), [M_LOOK], ["ヘア", "の髪"], AL_HAIR));
+  push(jaTags(g("eye"), [M_LOOK], ["色の目", "い目", "の目"], AL_EYE));
+  push(jaTags(g("skin"), [M_LOOK], ["肌"], AL_SKIN));
+  push(jaTags(g("build"), [M_LOOK], ["体型", "な体"], AL_BUILD));
+  push(jaTags(g("wear"), [M_LOOK], ["姿"], AL_WEAR));
+  push(jaTags(g("mark"), [M_LOOK], [], AL_MARK));
+  push(jaTags(g("face"), [M_LOOK], [], null));
   return out;
 }
 /* 戯曲装置から来た配役（すでに札化された項目）→ 英語の外見タグ列 */
 function castAppearanceEn(c) {
   const out = [];
-  const push = arr => arr.forEach(t => { if (t && !out.includes(t)) out.push(t); });
-  push(jaTags(c.race || "", [M_SUBJ], []).filter(t => t !== "human"));
-  push(jaTags(c.hairColor || "", [M_LOOK], ["髪", "色の髪"]));
-  push(jaTags(c.hairLen || "", [M_LOOK], []));
-  push(jaTags(c.hairStyle || "", [M_LOOK], []));
-  push(jaTags(c.eye || "", [M_LOOK], ["色の目", "い目", "の目"]));
-  push(jaTags(c.skin || "", [M_LOOK], ["肌"]));
-  push(jaTags(c.outfit || "", [M_LOOK], ["姿"]));
-  push(jaTags((c.feats || []).join("、"), [M_LOOK], []));
-  if (!out.length) push(jaTags(c.look || "", [M_LOOK], []));
+  const push = arr => arr.forEach(t => String(t || "").split(",").map(x => x.trim()).filter(Boolean)
+    .forEach(x => { if (!out.includes(x)) out.push(x); }));
+  push(dropMismatchedGender(jaTags(c.race || "", [M_SUBJ], [], AL_RACE).filter(t => t !== "human"), c.gender));
+  push(jaTags(c.hairColor || "", [M_LOOK], ["髪", "色の髪"], AL_HAIRC));
+  push(jaTags(c.hairLen || "", [M_LOOK], [], AL_HAIR));
+  push(jaTags(c.hairStyle || "", [M_LOOK], [], AL_HAIR));
+  push(jaTags(c.eye || "", [M_LOOK], ["色の目", "い目", "の目"], AL_EYE));
+  push(jaTags(c.skin || "", [M_LOOK], ["肌"], AL_SKIN));
+  push(jaTags(c.outfit || "", [M_LOOK], ["姿"], AL_WEAR));
+  push(jaTags((c.feats || []).join("、"), [M_LOOK], [], AL_MARK));
+  if (!out.length) push(jaTags(c.look || "", [M_LOOK], [], null));
   return out;
 }
 /* かな→ローマ字（仮のキャラタグを作るためだけの簡易変換） */
