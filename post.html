@@ -19,6 +19,8 @@
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* hidden 属性は display 指定に負けるので、必ず勝たせる */
+[hidden]{display:none!important}
 body{
   margin:0;background:var(--ink);color:var(--paper);
   font-family:var(--gothic);font-size:15px;line-height:1.6;

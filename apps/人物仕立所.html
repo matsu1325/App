@@ -23,6 +23,8 @@
   --pad:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* hidden 属性は display 指定に負けるので、必ず勝たせる */
+[hidden]{display:none!important}
 html,body{margin:0;padding:0}
 body{
   background:var(--sumi);
