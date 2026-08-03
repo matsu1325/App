@@ -16289,6 +16289,18 @@ header {
   overflow-wrap: anywhere; }
 .renkei-row .r-cast { display: block; font-size: 11.5px; color: var(--c-scene); margin-top: 3px; }
 
+/* ---------- 絵コンテ盤 ---------- */
+.sb-cut { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
+  background: var(--surface); }
+.sb-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sb-meta .sb-no { color: var(--kin); font-weight: 600; flex: none; }
+.sb-meta .sb-title { flex: 1; min-width: 0; }
+.sb-meta .sb-stage { flex: none; font-size: 11px; color: var(--faint); }
+.sb-cam { font-size: 11.5px; color: var(--c-aes); margin-top: 5px; line-height: 1.6; }
+.sb-prompt { margin: 8px 0 0; padding: 9px 10px; border-radius: 8px; background: var(--surface2);
+  font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--kinu); }
+.sb-acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
 /* ---------- モードタブ ---------- */
 nav.modes {
   position: sticky; top: 0; z-index: 20;
@@ -16948,10 +16960,26 @@ input[type="range"]::-webkit-slider-thumb {
     </div>
 
     <div class="card" style="margin-top:14px">
-      <h3 style="font-size:14px">🎬 戯曲装置から（場面）</h3>
+      <h3 style="font-size:14px">🎞 戯曲装置から（絵コンテ・全場面）</h3>
+      <div id="renkeiBoardInfo"></div>
+      <button class="btn primary wide" id="renkeiBoardGo" style="margin-top:10px">絵コンテを組む</button>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px">🎬 戯曲装置から（場面ひとつ）</h3>
       <div id="renkeiSceneList"></div>
       <button class="btn primary wide" id="renkeiSceneApply" style="margin-top:10px">この場面で指示文を組む</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ 絵コンテ盤 ============ -->
+<div class="sheet" id="sheetStoryboard" role="dialog" aria-label="絵コンテ">
+  <div class="sheet-head"><h3 class="serif">絵コンテ</h3><button class="icon-btn" data-close aria-label="閉じる">✕</button></div>
+  <div class="sheet-body">
+    <div class="banner info"><span class="b-ico">🎬</span><span id="sbHead"></span></div>
+    <div id="sbBody"></div>
+    <button class="btn primary wide" id="sbCopyAll" style="margin-top:12px">絵コンテ全体をコピー</button>
   </div>
 </div>
 
@@ -17570,9 +17598,10 @@ const Renkei = {
   read() {
     try {
       const d = JSON.parse(localStorage.getItem(RENKEI_KEY));
-      if (!d || typeof d !== "object") return { chars: [], scenes: [] };
-      return { chars: Array.isArray(d.chars) ? d.chars : [], scenes: Array.isArray(d.scenes) ? d.scenes : [] };
-    } catch (e) { return { chars: [], scenes: [] }; }
+      if (!d || typeof d !== "object") return { chars: [], scenes: [], boards: [] };
+      return { chars: Array.isArray(d.chars) ? d.chars : [], scenes: Array.isArray(d.scenes) ? d.scenes : [],
+               boards: Array.isArray(d.boards) ? d.boards : [] };
+    } catch (e) { return { chars: [], scenes: [], boards: [] }; }
   },
   take(kind) { return this.read()[kind] || []; }
 };
@@ -17803,7 +17832,26 @@ function renderRenkei() {
         <span class="r-cast">👥 ${esc((s.cast || []).map(c => c.name).filter(Boolean).join("、") || "人物の指定なし")}</span>
       </span></label>`).join("") : '<div class="empty">受渡箱に場面がありません。<br>戯曲装置の「設計図」で場面カードを開き『この場面を絵にする』を押してください。</div>';
   $("#renkeiSceneApply").style.display = scenes.length ? "" : "none";
+
+  const board = Renkei.take("boards")[0];
+  $("#renkeiBoardInfo").innerHTML = board
+    ? `<div style="font-size:12.5px;line-height:1.7">
+         <b style="color:var(--kin)">${esc(board.title || "筋書き")}</b>
+         <span style="display:block;color:var(--sub)">全${(board.scenes||[]).length}場面 ／ 配役${(board.cast||[]).length}名 ／ 起伏 ${(board.tension||[]).join("・")}</span>
+         <span style="display:block;color:var(--faint);margin-top:3px">${esc((board.scenes||[]).map(x=>x.title).filter(Boolean).join(" → ").slice(0,120) || "—")}</span>
+       </div>`
+    : '<div class="empty">受渡箱に筋書きがありません。<br>戯曲装置の「設計図 → 筋書きボード」で『🎬 全場面を絵コンテにする』を押してください。</div>';
+  $("#renkeiBoardGo").style.display = board ? "" : "none";
 }
+$("#renkeiBoardGo").addEventListener("click", () => {
+  const board = Renkei.take("boards")[0];
+  if (!board || !(board.scenes || []).length) { toast("筋書きがありません"); return; }
+  boardCuts = buildStoryboard(board);
+  renderStoryboard();
+  /* 閉じてから開くと、履歴を戻す処理が開いたばかりのシートまで閉じてしまう。
+     このアプリの作法どおり、上に重ねて開く。 */
+  openSheet("sheetStoryboard");
+});
 $("#btnRenkei").addEventListener("click", () => { renderRenkei(); openSheet("sheetRenkei"); });
 $("#renkeiCharList").addEventListener("click", e => {
   const b = e.target.closest("[data-rcbuild]"); if (!b) return;
@@ -17887,6 +17935,156 @@ $("#renkeiSceneApply").addEventListener("click", () => {
   if (!state.adv.scene) miss.push("場面");
   if (!state.adv.pose) miss.push("姿勢・動作");
   toast(miss.length ? `組みました（${miss.join("・")}は引けず空です）` : "場面から指示文を組みました 🎨");
+});
+
+/* ---------- 絵コンテ盤 ----------
+   戯曲装置から受け取った筋書きを、場面ごとの指示文へ一括で起こす。
+   物語の起伏がカメラワークと光を決め、人物の外見は全カットで揃える。 */
+
+/* 起承転結の四点を、場面の位置（0〜1）で滑らかに繋ぐ */
+function tensionAt(pos, curve) {
+  const c = (Array.isArray(curve) && curve.length === 4) ? curve : [30, 55, 85, 40];
+  const seg = Math.max(0, Math.min(1, pos)) * 3;
+  const i = Math.min(2, Math.floor(seg));
+  return c[i] + (c[i + 1] - c[i]) * (seg - i);
+}
+const STAGE_JA = ["起", "承", "転", "結"];
+
+/* 緊張度から画作りを決める。詰まるほど寄って、傾いて、光が硬くなる。 */
+function cinemaFor(t) {
+  if (t < 35) return { shot: "全身ショット",         angle: "アイレベル",   comp: "三分割法",   light: "ソフトライト" };
+  if (t < 60) return { shot: "ミディアムフルショット", angle: "アイレベル",   comp: "バランス構図", light: "サイドライト" };
+  if (t < 80) return { shot: "半身クローズアップ",     angle: "ローアングル", comp: "中央構図",   light: "ハードライト" };
+  return              { shot: "クローズアップ",       angle: "ダッチアングル", comp: "中央構図",   light: "バックライト" };
+}
+/* 場面の文から光源を拾う。見つからなければ時間帯を決めつけない。 */
+const LIGHT_HINT = [
+  /* 「夜明け」は夜ではなく朝。長い言い回しから先に当てる。 */
+  [/深夜|真夜中|夜更け/, "月光"],
+  [/夜明|明け方|暁|払暁|朝焼|朝日|早朝|朝/, "日の出の光"],
+  [/夕暮|夕方|夕闇|夕陽|夕日|黄昏|日暮|残照|夕/, "夕日の残照"],
+  [/夜|宵/, "月光"],
+  [/劇場|舞台|ステージ|袖/, "ステージ照明"],
+  [/焚火|焚き火|篝火/, "焚き火の光"], [/暖炉|囲炉裏/, "囲炉裏の火"],
+  [/蝋燭|ろうそく|燭台/, "蝋燭の光"], [/提灯/, "提灯の光"], [/松明/, "松明の光"],
+  [/街灯|路地|裏通り/, "街灯"], [/花火/, "花火の光"], [/稲妻|雷/, "稲妻"],
+  [/ネオン/, "ネオンの光"], [/星/, "星明かり"], [/木漏れ日|林|森/, "木漏れ日"],
+  [/教室|部屋|室内|窓辺|窓/, "室内窓越し自然光"], [/屋外|野外|広場|校庭/, "屋外日光"],
+];
+function lightSourceFor(text) {
+  for (const [re, ja] of LIGHT_HINT) if (re.test(text)) return ja;
+  return null;
+}
+function aesTag(cat, ja) {
+  const hit = (DICT[cat] || []).find(x => x.ja === ja);
+  return hit ? hit.en : null;
+}
+
+/* 場面に出ている人物を、文中の名前から拾う。誰も見つからなければ全員を立てる。 */
+function castInScene(scene, cast) {
+  const text = (scene.title || "") + " " + (scene.note || "");
+  const hit = cast.filter(c => c.name && text.includes(c.name));
+  return hit.length ? hit : cast;
+}
+function headCount(members) {
+  const f = members.filter(c => /女/.test(c.gender || "")).length;
+  const m = members.filter(c => /男/.test(c.gender || "")).length;
+  const out = [];
+  if (f) out.push(f === 1 ? "1girl" : f + "girls");
+  if (m) out.push(m === 1 ? "1boy" : m + "boys");
+  if (!out.length) out.push("1girl");
+  if (members.length === 1) out.push("solo");
+  return out;
+}
+
+let boardCuts = [];
+/* 受け取った筋書き一式から、カットの一覧を組む */
+function buildStoryboard(board) {
+  const scenes = board.scenes || [];
+  const cast = board.cast || [];
+  const n = scenes.length;
+  return scenes.map((sc, i) => {
+    const pos = n > 1 ? i / (n - 1) : 0;
+    const t = tensionAt(pos, board.tension);
+    const cam = cinemaFor(t);
+    const members = castInScene(sc, cast);
+    const text = [sc.title, sc.note].filter(Boolean).join("、");
+
+    const tags = [];
+    const push = arr => arr.forEach(x => String(x || "").split(",").map(y => y.trim())
+      .filter(Boolean).forEach(y => { if (!tags.includes(y)) tags.push(y); }));
+
+    push(headCount(members));
+    members.forEach(c => push(castAppearanceEn(c)));        // 人物の見た目は毎カット同じ
+    push(scanJa([text, board.setting].filter(Boolean).join("、"), M_SCENE, SCENE_ALIAS));
+    push(scanJa(text, M_ACT));
+    const ls = lightSourceFor(text);
+    push([aesTag("shot_type", cam.shot), aesTag("camera_angle", cam.angle),
+          aesTag("composition", cam.comp), aesTag("light_env", cam.light),
+          ls ? aesTag("lighting_source", ls) : null].filter(Boolean));
+
+    return {
+      no: i + 1,
+      title: sc.title || "無題の場面",
+      note: sc.note || "",
+      stage: STAGE_JA[Math.round(pos * 3)],
+      tension: Math.round(t),
+      cam, light: ls,
+      members: members.map(c => c.name).filter(Boolean),
+      prompt: tags.join(", ")
+    };
+  });
+}
+
+function renderStoryboard() {
+  const head = $("#sbHead"), body = $("#sbBody");
+  if (!boardCuts.length) {
+    head.textContent = "";
+    body.innerHTML = '<div class="empty">場面がありません。</div>';
+    return;
+  }
+  head.textContent = `全${boardCuts.length}カット ／ 人物の見た目は全カットで揃えています`;
+  body.innerHTML = boardCuts.map(c => `
+    <div class="sb-cut">
+      <div class="sb-meta">
+        <b class="sb-no">第${c.no}カット</b>
+        <span class="sb-title">${esc(c.title)}</span>
+        <span class="sb-stage">${c.stage}・緊張${c.tension}</span>
+      </div>
+      <div class="sb-cam">🎥 ${esc(c.cam.shot)}／${esc(c.cam.angle)}／${esc(c.cam.comp)}／${esc(c.cam.light)}${c.light ? "／" + esc(c.light) : ""}${c.members.length ? "　👥 " + esc(c.members.join("、")) : ""}</div>
+      <pre class="sb-prompt">${esc(c.prompt)}</pre>
+      <div class="sb-acts">
+        <button class="btn small" data-sbcopy="${c.no}">この1枚をコピー</button>
+        <button class="btn small gold" data-sbuse="${c.no}">編集欄へ入れる</button>
+      </div>
+    </div>`).join("");
+}
+function storyboardText() {
+  return boardCuts.map(c =>
+    `■ 第${c.no}カット「${c.title}」［${c.stage}・緊張${c.tension}］\n${c.prompt}`).join("\n\n");
+}
+$("#sbBody").addEventListener("click", async e => {
+  const cp = e.target.closest("[data-sbcopy]");
+  if (cp) {
+    const c = boardCuts.find(x => x.no === +cp.dataset.sbcopy); if (!c) return;
+    try { await navigator.clipboard.writeText(c.prompt); toast("コピーしました"); }
+    catch (err) { toast("コピーできませんでした"); }
+    return;
+  }
+  const us = e.target.closest("[data-sbuse]");
+  if (us) {
+    const c = boardCuts.find(x => x.no === +us.dataset.sbuse); if (!c) return;
+    state.manualEdit = true;
+    $("#pvArea").value = c.prompt;
+    render();
+    closeSheet("sheetStoryboard");
+    toast(`第${c.no}カットを編集欄へ入れました`);
+  }
+});
+$("#sbCopyAll").addEventListener("click", async () => {
+  if (!boardCuts.length) return;
+  try { await navigator.clipboard.writeText(storyboardText()); toast("絵コンテ全体をコピーしました"); }
+  catch (e) { toast("コピーできませんでした"); }
 });
 
 /* ---------- キャラクターまとめて登録（一括追加） ----------

@@ -473,6 +473,8 @@ footer.credit{padding:8px 0 28px;text-align:center;font-family:var(--mono);font-
         <div class="board" id="genBoard"><svg id="genBoardSvg"></svg></div>
       </div>
       <button class="addcast" id="genAddNode" type="button">＋ 追加</button>
+      <button class="addcast" id="genToStoryboard" type="button" style="margin-top:8px">🎬 全場面を絵コンテにする</button>
+      <p class="hint" id="storyboardNote" style="margin-top:8px"></p>
       <div class="rellist" id="genList"></div>
     </div>
 
@@ -1496,6 +1498,55 @@ $("sendSceneGo").addEventListener("click", async () => {
            : " 椿ノ工房を開いて「戯曲装置から受け取る」を押してください。");
 });
 
+/* ── 全場面を絵コンテとして椿ノ工房へ渡す ──
+   つながりを辿って場面を並べ、起伏カーブと配役を添える。 */
+function orderScenes(data){
+  const nodes = data.nodes.slice();
+  const incoming = new Set(data.links.map(l => l.to));
+  const roots = nodes.filter(n => !incoming.has(n.id));
+  const start = roots.length ? roots : nodes.slice(0, 1);
+  const seen = new Set(), out = [];
+  const walk = (n) => {
+    if (!n || seen.has(n.id)) return;
+    seen.add(n.id); out.push(n);
+    data.links.filter(l => l.from === n.id)
+      .forEach(l => walk(nodes.find(x => x.id === l.to)));
+  };
+  start.forEach(walk);
+  nodes.forEach(n => { if (!seen.has(n.id)) out.push(n); });   // 繋がっていない札は後ろへ
+  return out;
+}
+$("genToStoryboard").addEventListener("click", async () => {
+  const data = SCEN.scene;
+  const note = $("storyboardNote");
+  if (!data.nodes.length){ note.style.color = "var(--shu)"; note.textContent = "場面の札がまだありません。「＋ 場面を追加」から起こしてください。"; return; }
+  const ordered = orderScenes(data);
+  const payload = {
+    title: [$("genre").value, $("genreFree").value.trim()].filter(Boolean).join("／"),
+    setting: $("setting").value.trim(),
+    tone: (OPT.tone[+$("tone").value] || [""])[0] || "",
+    tension: tensionVals.slice(),
+    scenes: ordered.map(n => ({ title: n.label || "無題の場面", note: n.note || "" })),
+    cast: cast.filter(c => c.name).map(c => ({
+      name: c.name, gender: c.gender, race: c.race,
+      hairColor: c.hairColor, hairLen: c.hairLen, hairStyle: c.hairStyle,
+      eye: c.eye, skin: c.skin, outfit: c.outfit, feats: c.feats || [],
+      look: c.look || "", height: c.height, heightNote: c.heightNote
+    }))
+  };
+  if (!Renkei.put("boards", [payload], "戯曲装置")){
+    note.style.color = "var(--shu)";
+    note.textContent = "この端末では受渡箱が使えません（保存が塞がれています）。";
+    return;
+  }
+  toast(ordered.length + "場面を絵コンテとして渡しました");
+  const url = await Renkei.appUrl("椿ノ工房");
+  note.style.color = "";
+  note.innerHTML = ordered.length + "場面を受渡箱に入れました。"
+    + (url ? ` <a href="${url}" style="color:var(--shinchu)">椿ノ工房を開く</a> → 「絵コンテを組む」を押す。`
+           : " 椿ノ工房を開いて「絵コンテを組む」を押してください。");
+});
+
 /* ═══ 保存 ═══ */
 const KEY = "gikyoku.v2";
 function save(){
@@ -2484,6 +2535,8 @@ function switchScenarioMode(mode){
     renderCurveUI();
   } else {
     $("genAddNode").textContent = SCEN_CONFIG[mode].addLabel;
+    $("genToStoryboard").hidden = (mode !== "scene");   /* 絵コンテは筋書きから起こす */
+    $("storyboardNote").textContent = "";
     genSelectedNodeId = null;
     updateGenHint();
     renderGenBoard();
