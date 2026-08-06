@@ -814,9 +814,17 @@ async function refresh(){
 }
 const SVG_DL = '<svg viewBox="0 0 24 24"><path d="M12 4v11M12 15l-4-4M12 15l4-4M5 19h14"/></svg>';
 const SVG_X  = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-function paint(){
+/* 上の表示だけを直す。一覧は組み直さない。
+   縮小見本を作っている最中に一覧を組み直すと、順番待ちの列が消えてしまう。 */
+function paintStat(){
   $("#vSave").classList.toggle("dirty", dirty);
   $("#vSave").textContent = dirty ? "保存（未）" : "保存";
+  const mine = items.reduce((s, x) => s + (x.meta.s || 0), 0);
+  let total = HDR; for(const r of records) total += 8 + r.m.length + r.d.length;
+  $("#vStat").innerHTML = items.length + " 点 / " + fsize(mine) + "　·　ファイル " + fsize(total) +
+    (dirty ? "　·　<b>未保存</b>" : "") + (keepCache ? "" : "　·　控えなし");
+}
+function paint(){
   const q = $("#vFilter").value.trim().toLowerCase();
   const list = items.filter(x => !q || x.meta.n.toLowerCase().includes(q))
     .sort((a, b) => sortDesc ? b.meta.d - a.meta.d : a.meta.n.localeCompare(b.meta.n, "ja"));
@@ -828,11 +836,7 @@ function paint(){
       items.length ? "条件に合うものがありません"
       : "「入れる」で追加し、「保存」でファイルに書き出します。<br>置き場所は iCloud Drive でも構いません。"}</div>`;
   } else list.forEach(x => box.appendChild(rowOf(x)));
-
-  const mine = items.reduce((s, x) => s + (x.meta.s || 0), 0);
-  let total = HDR; for(const r of records) total += 8 + r.m.length + r.d.length;
-  $("#vStat").innerHTML = items.length + " 点 / " + fsize(mine) + "　·　ファイル " + fsize(total) +
-    (dirty ? "　·　<b>未保存</b>" : "") + (keepCache ? "" : "　·　控えなし");
+  paintStat();
 }
 function rowOf(x){
   const el = document.createElement("div");
@@ -847,8 +851,14 @@ function rowOf(x){
   const ic = el.querySelector(".ic");
   ic.onclick = open;
   if(media){
-    const cached = thumbs.get(x.rec.id);
+    let cached = thumbs.get(x.rec.id);
+    /* 見出しに納めてある縮小見本は、開いた時点でもう手元にある。待たせずに出す。 */
+    if(!cached && x.meta.tb){
+      cached = thumbUrlFromMeta(x.meta);
+      if(cached) thumbs.set(x.rec.id, cached);
+    }
     if(cached) paintThumb(ic, x, cached);
+    else if(thumbNG.has(x.rec.id)) thumbFallback(ic, x);   // 一度作れなかったものは触らない
     else {
       ic.classList.add("loading");
       /* 画面に入ったものだけ作る */
@@ -886,6 +896,15 @@ $("#filePick").addEventListener("change", async e => {
     try {
       const buf = new Uint8Array(await f.arrayBuffer());
       const meta = {n:f.name, t:f.type, s:f.size, d:Date.now()};
+      /* 入れる時点で縮小見本を作り、見出しに納める。実体はもう手元にあるので余分な復号は無い。
+         作れない形式は納めない（一覧では種別の札が出る）。 */
+      const k = kindOf(f.type, f.name);
+      if(k === "IMG" || k === "MOV"){
+        try {
+          const tb = await thumbBlob(buf, f.type, k);
+          if(tb) meta.tb = b64e(new Uint8Array(await tb.arrayBuffer()));
+        } catch(err){ /* 縮小見本なしで納める */ }
+      }
       records.push({
         id: crypto.randomUUID(),
         m: await seal(vaultKey, enc.encode(JSON.stringify(meta))),
@@ -906,15 +925,48 @@ $("#filePick").addEventListener("change", async e => {
    復号したものは表に出したぶんだけ持ち、閉じたら必ず捨てる。
    ========================================================================= */
 const thumbs = new Map();          // id → 縮小見本のURL
+const thumbNG = new Set();         // 作れなかったもの。開いている間は作り直さない
 let thumbQueue = [], thumbBusy = false, thumbIO = null;
+const THUMB_PX = 160, THUMB_Q = .7;
 
 function isMedia(x){ const k = kindOf(x.meta.t, x.meta.n); return k === "IMG" || k === "MOV"; }
 
+/* 縮小見本は見出しの中（meta.tb）に一緒に納める。
+   こうすると金庫を開いた時点でもう手元にあり、実体を復号せずに並べられる。
+   見出しは開くときにどのみち全部読むので、余計な読み出しは増えない。 */
+function b64e(u8){
+  let s = "";
+  for(let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function thumbUrlFromMeta(meta){
+  try { return URL.createObjectURL(new Blob([b64d(meta.tb)], {type:"image/jpeg"})); }
+  catch(e){ return null; }
+}
+
 function dropThumbs(){
   thumbs.forEach(u => URL.revokeObjectURL(u));
-  thumbs.clear(); thumbQueue = [];
+  thumbs.clear(); thumbNG.clear(); thumbQueue = [];
   if(thumbIO){ thumbIO.disconnect(); thumbIO = null; }
 }
+/* 作った縮小見本を見出しへ書き戻す。次に開いたときは復号せずに出る。
+   一点ごとに控えを取り直すと金庫まるごとを書き直すことになるので、
+   落ち着くまで待ってから一度だけ書く。 */
+let bfN = 0, bfTimer = null;
+async function backfillThumb(x, jpeg){
+  if(!vaultKey || x.meta.tb) return;
+  x.meta.tb = b64e(jpeg);
+  try { x.rec.m = await seal(vaultKey, enc.encode(JSON.stringify(x.meta))); }
+  catch(e){ delete x.meta.tb; return; }
+  bfN++; dirty = true; paintStat();
+  clearTimeout(bfTimer);
+  bfTimer = setTimeout(async () => {
+    const n = bfN; bfN = 0;
+    if(keepCache) await cachePut(pack());
+    toast(n + " 点の縮小見本を作りました。保存すると次から待たずに出ます", 3600);
+  }, 1500);
+}
+
 /* 一枚ずつ作る。まとめて復号すると重いので順番待ちにする。 */
 function queueThumb(x, el){
   thumbQueue.push([x, el]);
@@ -932,8 +984,8 @@ async function nextThumb(){
       thumbs.set(x.rec.id, url);
       paintThumb(el, x, url);
     } else if(url) URL.revokeObjectURL(url);
-    else thumbFallback(el, x);
-  } catch(e){ thumbFallback(el, x); }
+    else { thumbNG.add(x.rec.id); thumbFallback(el, x); }
+  } catch(e){ thumbNG.add(x.rec.id); thumbFallback(el, x); }
   setTimeout(nextThumb, 0);
 }
 /* 縮小見本を作れないとき（対応していない符号化など）は、空欄にせず種別を出す */
@@ -951,25 +1003,31 @@ function paintThumb(el, x, url){
     el.appendChild(p);
   }
 }
-/* 画像はそのまま、動画は先頭の一コマを写して縮小見本にする */
-async function makeThumb(x){
-  const bytes = await unseal(vaultKey, x.rec.d);
-  const type = x.meta.t || "application/octet-stream";
-  const src = URL.createObjectURL(new Blob([bytes], {type}));
+/* 画像はそのまま、動画は先頭の一コマを写して縮小見本にする。
+   一覧の枠は正方形で切り抜いて出すので、作る時点で正方形に切っておく。
+   そのぶん軽く、拡大も掛からない。 */
+async function thumbBlob(bytes, type, kind){
+  const src = URL.createObjectURL(new Blob([bytes], {type: type || "application/octet-stream"}));
   try {
-    const kind = kindOf(x.meta.t, x.meta.n);
     const bmp = kind === "IMG" ? await loadImage(src) : await grabFrame(src);
-    const S = 112;
-    const cv = document.createElement("canvas");
     const w = bmp.naturalWidth || bmp.videoWidth, h = bmp.naturalHeight || bmp.videoHeight;
     if(!w || !h) throw 0;
-    const r = Math.min(S / w, S / h) * (w < S && h < S ? 1 : 1);
-    cv.width = Math.max(1, Math.round(w * r)); cv.height = Math.max(1, Math.round(h * r));
-    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
-    if(bmp.pause) { bmp.pause(); bmp.removeAttribute("src"); bmp.load(); }
-    const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", .72));
-    return blob ? URL.createObjectURL(blob) : null;
+    const S = Math.min(THUMB_PX, Math.max(w, h));
+    const side = Math.min(w, h);                       // 短い辺で正方に切る
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = Math.max(1, Math.round(S));
+    cv.getContext("2d").drawImage(bmp, (w - side) / 2, (h - side) / 2, side, side, 0, 0, cv.width, cv.height);
+    if(bmp.pause){ bmp.pause(); bmp.removeAttribute("src"); bmp.load(); }
+    return await new Promise(res => cv.toBlob(res, "image/jpeg", THUMB_Q));
   } finally { URL.revokeObjectURL(src); }
+}
+/* 見出しに縮小見本が無い金庫（前の版で作ったもの）は、実体を復号して作る */
+async function makeThumb(x){
+  const bytes = await unseal(vaultKey, x.rec.d);
+  const blob = await thumbBlob(bytes, x.meta.t, kindOf(x.meta.t, x.meta.n));
+  if(!blob) return null;
+  backfillThumb(x, new Uint8Array(await blob.arrayBuffer()));
+  return URL.createObjectURL(blob);
 }
 function loadImage(src){
   return new Promise((res, rej) => {
