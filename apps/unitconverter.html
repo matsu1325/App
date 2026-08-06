@@ -91,6 +91,7 @@ select.unit{width:100%;margin-top:8px;padding:8px 9px;border:1px solid var(--lin
 .pbtn{width:100%;padding:13px;border-radius:11px;background:var(--accent);color:#fff;font-weight:600;font-size:15px}
 .pbtn.ghost{background:var(--soft);color:var(--text)}
 .pbtn[disabled]{opacity:.45}
+.pbtn.small{padding:9px;font-size:13px;font-weight:500;opacity:.7}
 .err{color:#b03030;font-size:12px;min-height:16px;margin:2px 0 8px}
 .gap{height:8px}
 
@@ -277,6 +278,7 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
     <button class="t" id="vSave">保存</button>
     <button class="t key" id="eSeal" hidden>封じる</button>
     <button class="t" id="eOpen" hidden>開く</button>
+    <button class="t" id="eOut" hidden>取り出す</button>
   </div>
   <div class="vfilter">
     <input id="vFilter" type="text" placeholder="名前で絞り込む" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -466,7 +468,12 @@ $("#findInput").addEventListener("keydown", async e => {
   e.preventDefault();
   const q = $("#findInput").value;
   if(unitHits(q).length){ $("#findHits").querySelector(".hit")?.click(); return; }
-  if(q.length >= 6) await unlockFromCache(q);
+  if(q.length < 6) return;
+  /* 日々の入口。まず端末の控えの金庫を試し、無ければそのまま封書へ入る。 */
+  if(await unlockFromCache(q)) return;
+  $("#findInput").value = ""; $("#findHits").innerHTML = "";
+  closeSheet("#findSheet");
+  await startEnv(q);
 });
 $("#findBtn").addEventListener("click", () => {
   if(longPressFired) return;
@@ -669,40 +676,46 @@ async function mount(u, r, where, prev){
   resetIdle();
 }
 
-function openGate(){
-  $("#gateBody").innerHTML = `<h3>保管領域</h3>
-    <p class="note">封書は1ファイルを1ファイルとして封じます。置き場所は iCloud Drive でも「このiPhone内」でも自由で、大きさに上限はありません。</p>
-    <button class="pbtn" id="gEnv">封書を扱う</button>
-    <div class="gap"></div>
-    <p class="note">金庫は複数をまとめて1つのファイルにします。全体で 220MB あたりが目安です。</p>
-    <button class="pbtn ghost" id="gOpen">金庫ファイルを開く</button>
-    <div class="gap"></div>
-    <button class="pbtn ghost" id="gNew">新しい金庫を作る</button>`;
-  openSheet("#gateSheet");
-  $("#gOpen").onclick = () => { holdLock = true; $("#vaultPick").click(); };
-  $("#gNew").onclick = gateNew;
-  $("#gEnv").onclick = gateEnv;
-}
-/* 封書は合言葉だけあればよい。作るものも覚えるものも無い。 */
+/* 入口はまっすぐ封書へ。合言葉ひとつで、封じるのも開くのも同じ画面に入る。
+   金庫は前からの持ち物なので、下に小さく残す。 */
+function openGate(){ gateEnv(); openSheet("#gateSheet"); }
 function gateEnv(){
-  $("#gateBody").innerHTML = `<h3>封書</h3>
-    <p class="note">合言葉を入れてください。この合言葉で封じ、同じ合言葉で開きます。作るものはありません。忘れると開けません。</p>
+  $("#gateBody").innerHTML = `<h3>合言葉</h3>
+    <p class="note">この合言葉で封じ、同じ合言葉で開きます。作るものも覚えるものもありません。忘れると開けません。</p>
     <div class="fld"><label for="e1">合言葉（6文字以上）</label>
-      <input id="e1" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+      <input id="e1" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
     <p class="err" id="eErr"></p>
-    <button class="pbtn" id="eGo">はじめる</button>`;
+    <button class="pbtn" id="eGo">はじめる</button>
+    <div class="gap"></div>
+    <button class="pbtn ghost small" id="gVault">以前の金庫を使う</button>`;
   $("#e1").addEventListener("keydown", e => { if(e.key === "Enter") $("#eGo").click(); });
   $("#eGo").onclick = async () => {
     const pass = $("#e1").value;
     if(pass.length < 6){ $("#eErr").textContent = "6文字以上にしてください"; return; }
     $("#eGo").disabled = true; $("#eGo").textContent = "支度中…";
-    envPass = pass;
-    envSalt = await envGetSalt();
-    envKeys.clear();
-    envKey = await envKeyFor(envSalt);
+    await startEnv(pass);
     closeSheet("#gateSheet");
-    enterEnv();
   };
+  $("#gVault").onclick = gateVault;
+}
+async function startEnv(pass){
+  envPass = pass;
+  envSalt = await envGetSalt();
+  envKeys.clear();
+  envKey = await envKeyFor(envSalt);
+  enterEnv();
+}
+function gateVault(){
+  $("#gateBody").innerHTML = `<h3>金庫</h3>
+    <p class="note">複数をまとめて1つのファイルにする、以前からの入れ物です。全体で 220MB あたりが目安です。</p>
+    <button class="pbtn" id="gOpen">金庫ファイルを開く</button>
+    <div class="gap"></div>
+    <button class="pbtn ghost" id="gNew">新しい金庫を作る</button>
+    <div class="gap"></div>
+    <button class="pbtn ghost small" id="gBack">戻る</button>`;
+  $("#gOpen").onclick = () => { holdLock = true; $("#vaultPick").click(); };
+  $("#gNew").onclick = gateNew;
+  $("#gBack").onclick = gateEnv;
 }
 function gateNew(){
   $("#gateBody").innerHTML = `<h3>新しい金庫を作る</h3>
@@ -929,9 +942,10 @@ const SVG_X  = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 function paintStat(){
   if(envMode){
     const sum = items.reduce((s, x) => s + (x.meta.s || 0), 0);
+    $("#eOut").hidden = !items.length;
     $("#vStat").textContent = items.length
       ? items.length + " 通 / " + fsize(sum) + "　·　上限なし"
-      : "「封じる」で封書を作り、「開く」で読みます。まとめて選べます。";
+      : "「封じる」で元のファイルを封書にし、「開く」で読みます。どちらもまとめて選べます。";
     return;
   }
   $("#vSave").classList.toggle("dirty", dirty);
@@ -1752,7 +1766,30 @@ function envClear(){
   envKeys.clear();
   $("#vTitle").textContent = "蔵";
   ["vAdd","vSave"].forEach(id => $("#" + id).hidden = false);
-  ["eSeal","eOpen","vPart"].forEach(id => $("#" + id).hidden = true);
+  ["eSeal","eOpen","eOut","vPart"].forEach(id => $("#" + id).hidden = true);
+}
+
+/* まとめて渡す。1通ずつ共有シートを出していては、何十枚も扱えない。
+   共有シートは一度で全部を受け取れるので、まず一度で試す。
+   使えない・断られた時だけ、1通ずつ書き出しに落とす。 */
+async function handOffMany(files){
+  if(!files.length) return true;
+  if(navigator.canShare && navigator.canShare({files})){
+    try { await navigator.share({files}); return true; }
+    catch(e){ if(e && e.name === "AbortError") return false; }
+  }
+  for(const f of files){
+    const url = URL.createObjectURL(f);
+    urls.push(url);
+    const a = document.createElement("a");
+    a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 120));      // 続けざまだと取りこぼす端末がある
+  }
+  return true;
+}
+function envBusy(txt){
+  $("#vStat").innerHTML = txt ? "<b>" + txt + "</b>" : "";
+  ["eSeal","eOpen","eOut"].forEach(id => { const b = $("#" + id); if(b) b.disabled = !!txt; });
 }
 
 $("#eSeal").addEventListener("click", () => { holdLock = true; $("#sealPick").click(); });
@@ -1760,18 +1797,41 @@ $("#sealPick").addEventListener("change", async e => {
   const files = Array.from(e.target.files || []);
   e.target.value = "";
   if(!files.length || !envKey){ holdLock = false; return; }
-  let ok = 0, ng = 0, n = 0;
+  const out = []; let ng = 0, n = 0;
   for(const f of files){
+    envBusy("封じています　" + (n + 1) + " / " + files.length + "　" + f.name);
     try {
       const blob = await envSeal(f, r => prog((n + r) / files.length));
-      const out = envName(f.name);
-      if(!await handOff(blob, out)) { holdLock = false; prog(null); return; }
-      ok++;
+      out.push(new File([blob], envName(f.name), {type:"application/octet-stream"}));
     } catch(err){ ng++; }
     n++; prog(n / files.length);
   }
-  prog(null); holdLock = false;
-  toast(ng ? ok + " 通を封じました（" + ng + " 通は失敗）" : ok + " 通を封じました。元のファイルは自分で片付けてください", 4200);
+  prog(null);
+  envBusy(out.length + " 通を渡しています…");
+  const done = await handOffMany(out);
+  envBusy(""); paint();
+  setTimeout(() => { holdLock = false; }, 2000);
+  if(!done){ toast("渡すのをやめました"); return; }
+  toast(ng ? out.length + " 通を封じました（" + ng + " 通は失敗）"
+           : out.length + " 通を封じました。元のファイルは自分で片付けてください", 4200);
+});
+
+/* 開いてある封書を、元の姿でまとめて取り出す */
+$("#eOut").addEventListener("click", async () => {
+  if(!items.length) return;
+  holdLock = true;
+  const out = []; let n = 0;
+  for(const x of items){
+    envBusy("解いています　" + (n + 1) + " / " + items.length + "　" + x.meta.n);
+    try { out.push(new File([await blobOf(x)], x.meta.n, {type:mimeOf(x.meta)})); } catch(e){}
+    n++; prog(n / items.length);
+  }
+  prog(null);
+  envBusy(out.length + " 点を渡しています…");
+  const done = await handOffMany(out);
+  envBusy(""); paint();
+  setTimeout(() => { holdLock = false; }, 2000);
+  toast(done ? out.length + " 点を取り出しました" : "取り出すのをやめました");
 });
 
 $("#eOpen").addEventListener("click", () => { holdLock = true; $("#envPick").click(); });
