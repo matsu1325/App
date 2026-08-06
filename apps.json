@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-03T04:19:56.835Z",
-  "count": 10,
-  "totalBytes": 2131052,
+  "generated": "2026-08-06T04:20:46.410Z",
+  "count": 11,
+  "totalBytes": 2186251,
   "categories": [
     "未分類"
   ],
@@ -125,7 +125,19 @@
       "tags": [],
       "updated": "2026-08-02T20:58:09+09:00",
       "bytes": 70360
+    },
+    {
+      "no": "012",
+      "file": "apps/unitconverter.html",
+      "name": "単位換算",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-08-06T04:20:45.802Z",
+      "bytes": 55199
     }
   ],
-  "nextNo": 12
+  "nextNo": 13
 }
