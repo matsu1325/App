@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f3f5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>単位換算</title>
+<style>
+/* ============================================================
+   表層：単位換算器
+   ============================================================ */
+:root{
+  --bg:#f2f3f5; --card:#ffffff; --line:#dcdee3; --text:#1c1f24;
+  --sub:#697180; --accent:#3a6ea5; --soft:#eef0f3;
+  --safeT:env(safe-area-inset-top,0px); --safeB:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  font-size:16px; line-height:1.5; overscroll-behavior-y:none;
+}
+button,input,select{font:inherit;color:inherit}
+button{border:0;background:none;cursor:pointer;padding:0}
+
+.app{max-width:640px;margin:0 auto;padding:calc(var(--safeT) + 8px) 14px calc(var(--safeB) + 28px)}
+.bar{display:flex;align-items:center;gap:10px;height:44px;margin-bottom:10px}
+.bar h1{font-size:17px;font-weight:600;letter-spacing:.02em;margin:0;flex:1}
+.iconbtn{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--sub)}
+.iconbtn:active{background:var(--soft)}
+.iconbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+.cats{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{flex:0 0 auto;padding:7px 13px;border-radius:16px;background:var(--card);border:1px solid var(--line);
+  font-size:14px;color:var(--sub);white-space:nowrap}
+.cat[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.row{display:flex;align-items:center;gap:10px}
+.field{flex:1;min-width:0}
+.field label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;letter-spacing:.04em}
+.val{width:100%;border:0;border-bottom:1.5px solid var(--line);background:none;padding:6px 2px;
+  font-size:26px;font-weight:500;font-variant-numeric:tabular-nums;outline:none}
+.val:focus{border-bottom-color:var(--accent)}
+.out{width:100%;padding:6px 2px;font-size:26px;font-weight:500;font-variant-numeric:tabular-nums;
+  border-bottom:1.5px solid var(--line);min-height:44px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.out::-webkit-scrollbar{display:none}
+select.unit{width:100%;margin-top:8px;padding:8px 9px;border:1px solid var(--line);border-radius:9px;
+  background:var(--soft);font-size:14px;appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4.5L6 8.5L10 4.5' fill='none' stroke='%23697180' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right 9px center}
+.swapwrap{display:flex;justify-content:center;padding:12px 0 4px}
+#swap{width:40px;height:40px;border-radius:50%;background:var(--soft);display:grid;place-items:center;color:var(--accent)}
+#swap:active{background:#e2e6ec}
+#swap svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+.tbl{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.tbl h2{margin:0;padding:11px 14px;font-size:12px;font-weight:600;color:var(--sub);letter-spacing:.06em;
+  border-bottom:1px solid var(--line);background:var(--soft)}
+.tr{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.tr:last-child{border-bottom:0}
+.tr .u{color:var(--sub);flex:0 0 auto}
+.tr .v{font-variant-numeric:tabular-nums;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.foot{margin-top:18px;text-align:center;font-size:11px;color:#9aa1ac}
+
+.sheet{position:fixed;inset:0;z-index:40;display:none}
+.sheet.on{display:block}
+.sheet .scrim{position:absolute;inset:0;background:rgba(20,24,30,.32)}
+.sheet .panel{position:absolute;left:0;right:0;bottom:0;background:var(--card);
+  border-radius:16px 16px 0 0;padding:16px 16px calc(var(--safeB) + 16px);
+  max-height:88%;overflow:auto;animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(14px);opacity:.6}to{transform:none;opacity:1}}
+.sheet h3{margin:0 0 12px;font-size:15px;font-weight:600}
+.search{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);outline:none;font-size:16px}
+.search:focus{border-color:var(--accent);background:#fff}
+.hits{margin-top:10px;max-height:46vh;overflow:auto}
+.hit{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:11px 4px;border-bottom:1px solid var(--line);font-size:15px}
+.hit small{color:var(--sub);font-size:12px}
+.none{padding:16px 4px;color:var(--sub);font-size:14px}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px}
+.fld input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);outline:none;font-size:16px}
+.note{font-size:12px;color:var(--sub);line-height:1.65;margin:0 0 14px}
+.pbtn{width:100%;padding:13px;border-radius:11px;background:var(--accent);color:#fff;font-weight:600;font-size:15px}
+.pbtn.ghost{background:var(--soft);color:var(--text)}
+.pbtn[disabled]{opacity:.45}
+.err{color:#b03030;font-size:12px;min-height:16px;margin:2px 0 8px}
+.gap{height:8px}
+
+/* ============================================================
+   深層：書庫
+   ============================================================ */
+#vault{position:fixed;inset:0;z-index:60;display:none;
+  --vb:#0a0c11; --vp:#141924; --vln:#262d3c; --vtx:#e7e1d4; --vsb:#8b8577; --gold:#c9a24a;
+  background:var(--vb);color:var(--vtx);flex-direction:column;
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif}
+#vault.on{display:flex}
+body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
+.vhead{display:flex;align-items:center;gap:10px;padding:calc(var(--safeT) + 12px) 16px 12px;
+  border-bottom:1px solid var(--vln);background:linear-gradient(180deg,#10141d,#0a0c11)}
+.vtitle{flex:1;margin:0;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:19px;font-weight:400;
+  letter-spacing:.5em;text-indent:.5em;color:var(--gold);white-space:nowrap}
+.vhead .where{flex:2;min-width:0;font-size:10px;color:#5d6472;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.vhead button{color:var(--vsb);font-size:13px;padding:8px 8px;border-radius:8px;letter-spacing:.06em;flex:0 0 auto}
+.vhead button:active{background:#1c2230}
+.vtools{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--vln)}
+.vtools .t{flex:1;padding:10px;border-radius:9px;background:var(--vp);border:1px solid var(--vln);
+  color:var(--vtx);font-size:13px;letter-spacing:.04em;position:relative}
+.vtools .t:active{background:#1b2130}
+.vtools .t.key{color:#0d1017;background:var(--gold);border-color:var(--gold);font-weight:600}
+.vtools .t.dirty::after{content:"";position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--gold)}
+.vtools .t.dirty{border-color:var(--gold);color:var(--gold)}
+.vfilter{display:flex;gap:8px;align-items:center;padding:10px 16px 0}
+.vfilter input{flex:1;padding:9px 11px;border-radius:9px;border:1px solid var(--vln);
+  background:var(--vp);color:var(--vtx);outline:none;font-size:15px;min-width:0}
+.vfilter input::placeholder{color:#5d6472}
+.vfilter button{flex:0 0 auto;color:var(--vsb);font-size:12px;padding:9px 6px}
+.vlist{flex:1;overflow:auto;padding:10px 16px calc(var(--safeB) + 24px);-webkit-overflow-scrolling:touch}
+.item{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;margin-bottom:8px;
+  background:var(--vp);border:1px solid var(--vln);border-radius:10px;position:relative;overflow:hidden}
+.item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--gold);opacity:.55}
+.item .ic{width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:#0e131c;display:grid;place-items:center;
+  font-size:10px;letter-spacing:.04em;color:var(--vsb);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.item .nm{flex:1;min-width:0}
+.item .nm b{display:block;font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .nm span{display:block;font-size:11px;color:var(--vsb);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.item .act{display:flex;gap:2px;flex:0 0 auto}
+.item .act button{width:34px;height:34px;border-radius:8px;color:var(--vsb);display:grid;place-items:center}
+.item .act button:active{background:#212838;color:var(--vtx)}
+.item .act svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.vempty{text-align:center;padding:56px 24px;color:var(--vsb);font-size:14px;line-height:2}
+.vempty .k{font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:26px;color:#2f3646;letter-spacing:.4em;display:block;margin-bottom:14px}
+.vstat{padding:6px 16px calc(var(--safeB) + 10px);font-size:11px;color:#5d6472;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;border-top:1px solid var(--vln);text-align:center}
+.vstat b{color:var(--gold);font-weight:400}
+
+.vsheet{position:fixed;inset:0;z-index:70;display:none}
+.vsheet.on{display:block}
+.vsheet .scrim{position:absolute;inset:0;background:rgba(3,5,9,.72)}
+.vsheet .panel{position:absolute;left:0;right:0;bottom:0;background:#141924;border-top:1px solid var(--gold);
+  border-radius:14px 14px 0 0;padding:16px 16px calc(var(--safeB) + 16px);max-height:90%;overflow:auto;color:#e7e1d4}
+.vsheet h3{margin:0 0 12px;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;font-size:16px;font-weight:400;letter-spacing:.18em;color:#c9a24a}
+.vsheet .fld input{background:#0e131c;border-color:#262d3c;color:#e7e1d4}
+.vsheet .fld label{color:#8b8577}
+.vsheet .note{color:#8b8577}
+.vsheet .pbtn{background:#c9a24a;color:#0d1017}
+.vsheet .pbtn.ghost{background:#1b2130;color:#e7e1d4}
+.menu button{display:block;width:100%;text-align:left;padding:14px 6px;border-bottom:1px solid #262d3c;font-size:15px}
+.menu button:last-child{border-bottom:0}
+.menu button.danger{color:#d4756b}
+.menu button small{display:block;color:#8b8577;font-size:11px;margin-top:3px}
+.pv{margin:0 0 12px;background:#0a0c11;border:1px solid #262d3c;border-radius:10px;overflow:hidden;
+  max-height:56vh;display:grid;place-items:center}
+.pv img,.pv video{max-width:100%;max-height:56vh;display:block}
+.pv pre{margin:0;padding:14px;max-height:56vh;overflow:auto;font-size:12px;line-height:1.7;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-all;color:#c8c3b6}
+.pv .nopv{padding:40px 20px;color:#8b8577;font-size:13px;text-align:center}
+.prog{height:3px;background:#262d3c;border-radius:2px;overflow:hidden;margin:10px 0 4px;display:none}
+.prog.on{display:block}
+.prog i{display:block;height:100%;width:0;background:var(--gold);transition:width .15s}
+.tog{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 6px;border-bottom:1px solid #262d3c;width:100%;text-align:left;font-size:15px}
+.tog small{display:block;color:#8b8577;font-size:11px;margin-top:3px}
+.tog .sw{flex:0 0 auto;width:46px;height:27px;border-radius:14px;background:#262d3c;position:relative;transition:background .15s}
+.tog .sw::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#5d6472;transition:transform .15s,background .15s}
+.tog[aria-checked="true"] .sw{background:#4a3c1c}
+.tog[aria-checked="true"] .sw::after{transform:translateX(19px);background:#c9a24a}
+
+#toast{position:fixed;left:50%;bottom:calc(var(--safeB) + 30px);transform:translateX(-50%) translateY(10px);
+  background:rgba(16,20,28,.94);color:#f0ece2;padding:10px 18px;border-radius:20px;font-size:13px;
+  z-index:90;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;max-width:84%;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#vault :focus-visible{outline-color:#c9a24a}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="bar">
+    <h1>単位換算</h1>
+    <button class="iconbtn" id="findBtn" aria-label="単位を検索">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+    </button>
+  </div>
+  <div class="cats" id="cats" role="tablist"></div>
+  <div class="card">
+    <div class="row"><div class="field">
+      <label for="inVal">入力</label>
+      <input class="val" id="inVal" type="text" inputmode="decimal" autocomplete="off" value="1">
+      <select class="unit" id="uFrom"></select>
+    </div></div>
+    <div class="swapwrap"><button id="swap" aria-label="単位を入れ替える">
+      <svg viewBox="0 0 24 24"><path d="M7 4v13M7 17l-3-3M7 17l3-3M17 20V7M17 7l-3 3M17 7l3 3"/></svg>
+    </button></div>
+    <div class="row"><div class="field">
+      <label>結果</label>
+      <div class="out" id="outVal">1</div>
+      <select class="unit" id="uTo"></select>
+    </div></div>
+  </div>
+  <div class="tbl"><h2>すべての単位</h2><div id="tblBody"></div></div>
+  <p class="foot">端末内で計算しています</p>
+</div>
+
+<div class="sheet" id="findSheet">
+  <div class="scrim" data-close></div>
+  <div class="panel">
+    <h3>単位を検索</h3>
+    <input class="search" id="findInput" type="text" placeholder="例：インチ、坪、kWh"
+      autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+    <div class="hits" id="findHits"></div>
+  </div>
+</div>
+
+<div class="sheet" id="gateSheet">
+  <div class="scrim" data-close></div>
+  <div class="panel" id="gateBody"></div>
+</div>
+
+<div id="vault" aria-hidden="true">
+  <div class="vhead">
+    <h2 class="vtitle">蔵</h2>
+    <span class="where" id="vWhere"></span>
+    <button id="vMenu">···</button>
+    <button id="vClose">閉じる</button>
+  </div>
+  <div class="vtools">
+    <button class="t key" id="vAdd">入れる</button>
+    <button class="t" id="vSave">保存</button>
+  </div>
+  <div class="vfilter">
+    <input id="vFilter" type="text" placeholder="名前で絞り込む" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button id="vSortBtn">新しい順</button>
+  </div>
+  <div class="prog" id="vProg"><i></i></div>
+  <div class="vlist" id="vList"></div>
+  <div class="vstat" id="vStat"></div>
+</div>
+
+<div class="vsheet" id="vSheet">
+  <div class="scrim" data-vclose></div>
+  <div class="panel" id="vSheetBody"></div>
+</div>
+
+<input type="file" id="filePick" multiple style="position:fixed;left:-9999px;top:0;opacity:0">
+<input type="file" id="vaultPick" style="position:fixed;left:-9999px;top:0;opacity:0">
+<input type="file" id="mergePick" style="position:fixed;left:-9999px;top:0;opacity:0">
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   表層：単位換算
+   ========================================================================= */
+const CATS = [
+ {id:"length", name:"長さ", units:[
+   ["mm",0.001,"ミリ ミリメートル"],["cm",0.01,"センチ センチメートル"],["m",1,"メートル"],["km",1000,"キロ キロメートル"],
+   ["in",0.0254,"インチ"],["ft",0.3048,"フィート"],["yd",0.9144,"ヤード"],["mile",1609.344,"マイル"],
+   ["海里",1852,"かいり ノーティカルマイル"],["寸",0.0303,"すん"],["尺",0.30303,"しゃく"],["間",1.81818,"けん"]]},
+ {id:"mass", name:"質量", units:[
+   ["mg",1e-6,"ミリグラム"],["g",0.001,"グラム"],["kg",1,"キログラム キロ"],["t",1000,"トン"],
+   ["oz",0.0283495,"オンス"],["lb",0.453592,"ポンド"],["匁",0.00375,"もんめ"],["貫",3.75,"かん"],["ct",0.0002,"カラット"]]},
+ {id:"area", name:"面積", units:[
+   ["cm²",0.0001,"平方センチ"],["m²",1,"平方メートル"],["km²",1e6,"平方キロ"],["a",100,"アール"],["ha",10000,"ヘクタール"],
+   ["坪",3.305785,"つぼ"],["畳",1.62,"じょう たたみ"],["ft²",0.092903,"平方フィート"],["acre",4046.856,"エーカー"]]},
+ {id:"volume", name:"体積", units:[
+   ["mL",0.001,"ミリリットル cc"],["L",1,"リットル"],["m³",1000,"立方メートル"],["cm³",0.001,"立方センチ"],
+   ["合",0.1803907,"ごう"],["升",1.803907,"しょう"],["斗",18.03907,"と"],
+   ["カップ(200)",0.2,"日本 カップ"],["カップ(240)",0.24,"米 カップ"],
+   ["gal(US)",3.785412,"ガロン"],["pt(US)",0.473176,"パイント"],["fl oz(US)",0.0295735,"液量オンス"]]},
+ {id:"temp", name:"温度", special:"temp", units:[["℃",1,"摂氏 セルシウス"],["℉",1,"華氏 ファーレンハイト"],["K",1,"ケルビン 絶対温度"]]},
+ {id:"speed", name:"速度", units:[
+   ["m/s",1,"メートル毎秒"],["km/h",0.277778,"キロ毎時 時速"],["mph",0.44704,"マイル毎時"],
+   ["knot",0.514444,"ノット"],["ft/s",0.3048,"フィート毎秒"],["マッハ",340.29,"mach 音速"]]},
+ {id:"time", name:"時間", units:[
+   ["ms",0.001,"ミリ秒"],["秒",1,"s 秒"],["分",60,"min 分"],["時間",3600,"h 時"],["日",86400,"day 日"],["週",604800,"week 週間"],["年",31536000,"year 年"]]},
+ {id:"data", name:"データ量", units:[
+   ["B",1,"バイト"],["KB",1e3,"キロバイト"],["MB",1e6,"メガバイト"],["GB",1e9,"ギガバイト"],["TB",1e12,"テラバイト"],
+   ["KiB",1024,"キビバイト"],["MiB",1048576,"メビバイト"],["GiB",1073741824,"ギビバイト"]]},
+ {id:"pressure", name:"圧力", units:[
+   ["Pa",1,"パスカル"],["hPa",100,"ヘクトパスカル"],["kPa",1000,"キロパスカル"],["MPa",1e6,"メガパスカル"],
+   ["bar",1e5,"バール"],["atm",101325,"気圧"],["mmHg",133.322,"水銀柱"],["psi",6894.757,"ピーエスアイ"]]},
+ {id:"energy", name:"エネルギー", units:[
+   ["J",1,"ジュール"],["kJ",1000,"キロジュール"],["cal",4.184,"カロリー"],["kcal",4184,"キロカロリー"],
+   ["Wh",3600,"ワット時"],["kWh",3.6e6,"キロワット時"],["BTU",1055.06,"ビーティーユー"]]},
+ {id:"angle", name:"角度", units:[
+   ["°",1,"度 ど"],["rad",57.29578,"ラジアン"],["grad",0.9,"グラード"],["′",1/60,"分 角分"],["″",1/3600,"秒 角秒"]]}
+];
+
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+let cat = CATS[0], iFrom = 0, iTo = 2;
+
+function toBase(ui, v){
+  if(cat.special === "temp"){
+    const u = cat.units[ui][0];
+    if(u === "℃") return v + 273.15;
+    if(u === "℉") return (v - 32) * 5/9 + 273.15;
+    return v;
+  }
+  return v * cat.units[ui][1];
+}
+function fromBase(ui, b){
+  if(cat.special === "temp"){
+    const u = cat.units[ui][0];
+    if(u === "℃") return b - 273.15;
+    if(u === "℉") return (b - 273.15) * 9/5 + 32;
+    return b;
+  }
+  return b / cat.units[ui][1];
+}
+function fmt(x){
+  if(x === null || x === undefined || !isFinite(x)) return "—";
+  const n = Number(x.toPrecision(10));
+  let s = String(n);
+  if(/e/i.test(s)) return s.replace("e+", "×10^").replace("e-", "×10^-");
+  const neg = s.startsWith("-"); if(neg) s = s.slice(1);
+  const p = s.split(".");
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return (neg ? "-" : "") + p[0] + (p[1] ? "." + p[1] : "");
+}
+function parseVal(t){
+  let s = String(t).replace(/[,，\s]/g, "");
+  s = s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+       .replace(/．/g, ".").replace(/[－ー−–—]/g, "-");
+  if(!s || !/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+  return parseFloat(s);
+}
+function buildCats(){
+  const box = $("#cats"); box.innerHTML = "";
+  CATS.forEach(c => {
+    const b = document.createElement("button");
+    b.className = "cat"; b.textContent = c.name; b.setAttribute("role", "tab");
+    b.setAttribute("aria-selected", c.id === cat.id ? "true" : "false");
+    b.onclick = () => { cat = c; iFrom = 0; iTo = Math.min(2, c.units.length - 1); buildCats(); buildUnits(); calc(); };
+    box.appendChild(b);
+  });
+}
+function buildUnits(){
+  [["#uFrom", iFrom], ["#uTo", iTo]].forEach(([sel, idx]) => {
+    const el = $(sel); el.innerHTML = "";
+    cat.units.forEach((u, i) => {
+      const o = document.createElement("option");
+      o.value = i; o.textContent = u[0]; el.appendChild(o);
+    });
+    el.value = idx;
+  });
+}
+function calc(){
+  const v = parseVal($("#inVal").value);
+  if(v === null){ $("#outVal").textContent = "—"; $("#tblBody").innerHTML = ""; return; }
+  const b = toBase(iFrom, v);
+  $("#outVal").textContent = fmt(fromBase(iTo, b));
+  $("#tblBody").innerHTML = cat.units.map((u, i) =>
+    `<div class="tr"><span class="u">${u[0]}</span><span class="v">${fmt(fromBase(i, b))}</span></div>`).join("");
+}
+$("#inVal").addEventListener("input", calc);
+$("#uFrom").addEventListener("change", e => { iFrom = +e.target.value; calc(); });
+$("#uTo").addEventListener("change", e => { iTo = +e.target.value; calc(); });
+$("#swap").addEventListener("click", () => {
+  const t = iFrom; iFrom = iTo; iTo = t;
+  const back = parseVal($("#outVal").textContent);
+  if(back !== null) $("#inVal").value = String(back);
+  buildUnits(); calc();
+});
+buildCats(); buildUnits(); calc();
+
+function unitHits(q){
+  const s = q.trim().toLowerCase();
+  if(!s) return [];
+  const out = [];
+  CATS.forEach(c => c.units.forEach((u, i) => {
+    if((u[0] + " " + (u[2] || "") + " " + c.name).toLowerCase().includes(s)) out.push({c, i, u});
+  }));
+  return out.slice(0, 40);
+}
+function renderHits(){
+  const q = $("#findInput").value, hits = unitHits(q), box = $("#findHits");
+  if(!q.trim()){ box.innerHTML = ""; return; }
+  if(!hits.length){ box.innerHTML = '<div class="none">該当する単位はありません</div>'; return; }
+  box.innerHTML = "";
+  hits.forEach(h => {
+    const b = document.createElement("button");
+    b.className = "hit";
+    b.innerHTML = `<span>${h.u[0]}</span><small>${h.c.name}</small>`;
+    b.onclick = () => {
+      cat = h.c; iFrom = h.i; iTo = h.i === 0 ? Math.min(1, h.c.units.length - 1) : 0;
+      buildCats(); buildUnits(); calc(); closeSheet("#findSheet");
+    };
+    box.appendChild(b);
+  });
+}
+function openSheet(sel){ $(sel).classList.add("on"); }
+function closeSheet(sel){ $(sel).classList.remove("on"); }
+$$("[data-close]").forEach(el => el.addEventListener("click", () => closeSheet("#" + el.closest(".sheet").id)));
+$("#findInput").addEventListener("input", renderHits);
+$("#findInput").addEventListener("keydown", async e => {
+  if(e.key !== "Enter") return;
+  e.preventDefault();
+  const q = $("#findInput").value;
+  if(unitHits(q).length){ $("#findHits").querySelector(".hit")?.click(); return; }
+  if(q.length >= 6) await unlockFromCache(q);
+});
+$("#findBtn").addEventListener("click", () => {
+  if(longPressFired){ longPressFired = false; return; }
+  $("#findInput").value = ""; $("#findHits").innerHTML = "";
+  openSheet("#findSheet"); setTimeout(() => $("#findInput").focus(), 60);
+});
+let lpTimer = null, longPressFired = false;
+const fb = $("#findBtn");
+fb.addEventListener("pointerdown", () => {
+  clearTimeout(lpTimer);
+  lpTimer = setTimeout(() => {
+    longPressFired = true;
+    if(navigator.vibrate) navigator.vibrate(12);
+    openGate();
+  }, 900);
+});
+["pointerup","pointerleave","pointercancel","pointermove"].forEach(ev =>
+  fb.addEventListener(ev, () => clearTimeout(lpTimer)));
+
+function toast(msg, ms){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), ms || 2400);
+}
+
+/* =========================================================================
+   金庫ファイル
+   実体はファイル1つ。iCloud Drive でも「このiPhone内」でも置ける。
+   端末側の控え（IndexedDB）は任意の高速キャッシュにすぎない。
+
+   [0..16)    salt
+   [16..368)  検証枠 8 × 44B（実体以外は乱数。区画数は外から数えられない）
+   [368..]    記録の並び：u32 総長 / u32 meta長 / meta(iv+ct) / data(iv+ct)
+   ========================================================================= */
+const HDR = 368, SLOTS = 8, SLOT_LEN = 44;
+const KDF_ITER = 210000, MAGIC = [0x55,0x43,0x56,0x31];
+const MAX_FILE = 40 * 1024 * 1024, WARN_TOTAL = 220 * 1024 * 1024;
+const DB_NAME = "uc_local", ST = "m";
+
+let vaultKey = null, salt = null, slots = null, records = [], items = [];
+let mySlot = -1, usedMask = 0, keepCache = true, dirty = false;
+let fileName = "units.dat", urls = [], sortDesc = true;
+let idleTimer = null, holdLock = false;
+
+const rand = n => crypto.getRandomValues(new Uint8Array(n));
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+function req(r){ return new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function openDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains(ST)) d.createObjectStore(ST, {keyPath:"k"}); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function cacheGet(){ try { const d = await openDB(); return await req(d.transaction(ST).objectStore(ST).get("blob")); } catch(e){ return null; } }
+async function cachePut(bytes){ try { const d = await openDB(); await req(d.transaction(ST, "readwrite").objectStore(ST).put({k:"blob", b:bytes, n:fileName})); } catch(e){} }
+async function cacheDel(){ try { const d = await openDB(); await req(d.transaction(ST, "readwrite").objectStore(ST).delete("blob")); } catch(e){} }
+
+async function derive(pass, s){
+  const base = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt:s, iterations:KDF_ITER, hash:"SHA-256"},
+    base, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function seal(key, bytes){
+  const iv = rand(12);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, bytes));
+  const out = new Uint8Array(12 + ct.length);
+  out.set(iv, 0); out.set(ct, 12);
+  return out;
+}
+function unseal(key, blob){
+  return crypto.subtle.decrypt({name:"AES-GCM", iv:blob.subarray(0, 12)}, key, blob.subarray(12))
+    .then(b => new Uint8Array(b));
+}
+function makeToken(slotIdx, mask, flags){
+  const p = rand(16);
+  p.set(MAGIC, 0); p[4] = mask & 0xff; p[5] = slotIdx & 0xff; p[6] = flags & 0xff;
+  return p;
+}
+function readToken(p){
+  for(let i = 0; i < 4; i++) if(p[i] !== MAGIC[i]) return null;
+  return {mask:p[4], slot:p[5], flags:p[6]};
+}
+
+function pack(){
+  let total = HDR;
+  for(const r of records) total += 8 + r.m.length + r.d.length;
+  const out = new Uint8Array(total);
+  out.set(salt, 0);
+  for(let i = 0; i < SLOTS; i++) out.set(slots[i], 16 + i * SLOT_LEN);
+  const dv = new DataView(out.buffer);
+  let o = HDR;
+  for(const r of records){
+    const len = 8 + r.m.length + r.d.length;
+    dv.setUint32(o, len); dv.setUint32(o + 4, r.m.length);
+    out.set(r.m, o + 8); out.set(r.d, o + 8 + r.m.length);
+    o += len;
+  }
+  return out;
+}
+function unpack(u8){
+  if(u8.length < HDR) throw new Error("形式が違います");
+  const s = u8.slice(0, 16), sl = [];
+  for(let i = 0; i < SLOTS; i++) sl.push(u8.slice(16 + i * SLOT_LEN, 16 + (i + 1) * SLOT_LEN));
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const recs = [];
+  let o = HDR;
+  while(o + 8 <= u8.length){
+    const len = dv.getUint32(o), mLen = dv.getUint32(o + 4);
+    if(len < 8 + mLen + 28 || o + len > u8.length) throw new Error("形式が違います");
+    recs.push({id:crypto.randomUUID(), m:u8.slice(o + 8, o + 8 + mLen), d:u8.slice(o + 8 + mLen, o + len)});
+    o += len;
+  }
+  return {salt:s, slots:sl, recs};
+}
+
+async function tryKeys(pass, s, sl){
+  const key = await derive(pass, s);
+  for(let i = 0; i < sl.length; i++){
+    try {
+      const t = readToken(await unseal(key, sl[i]));
+      if(t) return {key, i, t};
+    } catch(e){ /* 不一致 */ }
+  }
+  return null;
+}
+
+/* --- 開く --- */
+async function unlockFromCache(pass){
+  const c = await cacheGet();
+  if(!c || !c.b) return false;
+  let u;
+  try { u = unpack(new Uint8Array(c.b)); } catch(e){ return false; }
+  const r = await tryKeys(pass, u.salt, u.slots);
+  if(!r) return false;
+  fileName = c.n || fileName;
+  await mount(u, r, "端末の控え");
+  $("#findInput").value = ""; $("#findHits").innerHTML = "";
+  closeSheet("#findSheet");
+  return true;
+}
+async function mount(u, r, where){
+  salt = u.salt; slots = u.slots; records = u.recs;
+  vaultKey = r.key; mySlot = r.i; usedMask = r.t.mask | (1 << r.i);
+  keepCache = !!(r.t.flags & 1);
+  dirty = false;
+  document.activeElement && document.activeElement.blur();
+  $("#vault").classList.add("on"); $("#vault").setAttribute("aria-hidden", "false");
+  $("#vWhere").textContent = fileName + " · " + where;
+  $("#vFilter").value = "";
+  await refresh();
+  resetIdle();
+}
+
+function openGate(){
+  $("#gateBody").innerHTML = `<h3>保管領域</h3>
+    <p class="note">中身は暗号化された1つのファイルにまとまっています。iCloud Drive でも「このiPhone内」でも、置き場所は自由です。</p>
+    <button class="pbtn" id="gOpen">金庫ファイルを開く</button>
+    <div class="gap"></div>
+    <button class="pbtn ghost" id="gNew">新しい金庫を作る</button>`;
+  openSheet("#gateSheet");
+  $("#gOpen").onclick = () => { holdLock = true; $("#vaultPick").click(); };
+  $("#gNew").onclick = gateNew;
+}
+function gateNew(){
+  $("#gateBody").innerHTML = `<h3>新しい金庫を作る</h3>
+    <p class="note">合言葉は復元できません。忘れると中身は永久に取り出せません。<br>作成後、必ず「保存」でファイルを書き出してください。</p>
+    <div class="fld"><label for="n1">合言葉（6文字以上・数字だけは不可）</label>
+      <input id="n1" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <div class="fld"><label for="n2">もう一度</label>
+      <input id="n2" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <p class="err" id="nErr"></p>
+    <button class="pbtn" id="nGo">作成する</button>`;
+  $("#nGo").onclick = async () => {
+    const a = $("#n1").value, b = $("#n2").value, err = $("#nErr");
+    if(a.length < 6){ err.textContent = "6文字以上にしてください"; return; }
+    if(/^\d+$/.test(a)){ err.textContent = "数字以外の文字を含めてください"; return; }
+    if(a !== b){ err.textContent = "2つの入力が一致しません"; return; }
+    $("#nGo").disabled = true; $("#nGo").textContent = "作成中…";
+    try {
+      const s = rand(16), key = await derive(a, s);
+      const idx = rand(1)[0] % SLOTS, sl = [];
+      for(let i = 0; i < SLOTS; i++) sl.push(rand(SLOT_LEN));
+      sl[idx] = await seal(key, makeToken(idx, 1 << idx, 1));
+      fileName = "units.dat";
+      closeSheet("#gateSheet");
+      await mount({salt:s, slots:sl, recs:[]}, {key, i:idx, t:{mask:1 << idx, slot:idx, flags:1}}, "未保存");
+      dirty = true; paint();
+      toast("作成しました。「保存」でファイルに書き出します", 3600);
+    } catch(e){ $("#nErr").textContent = "作成に失敗しました"; }
+    if($("#nGo")){ $("#nGo").disabled = false; $("#nGo").textContent = "作成する"; }
+  };
+}
+$("#vaultPick").addEventListener("change", async e => {
+  const f = (e.target.files || [])[0];
+  e.target.value = ""; holdLock = false;
+  if(!f) return;
+  let bytes;
+  try { bytes = new Uint8Array(await f.arrayBuffer()); } catch(err){ toast("読み込めませんでした"); return; }
+  let u;
+  try { u = unpack(bytes); } catch(err){ toast("この形式には対応していません"); return; }
+  $("#gateBody").innerHTML = `<h3>金庫を開く</h3>
+    <p class="note" id="oName"></p>
+    <div class="fld"><label for="op">合言葉</label>
+      <input id="op" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <p class="err" id="oErr"></p>
+    <button class="pbtn" id="oGo">開く</button>`;
+  openSheet("#gateSheet");
+  $("#oName").textContent = f.name + " · " + fsize(f.size);
+  setTimeout(() => $("#op").focus(), 60);
+  $("#oGo").onclick = async () => {
+    $("#oGo").disabled = true; $("#oGo").textContent = "確認中…";
+    const r = await tryKeys($("#op").value, u.salt, u.slots);
+    if(!r){
+      $("#oErr").textContent = "開けませんでした";
+      $("#oGo").disabled = false; $("#oGo").textContent = "開く";
+      return;
+    }
+    fileName = f.name || "units.dat";
+    closeSheet("#gateSheet");
+    await mount(u, r, "ファイルから");
+    if(keepCache) await cachePut(pack());
+  };
+});
+
+/* --- 保存（共有シート → 「"ファイル"に保存」→ iCloud Drive） --- */
+async function saveVault(){
+  const bytes = pack();
+  const file = new File([bytes], fileName, {type:"application/octet-stream"});
+  holdLock = true;
+  let done = false;
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try { await navigator.share({files:[file]}); done = true; }
+    catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return; } }
+  }
+  if(!done){
+    const url = URL.createObjectURL(new Blob([bytes], {type:"application/octet-stream"}));
+    urls.push(url);
+    const a = document.createElement("a");
+    a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+  }
+  setTimeout(() => { holdLock = false; }, 2000);
+  dirty = false; paint();
+  if(keepCache) await cachePut(bytes);
+  toast("書き出しました。同じ名前で置き換えれば1つに保てます", 3600);
+}
+$("#vSave").addEventListener("click", saveVault);
+
+async function touched(){
+  dirty = true;
+  if(keepCache){ await cachePut(pack()); if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); }
+  await refresh();
+}
+
+/* --- 出入り --- */
+function lockVault(){
+  urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
+  vaultKey = null; salt = null; slots = null; records = []; items = [];
+  mySlot = -1; usedMask = 0; dirty = false;
+  $("#vList").innerHTML = ""; $("#vStat").textContent = ""; $("#vSheetBody").innerHTML = "";
+  $("#vSheet").classList.remove("on");
+  $("#vault").classList.remove("on"); $("#vault").setAttribute("aria-hidden", "true");
+  document.body.classList.remove("masked");
+  clearTimeout(idleTimer);
+}
+$("#vClose").addEventListener("click", () => {
+  if(!dirty){ lockVault(); return; }
+  vOpen(`<h3>保存していない変更があります</h3>
+    <p class="note">閉じるとファイルには反映されません${keepCache ? "（端末の控えには残ります）" : ""}。</p>
+    <button class="pbtn" id="cSave">保存してから閉じる</button>
+    <div class="gap"></div><button class="pbtn ghost" id="cDrop">保存せずに閉じる</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
+  $("#cSave").onclick = async () => { await saveVault(); vClose(); lockVault(); };
+  $("#cDrop").onclick = () => { vClose(); lockVault(); };
+});
+document.addEventListener("keydown", e => { if(e.key === "Escape" && vaultKey) lockVault(); });
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "hidden" && vaultKey && !holdLock) lockVault();
+});
+window.addEventListener("pagehide", () => { if(vaultKey && !holdLock) lockVault(); });
+window.addEventListener("blur", () => { if(vaultKey) document.body.classList.add("masked"); });
+window.addEventListener("focus", () => {
+  document.body.classList.remove("masked");
+  setTimeout(() => { holdLock = false; }, 1200);
+});
+function resetIdle(){
+  clearTimeout(idleTimer);
+  if(!vaultKey) return;
+  idleTimer = setTimeout(() => { if(vaultKey) lockVault(); }, 180000);
+}
+["pointerdown","keydown","wheel"].forEach(ev => document.addEventListener(ev, resetIdle, {passive:true}));
+
+/* --- 一覧 --- */
+function fsize(n){
+  if(n < 1024) return n + " B";
+  if(n < 1048576) return (n / 1024).toFixed(1) + " KB";
+  if(n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+  return (n / 1073741824).toFixed(2) + " GB";
+}
+function fdate(t){
+  const d = new Date(t), p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function kindOf(m, n){
+  m = m || "";
+  if(m.startsWith("image/")) return "IMG";
+  if(m.startsWith("video/")) return "MOV";
+  if(m.startsWith("audio/")) return "SND";
+  if(m === "application/pdf") return "PDF";
+  if(m.startsWith("text/") || /\.(txt|md|csv|json|log|html|js|css)$/i.test(n || "")) return "TXT";
+  return "BIN";
+}
+async function refresh(){
+  const out = [];
+  for(const r of records){
+    try { out.push({rec:r, meta:JSON.parse(dec.decode(await unseal(vaultKey, r.m)))}); }
+    catch(e){ /* 別区画のもの：見えない */ }
+  }
+  items = out;
+  paint();
+}
+const SVG_DL = '<svg viewBox="0 0 24 24"><path d="M12 4v11M12 15l-4-4M12 15l4-4M5 19h14"/></svg>';
+const SVG_X  = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+function paint(){
+  $("#vSave").classList.toggle("dirty", dirty);
+  $("#vSave").textContent = dirty ? "保存（未）" : "保存";
+  const q = $("#vFilter").value.trim().toLowerCase();
+  const list = items.filter(x => !q || x.meta.n.toLowerCase().includes(q))
+    .sort((a, b) => sortDesc ? b.meta.d - a.meta.d : a.meta.n.localeCompare(b.meta.n, "ja"));
+  const box = $("#vList"); box.innerHTML = "";
+  if(!list.length){
+    box.innerHTML = `<div class="vempty"><span class="k">空</span>${
+      items.length ? "条件に合うものがありません"
+      : "「入れる」で追加し、「保存」でファイルに書き出します。<br>置き場所は iCloud Drive でも構いません。"}</div>`;
+  } else list.forEach(x => box.appendChild(rowOf(x)));
+
+  const mine = items.reduce((s, x) => s + (x.meta.s || 0), 0);
+  let total = HDR; for(const r of records) total += 8 + r.m.length + r.d.length;
+  $("#vStat").innerHTML = items.length + " 点 / " + fsize(mine) + "　·　ファイル " + fsize(total) +
+    (dirty ? "　·　<b>未保存</b>" : "") + (keepCache ? "" : "　·　控えなし");
+}
+function rowOf(x){
+  const el = document.createElement("div");
+  el.className = "item";
+  el.innerHTML = `<div class="ic">${kindOf(x.meta.t, x.meta.n)}</div>
+    <div class="nm"><b></b><span>${fsize(x.meta.s)} · ${fdate(x.meta.d)}</span></div>
+    <div class="act"><button class="dl" aria-label="保存">${SVG_DL}</button><button class="rm" aria-label="削除">${SVG_X}</button></div>`;
+  el.querySelector("b").textContent = x.meta.n;
+  el.querySelector(".nm").onclick = () => preview(x);
+  el.querySelector(".ic").onclick = () => preview(x);
+  el.querySelector(".dl").onclick = e => { e.stopPropagation(); saveOut(x); };
+  el.querySelector(".rm").onclick = e => { e.stopPropagation(); confirmDelete(x); };
+  return el;
+}
+$("#vFilter").addEventListener("input", paint);
+$("#vSortBtn").addEventListener("click", () => {
+  sortDesc = !sortDesc;
+  $("#vSortBtn").textContent = sortDesc ? "新しい順" : "名前順";
+  paint();
+});
+
+/* --- 追加 --- */
+function prog(p){
+  const b = $("#vProg");
+  if(p === null){ b.classList.remove("on"); b.firstElementChild.style.width = "0"; return; }
+  b.classList.add("on"); b.firstElementChild.style.width = Math.round(p * 100) + "%";
+}
+$("#vAdd").addEventListener("click", () => { holdLock = true; $("#filePick").click(); });
+$("#filePick").addEventListener("change", async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if(!files.length || !vaultKey){ holdLock = false; return; }
+  let n = 0, ng = 0;
+  for(const f of files){
+    if(f.size > MAX_FILE){ ng++; n++; prog(n / files.length); continue; }
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      const meta = {n:f.name, t:f.type, s:f.size, d:Date.now()};
+      records.push({
+        id: crypto.randomUUID(),
+        m: await seal(vaultKey, enc.encode(JSON.stringify(meta))),
+        d: await seal(vaultKey, buf)
+      });
+    } catch(err){ ng++; }
+    n++; prog(n / files.length);
+  }
+  prog(null); holdLock = false;
+  await touched();
+  let total = HDR; for(const r of records) total += 8 + r.m.length + r.d.length;
+  toast(ng ? (files.length - ng) + " 点を追加（" + ng + " 点は上限超過/失敗）" : files.length + " 点を追加しました");
+  if(total > WARN_TOTAL) toast("ファイルが大きくなっています。分けることを勧めます", 4000);
+});
+
+/* --- 取り出し・閲覧 --- */
+async function saveOut(x){
+  try {
+    const bytes = await unseal(vaultKey, x.rec.d);
+    const file = new File([bytes], x.meta.n, {type:x.meta.t || "application/octet-stream"});
+    holdLock = true;
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try { await navigator.share({files:[file]}); }
+      catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return; } }
+    } else {
+      const url = URL.createObjectURL(new Blob([bytes], {type:x.meta.t || "application/octet-stream"}));
+      urls.push(url);
+      const a = document.createElement("a");
+      a.href = url; a.download = x.meta.n; document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(() => { holdLock = false; }, 2000);
+  } catch(e){ toast("取り出せませんでした"); }
+}
+function vOpen(html){ $("#vSheetBody").innerHTML = html; $("#vSheet").classList.add("on"); }
+function vClose(){ $("#vSheet").classList.remove("on"); $("#vSheetBody").innerHTML = ""; }
+document.addEventListener("click", e => { if(e.target.matches("[data-vclose]")) vClose(); });
+
+async function preview(x){
+  vOpen(`<h3>閲覧</h3><div class="pv"><div class="nopv">読み込み中…</div></div>
+    <p class="note" id="pvName"></p>
+    <button class="pbtn" id="pvSave">取り出す</button>
+    <div class="gap"></div><button class="pbtn ghost" id="pvRename">名前を変える</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>閉じる</button>`);
+  $("#pvName").textContent = x.meta.n + " · " + fsize(x.meta.s);
+  $("#pvSave").onclick = () => saveOut(x);
+  $("#pvRename").onclick = () => renameItem(x);
+  const pv = $("#vSheetBody .pv"), k = kindOf(x.meta.t, x.meta.n);
+  try {
+    const bytes = await unseal(vaultKey, x.rec.d);
+    if(k === "TXT"){
+      const pre = document.createElement("pre");
+      pre.textContent = dec.decode(bytes).slice(0, 200000);
+      pv.innerHTML = ""; pv.appendChild(pre); return;
+    }
+    const url = URL.createObjectURL(new Blob([bytes], {type:x.meta.t || "application/octet-stream"}));
+    urls.push(url); pv.innerHTML = "";
+    if(k === "IMG"){ const i = new Image(); i.src = url; pv.appendChild(i); }
+    else if(k === "MOV"){ const v = document.createElement("video"); v.src = url; v.controls = true; v.playsInline = true; pv.appendChild(v); }
+    else if(k === "SND"){ const a = document.createElement("audio"); a.src = url; a.controls = true; a.style.margin = "24px"; pv.appendChild(a); }
+    else if(k === "PDF"){
+      pv.innerHTML = '<div class="nopv">PDFは別のタブで開きます。<br><br></div>';
+      const b = document.createElement("button");
+      b.className = "pbtn ghost"; b.textContent = "別のタブで開く"; b.style.margin = "0 20px 24px";
+      b.onclick = () => { holdLock = true; window.open(url, "_blank"); setTimeout(() => { holdLock = false; }, 2000); };
+      pv.appendChild(b);
+    }
+    else pv.innerHTML = '<div class="nopv">この形式は表示できません。<br>「取り出す」で取り出せます。</div>';
+  } catch(e){ pv.innerHTML = '<div class="nopv">読み込めませんでした</div>'; }
+}
+async function renameItem(x){
+  const name = prompt("新しい名前", x.meta.n);
+  if(!name) return;
+  const meta = Object.assign({}, x.meta, {n:name});
+  x.rec.m = await seal(vaultKey, enc.encode(JSON.stringify(meta)));
+  vClose(); await touched(); toast("名前を変えました");
+}
+function confirmDelete(x){
+  vOpen(`<h3>削除</h3><p class="note" id="dName"></p>
+    <p class="note">保存するとファイルからも消えます。</p>
+    <button class="pbtn" id="dGo" style="background:#a8443c;color:#fff">削除する</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
+  $("#dName").textContent = x.meta.n;
+  $("#dGo").onclick = async () => {
+    records = records.filter(r => r !== x.rec);
+    vClose(); await touched(); toast("削除しました");
+  };
+}
+
+/* --- メニュー --- */
+$("#vMenu").addEventListener("click", () => {
+  vOpen(`<h3>設定</h3><div class="menu">
+    <button class="tog" id="mCache" role="switch" aria-checked="${keepCache}">
+      <span>端末に控えを残す<small>合言葉だけで即座に開けます。切ると、閉じた瞬間に端末から消えます。</small></span><span class="sw"></span></button>
+    <button id="mSaveAs">別の名前で保存する</button>
+    <button id="mPass">合言葉を変える</button>
+    <button id="mAdd2">別の合言葉を登録する<small>同じファイルの中に、別の中身を持つ区画をもう一つ</small></button>
+    <button id="mMerge">別の金庫を取り込む</button>
+    <button id="mWipeMine" class="danger">この区画の中身を全部消す</button>
+  </div>
+  <p class="note" style="margin-top:14px">金庫そのものを消すときは、「ファイル」アプリでこのファイルを削除してください。</p>
+  <button class="pbtn ghost" data-vclose>閉じる</button>`);
+  $("#mCache").onclick = toggleCache;
+  $("#mSaveAs").onclick = saveAs;
+  $("#mPass").onclick = uiChangePass;
+  $("#mAdd2").onclick = uiAddPass;
+  $("#mMerge").onclick = () => { holdLock = true; $("#mergePick").click(); };
+  $("#mWipeMine").onclick = uiWipeMine;
+});
+
+async function toggleCache(){
+  keepCache = !keepCache;
+  slots[mySlot] = await seal(vaultKey, makeToken(mySlot, usedMask, keepCache ? 1 : 0));
+  dirty = true;
+  if(keepCache){ await cachePut(pack()); if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); }
+  else await cacheDel();
+  const el = $("#mCache");
+  if(el) el.setAttribute("aria-checked", String(keepCache));
+  paint();
+  toast(keepCache ? "控えを残します" : "控えを消しました。次からはファイルを選んで開きます", 3400);
+}
+function saveAs(){
+  vOpen(`<h3>別の名前で保存する</h3>
+    <p class="note">世代を分けたいときに。以後この名前で保存します。</p>
+    <div class="fld"><label>ファイル名</label><input id="fn" type="text" autocomplete="off" spellcheck="false"></div>
+    <button class="pbtn" id="fnGo">この名前で保存</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
+  $("#fn").value = fileName;
+  $("#fnGo").onclick = async () => {
+    const v = $("#fn").value.trim();
+    if(!v) return;
+    fileName = v.includes(".") ? v : v + ".dat";
+    $("#vWhere").textContent = fileName;
+    vClose(); await saveVault();
+  };
+}
+
+function passForm(title, note, btn){
+  vOpen(`<h3>${title}</h3><p class="note">${note}</p>
+    <div class="fld"><label>新しい合言葉（6文字以上・数字だけは不可）</label>
+      <input id="np1" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <div class="fld"><label>もう一度</label>
+      <input id="np2" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <p class="err" id="npErr"></p>
+    <div class="prog" id="npProg"><i></i></div>
+    <button class="pbtn" id="npGo">${btn}</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
+}
+function readPass(){
+  const a = $("#np1").value, b = $("#np2").value, err = $("#npErr");
+  if(a.length < 6){ err.textContent = "6文字以上にしてください"; return null; }
+  if(/^\d+$/.test(a)){ err.textContent = "数字以外の文字を含めてください"; return null; }
+  if(a !== b){ err.textContent = "2つの入力が一致しません"; return null; }
+  return a;
+}
+async function uiChangePass(){
+  passForm("合言葉を変える", "この区画の中身をすべて暗号化し直します。終わったら必ず保存してください。", "変更する");
+  $("#npGo").onclick = async () => {
+    const p = readPass(); if(!p) return;
+    $("#npGo").disabled = true; $("#npGo").textContent = "処理中…"; holdLock = true;
+    try {
+      const nk = await derive(p, salt);
+      let i = 0;
+      for(const r of records){
+        i++;
+        try {
+          const m = await unseal(vaultKey, r.m), d = await unseal(vaultKey, r.d);
+          r.m = await seal(nk, m); r.d = await seal(nk, d);
+        } catch(e){ /* 別区画 */ }
+        const pb = $("#npProg");
+        if(pb){ pb.classList.add("on"); pb.firstElementChild.style.width = Math.round(i / records.length * 100) + "%"; }
+      }
+      slots[mySlot] = await seal(nk, makeToken(mySlot, usedMask, keepCache ? 1 : 0));
+      vaultKey = nk;
+      vClose(); await touched(); toast("合言葉を変えました。保存を忘れずに", 3400);
+    } catch(e){ if($("#npErr")) $("#npErr").textContent = "変更できませんでした"; }
+    holdLock = false;
+    if($("#npGo")){ $("#npGo").disabled = false; $("#npGo").textContent = "変更する"; }
+  };
+}
+async function uiAddPass(){
+  const free = [];
+  for(let i = 0; i < SLOTS; i++) if(!(usedMask & (1 << i))) free.push(i);
+  if(!free.length){ vOpen(`<h3>登録できません</h3><p class="note">合言葉は8つまでです。</p><button class="pbtn ghost" data-vclose>閉じる</button>`); return; }
+  passForm("別の合言葉を登録する",
+    "同じファイルの中に、別の中身を持つ区画をもう一つ作ります。どちらの合言葉で開いたかで、見えるファイルが変わります。互いの存在は外から分かりません。<br><br>追加の登録は、必ずこの区画から行ってください。",
+    "登録する");
+  $("#npGo").onclick = async () => {
+    const p = readPass(); if(!p) return;
+    $("#npGo").disabled = true; $("#npGo").textContent = "処理中…";
+    try {
+      const idx = free[rand(1)[0] % free.length];
+      const nk = await derive(p, salt);
+      const mask = usedMask | (1 << idx);
+      slots[idx] = await seal(nk, makeToken(idx, mask, 1));
+      slots[mySlot] = await seal(vaultKey, makeToken(mySlot, mask, keepCache ? 1 : 0));
+      usedMask = mask;
+      vClose(); await touched(); toast("登録しました。保存を忘れずに", 3400);
+    } catch(e){ if($("#npErr")) $("#npErr").textContent = "登録できませんでした"; }
+    if($("#npGo")){ $("#npGo").disabled = false; $("#npGo").textContent = "登録する"; }
+  };
+}
+
+/* --- 別の金庫を取り込む（旧形式の書き出しファイルも受け付ける） --- */
+$("#mergePick").addEventListener("change", async e => {
+  const f = (e.target.files || [])[0];
+  e.target.value = ""; holdLock = false;
+  if(!f || !vaultKey) return;
+  let bytes;
+  try { bytes = new Uint8Array(await f.arrayBuffer()); } catch(err){ toast("読み込めませんでした"); return; }
+  let src = null;
+  try {
+    if(bytes[0] === 0x7b){
+      const j = JSON.parse(dec.decode(bytes));
+      src = {legacy:true, salt:b64d(j.salt), tok:b64d(j.tok), items:j.items.map(it => ({m:b64d(it.m), d:b64d(it.d)}))};
+    } else {
+      const u = unpack(bytes);
+      src = {legacy:false, salt:u.salt, slots:u.slots, items:u.recs};
+    }
+  } catch(err){ toast("この形式には対応していません"); return; }
+  vOpen(`<h3>別の金庫を取り込む</h3>
+    <p class="note" id="mName"></p>
+    <div class="fld"><label>そのファイルの合言葉</label>
+      <input id="mp" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <p class="err" id="mErr"></p>
+    <div class="prog" id="mProg"><i></i></div>
+    <button class="pbtn" id="mGo">取り込む</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
+  $("#mName").textContent = f.name + " · " + fsize(f.size);
+  $("#mGo").onclick = async () => {
+    $("#mGo").disabled = true; $("#mGo").textContent = "処理中…"; holdLock = true;
+    try {
+      let sk = null;
+      if(src.legacy){
+        const k = await derive($("#mp").value, src.salt);
+        try { await unseal(k, src.tok); sk = k; } catch(e){}
+      } else {
+        const r = await tryKeys($("#mp").value, src.salt, src.slots);
+        if(r) sk = r.key;
+      }
+      if(!sk){ $("#mErr").textContent = "合言葉が違います"; throw new Error("ng"); }
+      let i = 0, ok = 0;
+      for(const it of src.items){
+        i++;
+        try {
+          const m = await unseal(sk, it.m), d = await unseal(sk, it.d);
+          records.push({id:crypto.randomUUID(), m:await seal(vaultKey, m), d:await seal(vaultKey, d)});
+          ok++;
+        } catch(e){ /* 別区画 */ }
+        const pb = $("#mProg");
+        if(pb){ pb.classList.add("on"); pb.firstElementChild.style.width = Math.round(i / src.items.length * 100) + "%"; }
+      }
+      vClose(); await touched(); toast(ok + " 点を取り込みました。保存を忘れずに", 3400);
+    } catch(err){ /* 表示済み */ }
+    holdLock = false;
+    if($("#mGo")){ $("#mGo").disabled = false; $("#mGo").textContent = "取り込む"; }
+  };
+});
+function b64d(s){ const b = atob(s), u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+
+function uiWipeMine(){
+  vOpen(`<h3>この区画を空にする</h3>
+    <p class="note">いまの合言葉で見えているファイルをすべて外します。ほかの区画は残ります。保存した時点でファイルからも消えます。</p>
+    <button class="pbtn" id="wGo" style="background:#a8443c;color:#fff">すべて外す</button>
+    <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
+  $("#wGo").onclick = async () => {
+    const mine = new Set(items.map(x => x.rec));
+    records = records.filter(r => !mine.has(r));
+    vClose(); await touched(); toast("空にしました");
+  };
+}
+</script>
+</body>
+</html>
