@@ -28,6 +28,9 @@ button{border:0;background:none;cursor:pointer;padding:0}
 
 .app{max-width:640px;margin:0 auto;padding:calc(var(--safeT) + 8px) 14px calc(var(--safeB) + 28px)}
 .bar{display:flex;align-items:center;gap:10px;height:44px;margin-bottom:10px}
+/* 見出しと虫眼鏡は長く押さえても選ばれない。端末側の写し取りの札が割り込まないように。 */
+.bar h1,.bar .iconbtn{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .bar h1{font-size:17px;font-weight:600;letter-spacing:.02em;margin:0;flex:1}
 .iconbtn{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--sub)}
 .iconbtn:active{background:var(--soft)}
@@ -458,22 +461,49 @@ $("#findInput").addEventListener("keydown", async e => {
   if(q.length >= 6) await unlockFromCache(q);
 });
 $("#findBtn").addEventListener("click", () => {
-  if(longPressFired){ longPressFired = false; return; }
+  if(longPressFired) return;
   $("#findInput").value = ""; $("#findHits").innerHTML = "";
   openSheet("#findSheet"); setTimeout(() => $("#findInput").focus(), 60);
 });
-let lpTimer = null, longPressFired = false;
+/* 保管領域の入口は二通り。どちらも表からは何も見えない。
+   ・虫眼鏡を押さえ続ける（指の震えでは外れない。端末の写し取りの札も出さない）
+   ・見出し「単位換算」を素早く五回叩く（押さえるのが難しいときの逃げ道） */
+let lpTimer = null, longPressFired = false, lpX = 0, lpY = 0;
 const fb = $("#findBtn");
-fb.addEventListener("pointerdown", () => {
-  clearTimeout(lpTimer);
+function lpStop(){ clearTimeout(lpTimer); lpTimer = null; }
+fb.addEventListener("pointerdown", e => {
+  lpStop();
+  lpX = e.clientX; lpY = e.clientY;
   lpTimer = setTimeout(() => {
-    longPressFired = true;
+    lpTimer = null; longPressFired = true;
     if(navigator.vibrate) navigator.vibrate(12);
     openGate();
-  }, 900);
+  }, 620);
 });
-["pointerup","pointerleave","pointercancel","pointermove"].forEach(ev =>
-  fb.addEventListener(ev, () => clearTimeout(lpTimer)));
+/* 動いたら止めるが、指の遊びぶん（12px）は許す */
+fb.addEventListener("pointermove", e => {
+  if(!lpTimer) return;
+  if(Math.abs(e.clientX - lpX) > 12 || Math.abs(e.clientY - lpY) > 12) lpStop();
+});
+/* 押さえ切ったあと指を離すと、端末によっては叩いた合図が来ない。
+   来ても来なくても札が残らないよう、少し置いて必ず下ろす。 */
+["pointerup","pointercancel"].forEach(ev => fb.addEventListener(ev, () => {
+  lpStop();
+  setTimeout(() => { longPressFired = false; }, 400);
+}));
+/* 押さえている間に端末が出そうとする札は断る */
+fb.addEventListener("contextmenu", e => e.preventDefault());
+
+let tapN = 0, tapTimer = null;
+$(".bar h1").addEventListener("click", () => {
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => { tapN = 0; }, 900);
+  if(++tapN < 5) return;
+  tapN = 0; clearTimeout(tapTimer);
+  if(navigator.vibrate) navigator.vibrate(12);
+  openGate();
+});
+$(".bar h1").addEventListener("contextmenu", e => e.preventDefault());
 
 function toast(msg, ms){
   const t = $("#toast"); t.textContent = msg; t.classList.add("on");
