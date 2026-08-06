@@ -115,6 +115,9 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
 .vtools .t{flex:1;padding:10px;border-radius:9px;background:var(--vp);border:1px solid var(--vln);
   color:var(--vtx);font-size:13px;letter-spacing:.04em;position:relative}
 .vtools .t:active{background:#1b2130}
+.vtools .t[hidden]{display:none}
+/* 三つ並ぶと狭いので、文字は折らずに詰める */
+.vtools .t{white-space:nowrap;padding-left:6px;padding-right:6px;min-width:0}
 .vtools .t.key{color:#0d1017;background:var(--gold);border-color:var(--gold);font-weight:600}
 .vtools .t.dirty::after{content:"";position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--gold)}
 .vtools .t.dirty{border-color:var(--gold);color:var(--gold)}
@@ -270,6 +273,7 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
   </div>
   <div class="vtools">
     <button class="t key" id="vAdd">入れる</button>
+    <button class="t" id="vPart" hidden>追加分だけ</button>
     <button class="t" id="vSave">保存</button>
   </div>
   <div class="vfilter">
@@ -528,6 +532,9 @@ let vaultKey = null, salt = null, slots = null, records = [], items = [];
 let mySlot = -1, usedMask = 0, keepCache = true, dirty = false;
 let fileName = "units.dat", urls = [], sortDesc = true;
 let idleTimer = null, holdLock = false;
+/* 前回まるごと保存してから後に足したもの。これだけを小さく書き出せる。
+   名前替え・削除・合言葉の変更は差分では表せないので、別に覚えておく。 */
+let newRecs = new Set(), structChanged = false;
 
 const rand = n => crypto.getRandomValues(new Uint8Array(n));
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -541,7 +548,16 @@ function openDB(){
   });
 }
 async function cacheGet(){ try { const d = await openDB(); return await req(d.transaction(ST).objectStore(ST).get("blob")); } catch(e){ return null; } }
-async function cachePut(bytes){ try { const d = await openDB(); await req(d.transaction(ST, "readwrite").objectStore(ST).put({k:"blob", b:bytes, n:fileName})); } catch(e){} }
+/* 控えには「どこまでが本体に入っているか」も一緒に残す。
+   これが無いと、控えから開いた時に全部保存済みに見えてしまう。
+   足したものは必ず末尾に並ぶので、本体ぶんの点数を覚えておけば足りる。 */
+async function cachePut(bytes){
+  try {
+    const d = await openDB();
+    const bn = records.length - records.filter(r => newRecs.has(r)).length;
+    await req(d.transaction(ST, "readwrite").objectStore(ST).put({k:"blob", b:bytes, n:fileName, bn, sc:structChanged}));
+  } catch(e){}
+}
 async function cacheDel(){ try { const d = await openDB(); await req(d.transaction(ST, "readwrite").objectStore(ST).delete("blob")); } catch(e){} }
 
 async function derive(pass, s){
@@ -570,15 +586,17 @@ function readToken(p){
   return {mask:p[4], slot:p[5], flags:p[6]};
 }
 
-function pack(){
+/* recs を省くと金庫まるごと。渡せばその分だけの、同じ形の金庫になる。 */
+function pack(recs){
+  const rs = recs || records;
   let total = HDR;
-  for(const r of records) total += 8 + r.m.length + r.d.length;
+  for(const r of rs) total += 8 + r.m.length + r.d.length;
   const out = new Uint8Array(total);
   out.set(salt, 0);
   for(let i = 0; i < SLOTS; i++) out.set(slots[i], 16 + i * SLOT_LEN);
   const dv = new DataView(out.buffer);
   let o = HDR;
-  for(const r of records){
+  for(const r of rs){
     const len = 8 + r.m.length + r.d.length;
     dv.setUint32(o, len); dv.setUint32(o + 4, r.m.length);
     out.set(r.m, o + 8); out.set(r.d, o + 8 + r.m.length);
@@ -622,16 +640,23 @@ async function unlockFromCache(pass){
   const r = await tryKeys(pass, u.salt, u.slots);
   if(!r) return false;
   fileName = c.n || fileName;
-  await mount(u, r, "端末の控え");
+  await mount(u, r, "端末の控え", {bn:c.bn, sc:c.sc});
   $("#findInput").value = ""; $("#findHits").innerHTML = "";
   closeSheet("#findSheet");
   return true;
 }
-async function mount(u, r, where){
+async function mount(u, r, where, prev){
   salt = u.salt; slots = u.slots; records = u.recs;
   vaultKey = r.key; mySlot = r.i; usedMask = r.t.mask | (1 << r.i);
   keepCache = !!(r.t.flags & 1);
-  dirty = false;
+  newRecs.clear(); structChanged = false;
+  /* ファイルから開いたなら、そこにあるものは全部本体に入っている。
+     控えから開いたなら、本体に届いていないぶんを取り戻す。 */
+  if(prev && Number.isInteger(prev.bn) && prev.bn >= 0 && prev.bn < records.length){
+    records.slice(prev.bn).forEach(rec => newRecs.add(rec));
+  }
+  structChanged = !!(prev && prev.sc);
+  dirty = newRecs.size > 0 || structChanged;
   document.activeElement && document.activeElement.blur();
   $("#vault").classList.add("on"); $("#vault").setAttribute("aria-hidden", "false");
   $("#vWhere").textContent = fileName + " · " + where;
@@ -712,27 +737,55 @@ $("#vaultPick").addEventListener("change", async e => {
 });
 
 /* --- 保存（共有シート → 「"ファイル"に保存」→ iCloud Drive） --- */
-async function saveVault(){
-  const bytes = pack();
-  const file = new File([bytes], fileName, {type:"application/octet-stream"});
+/* 端末の外へ渡す口はここ1つ。まるごとでも追加分だけでも通る。 */
+async function handOff(bytes, name){
+  const file = new File([bytes], name, {type:"application/octet-stream"});
   holdLock = true;
   let done = false;
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try { await navigator.share({files:[file]}); done = true; }
-    catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return; } }
+    catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return false; } }
   }
   if(!done){
     const url = URL.createObjectURL(new Blob([bytes], {type:"application/octet-stream"}));
     urls.push(url);
     const a = document.createElement("a");
-    a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   }
   setTimeout(() => { holdLock = false; }, 2000);
-  dirty = false; paint();
+  return true;
+}
+async function saveVault(){
+  const bytes = pack();
+  if(!await handOff(bytes, fileName)) return;
+  dirty = false; newRecs.clear(); structChanged = false; paint();
   if(keepCache) await cachePut(bytes);
   toast("書き出しました。同じ名前で置き換えれば1つに保てます", 3600);
 }
 $("#vSave").addEventListener("click", saveVault);
+
+/* 前回まるごと保存してから足したぶんだけを、小さな別ファイルにする。
+   中身は同じ形の金庫なので、あとで「別の金庫を取り込む」で本体に合流できる。
+   金庫が大きくても、書き出す量は足したぶんだけで済む。 */
+function partName(){
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const base = fileName.replace(/\.[^.]*$/, "") || "units";
+  const ext = (fileName.match(/\.[^.]*$/) || [".dat"])[0];
+  return base + "-" + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes()) + ext;
+}
+async function savePart(){
+  const list = records.filter(r => newRecs.has(r));
+  if(!list.length){ toast("書き出す追加分がありません"); return; }
+  const name = partName();
+  if(!await handOff(pack(list), name)) return;
+  newRecs.clear();
+  dirty = structChanged;                       // 名前替えや削除が残っていれば、まだ未保存
+  paint();
+  toast(structChanged
+    ? list.length + " 点を " + name + " に書き出しました。名前替え・削除は含まれないので、いずれ「保存」も"
+    : list.length + " 点を " + name + " に書き出しました。本体と合わせて揃っています", 4200);
+}
+$("#vPart").addEventListener("click", savePart);
 
 async function touched(){
   dirty = true;
@@ -746,6 +799,8 @@ function lockVault(){
   urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
   vaultKey = null; salt = null; slots = null; records = []; items = [];
   mySlot = -1; usedMask = 0; dirty = false;
+  newRecs.clear(); structChanged = false;
+  $("#vPart").hidden = true;
   $("#vList").innerHTML = ""; $("#vStat").textContent = ""; $("#vSheetBody").innerHTML = "";
   $("#vSheet").classList.remove("on");
   $("#vault").classList.remove("on"); $("#vault").setAttribute("aria-hidden", "true");
@@ -772,10 +827,21 @@ window.addEventListener("focus", () => {
   document.body.classList.remove("masked");
   setTimeout(() => { holdLock = false; }, 1200);
 });
+/* 見ている最中は数えない。全画面を開いている間と、再生中は止める。
+   指を触れずに動画を見ていると、3分で閉じてしまっていた。 */
+function busyViewing(){
+  if($("#mv").classList.contains("on")) return true;
+  return [...document.querySelectorAll("#vault video, #vault audio, #mv video, #mv audio")]
+    .some(v => !v.paused && !v.ended);
+}
 function resetIdle(){
   clearTimeout(idleTimer);
   if(!vaultKey) return;
-  idleTimer = setTimeout(() => { if(vaultKey) lockVault(); }, 180000);
+  idleTimer = setTimeout(() => {
+    if(!vaultKey) return;
+    if(busyViewing()){ resetIdle(); return; }   // 見終わってから数え直す
+    lockVault();
+  }, 180000);
 }
 ["pointerdown","keydown","wheel"].forEach(ev => document.addEventListener(ev, resetIdle, {passive:true}));
 
@@ -790,8 +856,21 @@ function fdate(t){
   const d = new Date(t), p = n => String(n).padStart(2, "0");
   return d.getFullYear() + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 }
+/* 型が空で渡ってくる経路がある（IMG_0001.HEIC が型なしで来るなど）。
+   その場合は拡張子から補う。補わないと種別が BIN に落ち、
+   縮小見本も全画面も効かなくなる。 */
+const EXT_MIME = {
+  heic:"image/heic", heif:"image/heif", jpg:"image/jpeg", jpeg:"image/jpeg", png:"image/png",
+  gif:"image/gif", webp:"image/webp", avif:"image/avif", bmp:"image/bmp", tif:"image/tiff", tiff:"image/tiff",
+  mov:"video/quicktime", mp4:"video/mp4", m4v:"video/mp4", webm:"video/webm", "3gp":"video/3gpp", avi:"video/x-msvideo",
+  mp3:"audio/mpeg", m4a:"audio/mp4", aac:"audio/aac", wav:"audio/wav", flac:"audio/flac", ogg:"audio/ogg", caf:"audio/x-caf",
+  pdf:"application/pdf", txt:"text/plain", md:"text/markdown", csv:"text/csv", json:"application/json", log:"text/plain"
+};
+function extOf(n){ const m = String(n || "").match(/\.([a-z0-9]+)$/i); return m ? m[1].toLowerCase() : ""; }
+/* 実体を出すときの型。空なら拡張子から補う。動画は型が無いと再生できないことがある。 */
+function mimeOf(meta){ return meta.t || EXT_MIME[extOf(meta.n)] || "application/octet-stream"; }
 function kindOf(m, n){
-  m = m || "";
+  m = m || EXT_MIME[extOf(n)] || "";
   if(m.startsWith("image/")) return "IMG";
   if(m.startsWith("video/")) return "MOV";
   if(m.startsWith("audio/")) return "SND";
@@ -819,10 +898,20 @@ const SVG_X  = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 function paintStat(){
   $("#vSave").classList.toggle("dirty", dirty);
   $("#vSave").textContent = dirty ? "保存（未）" : "保存";
+  /* 足しただけなら、追加分だけの書き出しで足りる */
+  const add = records.filter(r => newRecs.has(r));
+  let addB = 0; for(const r of add) addB += 8 + r.m.length + r.d.length;
+  $("#vPart").hidden = !add.length;
+  $("#vPart").classList.toggle("dirty", !!add.length);
+  $("#vPart").textContent = add.length ? "追加分 " + add.length + " 点" : "追加分だけ";
+
   const mine = items.reduce((s, x) => s + (x.meta.s || 0), 0);
   let total = HDR; for(const r of records) total += 8 + r.m.length + r.d.length;
+  const unsaved = !dirty ? ""
+    : "　·　<b>未保存" + (add.length ? "：追加 " + add.length + " 点 / " + fsize(addB) : "")
+      + (structChanged ? (add.length ? "・変更あり" : "：変更あり") : "") + "</b>";
   $("#vStat").innerHTML = items.length + " 点 / " + fsize(mine) + "　·　ファイル " + fsize(total) +
-    (dirty ? "　·　<b>未保存</b>" : "") + (keepCache ? "" : "　·　控えなし");
+    unsaved + (keepCache ? "" : "　·　控えなし");
 }
 function paint(){
   const q = $("#vFilter").value.trim().toLowerCase();
@@ -901,15 +990,16 @@ $("#filePick").addEventListener("change", async e => {
       const k = kindOf(f.type, f.name);
       if(k === "IMG" || k === "MOV"){
         try {
-          const tb = await thumbBlob(buf, f.type, k);
+          const tb = await thumbBlob(buf, mimeOf(meta), k);
           if(tb) meta.tb = b64e(new Uint8Array(await tb.arrayBuffer()));
         } catch(err){ /* 縮小見本なしで納める */ }
       }
-      records.push({
+      const rec = {
         id: crypto.randomUUID(),
         m: await seal(vaultKey, enc.encode(JSON.stringify(meta))),
         d: await seal(vaultKey, buf)
-      });
+      };
+      records.push(rec); newRecs.add(rec);
     } catch(err){ ng++; }
     n++; prog(n / files.length);
   }
@@ -1024,7 +1114,7 @@ async function thumbBlob(bytes, type, kind){
 /* 見出しに縮小見本が無い金庫（前の版で作ったもの）は、実体を復号して作る */
 async function makeThumb(x){
   const bytes = await unseal(vaultKey, x.rec.d);
-  const blob = await thumbBlob(bytes, x.meta.t, kindOf(x.meta.t, x.meta.n));
+  const blob = await thumbBlob(bytes, mimeOf(x.meta), kindOf(x.meta.t, x.meta.n));
   if(!blob) return null;
   backfillThumb(x, new Uint8Array(await blob.arrayBuffer()));
   return URL.createObjectURL(blob);
@@ -1075,7 +1165,7 @@ function mvCloseView(){
 async function mvUrlFor(x){
   if(mvUrls.has(x.rec.id)) return mvUrls.get(x.rec.id);
   const bytes = await unseal(vaultKey, x.rec.d);
-  const url = URL.createObjectURL(new Blob([bytes], {type:x.meta.t || "application/octet-stream"}));
+  const url = URL.createObjectURL(new Blob([bytes], {type:mimeOf(x.meta)}));
   mvUrls.set(x.rec.id, url);
   return url;
 }
@@ -1239,13 +1329,13 @@ $("#mvFit").addEventListener("click", () => {
 async function saveOut(x){
   try {
     const bytes = await unseal(vaultKey, x.rec.d);
-    const file = new File([bytes], x.meta.n, {type:x.meta.t || "application/octet-stream"});
+    const file = new File([bytes], x.meta.n, {type:mimeOf(x.meta)});
     holdLock = true;
     if(navigator.canShare && navigator.canShare({files:[file]})){
       try { await navigator.share({files:[file]}); }
       catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return; } }
     } else {
-      const url = URL.createObjectURL(new Blob([bytes], {type:x.meta.t || "application/octet-stream"}));
+      const url = URL.createObjectURL(new Blob([bytes], {type:mimeOf(x.meta)}));
       urls.push(url);
       const a = document.createElement("a");
       a.href = url; a.download = x.meta.n; document.body.appendChild(a); a.click(); a.remove();
@@ -1274,7 +1364,7 @@ async function preview(x){
       pre.textContent = dec.decode(bytes).slice(0, 200000);
       pv.innerHTML = ""; pv.appendChild(pre); return;
     }
-    const url = URL.createObjectURL(new Blob([bytes], {type:x.meta.t || "application/octet-stream"}));
+    const url = URL.createObjectURL(new Blob([bytes], {type:mimeOf(x.meta)}));
     urls.push(url); pv.innerHTML = "";
     if(k === "IMG"){ const i = new Image(); i.src = url; pv.appendChild(i); }
     else if(k === "MOV"){ const v = document.createElement("video"); v.src = url; v.controls = true; v.playsInline = true; pv.appendChild(v); }
@@ -1294,6 +1384,8 @@ async function renameItem(x){
   if(!name) return;
   const meta = Object.assign({}, x.meta, {n:name});
   x.rec.m = await seal(vaultKey, enc.encode(JSON.stringify(meta)));
+  /* まだ本体に入っていないものなら、追加分の書き出しに新しい名前ごと乗る */
+  if(!newRecs.has(x.rec)) structChanged = true;
   vClose(); await touched(); toast("名前を変えました");
 }
 function confirmDelete(x){
@@ -1303,6 +1395,8 @@ function confirmDelete(x){
     <div class="gap"></div><button class="pbtn ghost" data-vclose>やめる</button>`);
   $("#dName").textContent = x.meta.n;
   $("#dGo").onclick = async () => {
+    /* まだ本体に入っていないものを消しただけなら、本体は変わっていない */
+    if(newRecs.has(x.rec)) newRecs.delete(x.rec); else structChanged = true;
     records = records.filter(r => r !== x.rec);
     vClose(); await touched(); toast("削除しました");
   };
@@ -1393,6 +1487,7 @@ async function uiChangePass(){
       }
       slots[mySlot] = await seal(nk, makeToken(mySlot, usedMask, keepCache ? 1 : 0));
       vaultKey = nk;
+      structChanged = true;              // 本体も封じ直しが要る。追加分だけでは足りない
       vClose(); await touched(); toast("合言葉を変えました。保存を忘れずに", 3400);
     } catch(e){ if($("#npErr")) $("#npErr").textContent = "変更できませんでした"; }
     holdLock = false;
@@ -1465,7 +1560,8 @@ $("#mergePick").addEventListener("change", async e => {
         i++;
         try {
           const m = await unseal(sk, it.m), d = await unseal(sk, it.d);
-          records.push({id:crypto.randomUUID(), m:await seal(vaultKey, m), d:await seal(vaultKey, d)});
+          const rec = {id:crypto.randomUUID(), m:await seal(vaultKey, m), d:await seal(vaultKey, d)};
+          records.push(rec); newRecs.add(rec);
           ok++;
         } catch(e){ /* 別区画 */ }
         const pb = $("#mProg");
@@ -1487,6 +1583,7 @@ function uiWipeMine(){
   $("#wGo").onclick = async () => {
     const mine = new Set(items.map(x => x.rec));
     records = records.filter(r => !mine.has(r));
+    newRecs.clear(); structChanged = true;
     vClose(); await touched(); toast("空にしました");
   };
 }
