@@ -160,6 +160,40 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
 .pv pre{margin:0;padding:14px;max-height:56vh;overflow:auto;font-size:12px;line-height:1.7;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-all;color:#c8c3b6}
 .pv .nopv{padding:40px 20px;color:#8b8577;font-size:13px;text-align:center}
+/* --- 一覧のサムネイル --- */
+.item .ic.thumb{width:52px;height:52px;border-radius:8px;overflow:hidden;background:#0a0c11;padding:0;position:relative}
+.item .ic.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.item .ic.thumb .play{position:absolute;inset:0;display:grid;place-items:center;
+  background:rgba(4,6,11,.34);color:#fff;font-size:15px;text-shadow:0 1px 3px #000}
+.item .ic.thumb.loading{background:
+  linear-gradient(90deg,#0e131c 25%,#151b27 37%,#0e131c 63%) #0e131c;background-size:400% 100%;
+  animation:shim 1.3s ease infinite}
+@keyframes shim{0%{background-position:100% 0}100%{background-position:0 0}}
+
+/* --- 全画面ビューア（画像・動画） --- */
+#mv{position:fixed;inset:0;z-index:120;background:#05070b;display:none;
+  touch-action:none;overscroll-behavior:contain;user-select:none;-webkit-user-select:none}
+#mv.on{display:block}
+#mv .track{position:absolute;inset:0;display:flex;will-change:transform}
+#mv .track.anim{transition:transform .26s cubic-bezier(.25,.9,.3,1)}
+#mv .cell{flex:0 0 100%;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
+#mv .zw{display:grid;place-items:center;width:100%;height:100%;will-change:transform}
+#mv .zw.anim{transition:transform .22s ease}
+#mv img,#mv video{max-width:100%;max-height:100%;display:block;-webkit-touch-callout:none}
+#mv .wait{color:#5d6472;font-size:13px}
+#mv .bar,#mv .foot{position:absolute;left:0;right:0;z-index:2;transition:opacity .2s;
+  display:flex;align-items:center;gap:8px}
+#mv .bar{top:0;padding:calc(var(--safeT) + 10px) 12px 12px;
+  background:linear-gradient(180deg,rgba(3,5,9,.82),rgba(3,5,9,0))}
+#mv .foot{bottom:0;padding:12px 12px calc(var(--safeB) + 12px);justify-content:center;
+  background:linear-gradient(0deg,rgba(3,5,9,.82),rgba(3,5,9,0))}
+#mv.bare .bar,#mv.bare .foot{opacity:0;pointer-events:none}
+#mv .nm{flex:1;min-width:0;color:#e7e1d4;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mv .ct{flex:0 0 auto;color:#8b8577;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+#mv button{flex:0 0 auto;min-width:44px;height:44px;padding:0 12px;border-radius:10px;
+  color:#e7e1d4;background:rgba(20,25,36,.72);font-size:13px}
+#mv button:active{background:#262d3c}
+#mv .foot button{background:rgba(20,25,36,.86)}
 .prog{height:3px;background:#262d3c;border-radius:2px;overflow:hidden;margin:10px 0 4px;display:none}
 .prog.on{display:block}
 .prog i{display:block;height:100%;width:0;background:var(--gold);transition:width .15s}
@@ -242,6 +276,21 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
   <div class="prog" id="vProg"><i></i></div>
   <div class="vlist" id="vList"></div>
   <div class="vstat" id="vStat"></div>
+</div>
+
+<div id="mv" aria-hidden="true">
+  <div class="track" id="mvTrack"></div>
+  <div class="bar">
+    <button id="mvClose" aria-label="閉じる">✕</button>
+    <span class="nm" id="mvName"></span>
+    <span class="ct" id="mvCount"></span>
+  </div>
+  <div class="foot">
+    <button id="mvPrev" aria-label="前へ">‹</button>
+    <button id="mvSave">取り出す</button>
+    <button id="mvFit">原寸</button>
+    <button id="mvNext" aria-label="次へ">›</button>
+  </div>
 </div>
 
 <div class="vsheet" id="vSheet">
@@ -663,6 +712,7 @@ async function touched(){
 
 /* --- 出入り --- */
 function lockVault(){
+  mvCloseView(); dropThumbs();
   urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
   vaultKey = null; salt = null; slots = null; records = []; items = [];
   mySlot = -1; usedMask = 0; dirty = false;
@@ -726,6 +776,10 @@ async function refresh(){
     catch(e){ /* 別区画のもの：見えない */ }
   }
   items = out;
+  const live = new Set(out.map(x => x.rec.id));
+  [...thumbs.keys()].forEach(id => {
+    if(!live.has(id)){ URL.revokeObjectURL(thumbs.get(id)); thumbs.delete(id); }
+  });
   paint();
 }
 const SVG_DL = '<svg viewBox="0 0 24 24"><path d="M12 4v11M12 15l-4-4M12 15l4-4M5 19h14"/></svg>';
@@ -736,6 +790,8 @@ function paint(){
   const q = $("#vFilter").value.trim().toLowerCase();
   const list = items.filter(x => !q || x.meta.n.toLowerCase().includes(q))
     .sort((a, b) => sortDesc ? b.meta.d - a.meta.d : a.meta.n.localeCompare(b.meta.n, "ja"));
+  if(thumbIO){ thumbIO.disconnect(); thumbIO = null; }
+  thumbQueue = [];
   const box = $("#vList"); box.innerHTML = "";
   if(!list.length){
     box.innerHTML = `<div class="vempty"><span class="k">空</span>${
@@ -750,13 +806,28 @@ function paint(){
 }
 function rowOf(x){
   const el = document.createElement("div");
+  const kind = kindOf(x.meta.t, x.meta.n), media = kind === "IMG" || kind === "MOV";
   el.className = "item";
-  el.innerHTML = `<div class="ic">${kindOf(x.meta.t, x.meta.n)}</div>
+  el.innerHTML = `<div class="ic${media ? " thumb" : ""}">${media ? "" : kind}</div>
     <div class="nm"><b></b><span>${fsize(x.meta.s)} · ${fdate(x.meta.d)}</span></div>
     <div class="act"><button class="dl" aria-label="保存">${SVG_DL}</button><button class="rm" aria-label="削除">${SVG_X}</button></div>`;
   el.querySelector("b").textContent = x.meta.n;
-  el.querySelector(".nm").onclick = () => preview(x);
-  el.querySelector(".ic").onclick = () => preview(x);
+  const open = () => media ? mvOpen(x) : preview(x);
+  el.querySelector(".nm").onclick = open;
+  const ic = el.querySelector(".ic");
+  ic.onclick = open;
+  if(media){
+    const cached = thumbs.get(x.rec.id);
+    if(cached) paintThumb(ic, x, cached);
+    else {
+      ic.classList.add("loading");
+      /* 画面に入ったものだけ作る */
+      if(!thumbIO) thumbIO = new IntersectionObserver(es => es.forEach(en => {
+        if(en.isIntersecting){ thumbIO.unobserve(en.target); queueThumb(en.target._x, en.target); }
+      }), {root:$("#vList"), rootMargin:"200px"});
+      ic._x = x; thumbIO.observe(ic);
+    }
+  }
   el.querySelector(".dl").onclick = e => { e.stopPropagation(); saveOut(x); };
   el.querySelector(".rm").onclick = e => { e.stopPropagation(); confirmDelete(x); };
   return el;
@@ -799,6 +870,282 @@ $("#filePick").addEventListener("change", async e => {
   toast(ng ? (files.length - ng) + " 点を追加（" + ng + " 点は上限超過/失敗）" : files.length + " 点を追加しました");
   if(total > WARN_TOTAL) toast("ファイルが大きくなっています。分けることを勧めます", 4000);
 });
+
+/* =========================================================================
+   見る — 一覧の縮小見本と、画像・動画の全画面
+   復号したものは表に出したぶんだけ持ち、閉じたら必ず捨てる。
+   ========================================================================= */
+const thumbs = new Map();          // id → 縮小見本のURL
+let thumbQueue = [], thumbBusy = false, thumbIO = null;
+
+function isMedia(x){ const k = kindOf(x.meta.t, x.meta.n); return k === "IMG" || k === "MOV"; }
+
+function dropThumbs(){
+  thumbs.forEach(u => URL.revokeObjectURL(u));
+  thumbs.clear(); thumbQueue = [];
+  if(thumbIO){ thumbIO.disconnect(); thumbIO = null; }
+}
+/* 一枚ずつ作る。まとめて復号すると重いので順番待ちにする。 */
+function queueThumb(x, el){
+  thumbQueue.push([x, el]);
+  if(!thumbBusy) nextThumb();
+}
+async function nextThumb(){
+  const job = thumbQueue.shift();
+  if(!job){ thumbBusy = false; return; }
+  thumbBusy = true;
+  const [x, el] = job;
+  try {
+    if(!vaultKey) throw 0;
+    const url = await makeThumb(x);
+    if(url && el.isConnected){
+      thumbs.set(x.rec.id, url);
+      paintThumb(el, x, url);
+    } else if(url) URL.revokeObjectURL(url);
+    else thumbFallback(el, x);
+  } catch(e){ thumbFallback(el, x); }
+  setTimeout(nextThumb, 0);
+}
+/* 縮小見本を作れないとき（対応していない符号化など）は、空欄にせず種別を出す */
+function thumbFallback(el, x){
+  el.classList.remove("loading", "thumb");
+  el.textContent = kindOf(x.meta.t, x.meta.n);
+}
+function paintThumb(el, x, url){
+  el.classList.remove("loading");
+  el.textContent = "";
+  const i = new Image(); i.src = url; i.alt = "";
+  el.appendChild(i);
+  if(kindOf(x.meta.t, x.meta.n) === "MOV"){
+    const p = document.createElement("span"); p.className = "play"; p.textContent = "▶";
+    el.appendChild(p);
+  }
+}
+/* 画像はそのまま、動画は先頭の一コマを写して縮小見本にする */
+async function makeThumb(x){
+  const bytes = await unseal(vaultKey, x.rec.d);
+  const type = x.meta.t || "application/octet-stream";
+  const src = URL.createObjectURL(new Blob([bytes], {type}));
+  try {
+    const kind = kindOf(x.meta.t, x.meta.n);
+    const bmp = kind === "IMG" ? await loadImage(src) : await grabFrame(src);
+    const S = 112;
+    const cv = document.createElement("canvas");
+    const w = bmp.naturalWidth || bmp.videoWidth, h = bmp.naturalHeight || bmp.videoHeight;
+    if(!w || !h) throw 0;
+    const r = Math.min(S / w, S / h) * (w < S && h < S ? 1 : 1);
+    cv.width = Math.max(1, Math.round(w * r)); cv.height = Math.max(1, Math.round(h * r));
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    if(bmp.pause) { bmp.pause(); bmp.removeAttribute("src"); bmp.load(); }
+    const blob = await new Promise(res => cv.toBlob(res, "image/jpeg", .72));
+    return blob ? URL.createObjectURL(blob) : null;
+  } finally { URL.revokeObjectURL(src); }
+}
+function loadImage(src){
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i); i.onerror = rej; i.src = src;
+  });
+}
+function grabFrame(src){
+  return new Promise((res, rej) => {
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "metadata";
+    let done = false;
+    const ok = () => { if(!done){ done = true; res(v); } };
+    v.onloadeddata = () => { try { v.currentTime = Math.min(.1, (v.duration || 1) / 10); } catch(e){ ok(); } };
+    v.onseeked = ok;
+    v.onerror = () => rej(0);
+    setTimeout(() => done || rej(0), 8000);
+    v.src = src;
+  });
+}
+
+/* =========================================================================
+   全画面ビューア
+   ========================================================================= */
+let mvList = [], mvIdx = 0, mvUrls = new Map(), mvZoom = [];
+
+function mvOpen(x){
+  const q = $("#vFilter").value.trim().toLowerCase();
+  mvList = items.filter(y => (!q || y.meta.n.toLowerCase().includes(q)) && isMedia(y))
+    .sort((a, b) => sortDesc ? b.meta.d - a.meta.d : a.meta.n.localeCompare(b.meta.n, "ja"));
+  mvIdx = Math.max(0, mvList.findIndex(y => y.rec.id === x.rec.id));
+  if(!mvList.length) return;
+  $("#mv").classList.add("on"); $("#mv").classList.remove("bare");
+  $("#mv").setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  mvRender();
+}
+function mvCloseView(){
+  $("#mv").classList.remove("on"); $("#mv").setAttribute("aria-hidden", "true");
+  $("#mvTrack").innerHTML = "";
+  mvUrls.forEach(u => URL.revokeObjectURL(u)); mvUrls.clear();
+  mvList = []; mvZoom = [];
+  document.body.style.overflow = "";
+}
+async function mvUrlFor(x){
+  if(mvUrls.has(x.rec.id)) return mvUrls.get(x.rec.id);
+  const bytes = await unseal(vaultKey, x.rec.d);
+  const url = URL.createObjectURL(new Blob([bytes], {type:x.meta.t || "application/octet-stream"}));
+  mvUrls.set(x.rec.id, url);
+  return url;
+}
+/* 前後の一枚ぶんだけ抱えておき、離れたものは捨てる */
+function mvTrim(){
+  const keep = new Set([mvIdx - 1, mvIdx, mvIdx + 1]
+    .filter(i => i >= 0 && i < mvList.length).map(i => mvList[i].rec.id));
+  [...mvUrls.keys()].forEach(id => {
+    if(!keep.has(id)){ URL.revokeObjectURL(mvUrls.get(id)); mvUrls.delete(id); }
+  });
+}
+function mvRender(){
+  const tr = $("#mvTrack");
+  tr.innerHTML = "";
+  const from = Math.max(0, mvIdx - 1), to = Math.min(mvList.length - 1, mvIdx + 1);
+  mvZoom = [];
+  for(let i = from; i <= to; i++){
+    const cell = document.createElement("div");
+    cell.className = "cell"; cell.dataset.i = i;
+    const zw = document.createElement("div"); zw.className = "zw";
+    zw.innerHTML = '<span class="wait">読み込み中…</span>';
+    cell.appendChild(zw); tr.appendChild(cell);
+    mvZoom.push({ i, s:1, x:0, y:0, zw });
+    fillCell(zw, mvList[i], i === mvIdx);
+  }
+  tr.classList.remove("anim");
+  tr.style.transform = `translateX(${-(mvIdx - from) * 100}%)`;
+  const x = mvList[mvIdx];
+  $("#mvName").textContent = x.meta.n;
+  $("#mvCount").textContent = (mvIdx + 1) + " / " + mvList.length;
+  $("#mvFit").hidden = kindOf(x.meta.t, x.meta.n) !== "IMG";
+  mvTrim();
+}
+async function fillCell(zw, x, isCur){
+  try {
+    const url = await mvUrlFor(x);
+    if(!zw.isConnected) return;
+    zw.innerHTML = "";
+    if(kindOf(x.meta.t, x.meta.n) === "IMG"){
+      const i = new Image(); i.src = url; i.draggable = false; zw.appendChild(i);
+    } else {
+      const v = document.createElement("video");
+      v.src = url; v.controls = true; v.playsInline = true; v.preload = "metadata";
+      if(isCur) v.autoplay = false;
+      zw.appendChild(v);
+    }
+  } catch(e){ if(zw.isConnected) zw.innerHTML = '<span class="wait">読み込めませんでした</span>'; }
+}
+function mvGo(d){
+  const n = mvIdx + d;
+  if(n < 0 || n >= mvList.length) return;
+  mvIdx = n;
+  $("#mvTrack").querySelectorAll("video").forEach(v => v.pause());
+  mvRender();
+}
+function curZoom(){ return mvZoom.find(z => z.i === mvIdx); }
+function applyZoom(z, animate){
+  z.zw.classList.toggle("anim", !!animate);
+  z.zw.style.transform = `translate(${z.x}px,${z.y}px) scale(${z.s})`;
+}
+
+$("#mvClose").addEventListener("click", mvCloseView);
+$("#mvPrev").addEventListener("click", () => mvGo(-1));
+$("#mvNext").addEventListener("click", () => mvGo(1));
+$("#mvSave").addEventListener("click", () => { const x = mvList[mvIdx]; if(x) saveOut(x); });
+$("#mvFit").addEventListener("click", () => {
+  const z = curZoom(); if(!z) return;
+  if(z.s > 1.02){ z.s = 1; z.x = 0; z.y = 0; $("#mvFit").textContent = "原寸"; }
+  else { z.s = 2.4; $("#mvFit").textContent = "全体"; }
+  applyZoom(z, true);
+});
+
+/* --- 指の操作：横に払って送る／下に払って閉じる／つまんで拡大 --- */
+(function mvGestures(){
+  const mv = $("#mv"), tr = $("#mvTrack");
+  let pts = new Map(), mode = null, sx = 0, sy = 0, base = null, pinch0 = 0, moved = false, lastTap = 0;
+
+  const cellW = () => mv.clientWidth || 1;
+  const offset = () => -(mvIdx - Math.max(0, mvIdx - 1)) * cellW();
+
+  mv.addEventListener("pointerdown", e => {
+    if(e.target.closest("button") || e.target.closest("video")) return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pts.size === 1){
+      sx = e.clientX; sy = e.clientY; moved = false;
+      const z = curZoom(); base = z ? {s:z.s, x:z.x, y:z.y} : null;
+      mode = (z && z.s > 1.02) ? "pan" : "swipe";
+      tr.classList.remove("anim");
+    } else if(pts.size === 2){
+      mode = "pinch";
+      const [a, b] = [...pts.values()];
+      pinch0 = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const z = curZoom(); base = z ? {s:z.s, x:z.x, y:z.y} : null;
+    }
+    mv.setPointerCapture(e.pointerId);
+  });
+
+  mv.addEventListener("pointermove", e => {
+    if(!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    const z = curZoom();
+    if(mode === "pinch" && pts.size >= 2 && z && base){
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      z.s = Math.max(1, Math.min(6, base.s * (d / pinch0)));
+      applyZoom(z, false); moved = true; return;
+    }
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if(Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+    if(mode === "pan" && z && base){
+      z.x = base.x + dx; z.y = base.y + dy; applyZoom(z, false); return;
+    }
+    if(mode === "swipe"){
+      if(Math.abs(dy) > Math.abs(dx) && dy > 0){
+        tr.style.transform = `translateX(${offset()}px) translateY(${dy}px)`;
+        mv.style.background = `rgba(5,7,11,${Math.max(.25, 1 - dy / 420)})`;
+      } else {
+        tr.style.transform = `translateX(${offset() + dx}px)`;
+      }
+    }
+  });
+
+  const end = e => {
+    if(!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    const z = curZoom();
+    if(mode === "pinch"){
+      if(pts.size === 0 && z){
+        if(z.s <= 1.02){ z.s = 1; z.x = 0; z.y = 0; applyZoom(z, true); }
+        $("#mvFit").textContent = z.s > 1.02 ? "全体" : "原寸";
+        mode = null;
+      }
+      return;
+    }
+    if(pts.size) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    mv.style.background = "";
+    if(mode === "pan"){ mode = null; return; }
+    if(mode === "swipe"){
+      tr.classList.add("anim");
+      if(Math.abs(dy) > 110 && Math.abs(dy) > Math.abs(dx)){ mvCloseView(); mode = null; return; }
+      if(Math.abs(dx) > Math.min(90, cellW() * .22)){ mvGo(dx < 0 ? 1 : -1); mode = null; return; }
+      tr.style.transform = `translateX(${offset()}px)`;
+      if(!moved){
+        const now = Date.now();
+        if(now - lastTap < 300){                     // 二度叩きで拡大／戻す
+          const zz = curZoom();
+          if(zz){ zz.s = zz.s > 1.02 ? 1 : 2.4; zz.x = 0; zz.y = 0; applyZoom(zz, true);
+                  $("#mvFit").textContent = zz.s > 1.02 ? "全体" : "原寸"; }
+          lastTap = 0;
+        } else { mv.classList.toggle("bare"); lastTap = now; }
+      }
+    }
+    mode = null;
+  };
+  mv.addEventListener("pointerup", end);
+  mv.addEventListener("pointercancel", end);
+})();
 
 /* --- 取り出し・閲覧 --- */
 async function saveOut(x){
