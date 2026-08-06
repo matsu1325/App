@@ -266,7 +266,7 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
 
 <div id="vault" aria-hidden="true">
   <div class="vhead">
-    <h2 class="vtitle">蔵</h2>
+    <h2 class="vtitle" id="vTitle">蔵</h2>
     <span class="where" id="vWhere"></span>
     <button id="vMenu">···</button>
     <button id="vClose">閉じる</button>
@@ -275,6 +275,8 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
     <button class="t key" id="vAdd">入れる</button>
     <button class="t" id="vPart" hidden>追加分だけ</button>
     <button class="t" id="vSave">保存</button>
+    <button class="t key" id="eSeal" hidden>封じる</button>
+    <button class="t" id="eOpen" hidden>開く</button>
   </div>
   <div class="vfilter">
     <input id="vFilter" type="text" placeholder="名前で絞り込む" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -306,6 +308,8 @@ body.masked #vault,body.masked .vsheet,body.masked #toast{visibility:hidden}
 </div>
 
 <input type="file" id="filePick" multiple style="position:fixed;left:-9999px;top:0;opacity:0">
+<input type="file" id="sealPick" multiple style="position:fixed;left:-9999px;top:0;opacity:0">
+<input type="file" id="envPick" multiple style="position:fixed;left:-9999px;top:0;opacity:0">
 <input type="file" id="vaultPick" style="position:fixed;left:-9999px;top:0;opacity:0">
 <input type="file" id="mergePick" style="position:fixed;left:-9999px;top:0;opacity:0">
 <div id="toast"></div>
@@ -667,13 +671,38 @@ async function mount(u, r, where, prev){
 
 function openGate(){
   $("#gateBody").innerHTML = `<h3>保管領域</h3>
-    <p class="note">中身は暗号化された1つのファイルにまとまっています。iCloud Drive でも「このiPhone内」でも、置き場所は自由です。</p>
-    <button class="pbtn" id="gOpen">金庫ファイルを開く</button>
+    <p class="note">封書は1ファイルを1ファイルとして封じます。置き場所は iCloud Drive でも「このiPhone内」でも自由で、大きさに上限はありません。</p>
+    <button class="pbtn" id="gEnv">封書を扱う</button>
+    <div class="gap"></div>
+    <p class="note">金庫は複数をまとめて1つのファイルにします。全体で 220MB あたりが目安です。</p>
+    <button class="pbtn ghost" id="gOpen">金庫ファイルを開く</button>
     <div class="gap"></div>
     <button class="pbtn ghost" id="gNew">新しい金庫を作る</button>`;
   openSheet("#gateSheet");
   $("#gOpen").onclick = () => { holdLock = true; $("#vaultPick").click(); };
   $("#gNew").onclick = gateNew;
+  $("#gEnv").onclick = gateEnv;
+}
+/* 封書は合言葉だけあればよい。作るものも覚えるものも無い。 */
+function gateEnv(){
+  $("#gateBody").innerHTML = `<h3>封書</h3>
+    <p class="note">合言葉を入れてください。この合言葉で封じ、同じ合言葉で開きます。作るものはありません。忘れると開けません。</p>
+    <div class="fld"><label for="e1">合言葉（6文字以上）</label>
+      <input id="e1" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+    <p class="err" id="eErr"></p>
+    <button class="pbtn" id="eGo">はじめる</button>`;
+  $("#e1").addEventListener("keydown", e => { if(e.key === "Enter") $("#eGo").click(); });
+  $("#eGo").onclick = async () => {
+    const pass = $("#e1").value;
+    if(pass.length < 6){ $("#eErr").textContent = "6文字以上にしてください"; return; }
+    $("#eGo").disabled = true; $("#eGo").textContent = "支度中…";
+    envPass = pass;
+    envSalt = await envGetSalt();
+    envKeys.clear();
+    envKey = await envKeyFor(envSalt);
+    closeSheet("#gateSheet");
+    enterEnv();
+  };
 }
 function gateNew(){
   $("#gateBody").innerHTML = `<h3>新しい金庫を作る</h3>
@@ -795,7 +824,7 @@ async function touched(){
 
 /* --- 出入り --- */
 function lockVault(){
-  mvCloseView(); dropThumbs();
+  mvCloseView(); dropThumbs(); envClear();
   urls.forEach(u => URL.revokeObjectURL(u)); urls = [];
   vaultKey = null; salt = null; slots = null; records = []; items = [];
   mySlot = -1; usedMask = 0; dirty = false;
@@ -817,12 +846,14 @@ $("#vClose").addEventListener("click", () => {
   $("#cSave").onclick = async () => { await saveVault(); vClose(); lockVault(); };
   $("#cDrop").onclick = () => { vClose(); lockVault(); };
 });
-document.addEventListener("keydown", e => { if(e.key === "Escape" && vaultKey) lockVault(); });
+/* 金庫でも封書でも、開いている間は同じ守りにする */
+function isOpen(){ return !!vaultKey || envMode; }
+document.addEventListener("keydown", e => { if(e.key === "Escape" && isOpen()) lockVault(); });
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "hidden" && vaultKey && !holdLock) lockVault();
+  if(document.visibilityState === "hidden" && isOpen() && !holdLock) lockVault();
 });
-window.addEventListener("pagehide", () => { if(vaultKey && !holdLock) lockVault(); });
-window.addEventListener("blur", () => { if(vaultKey) document.body.classList.add("masked"); });
+window.addEventListener("pagehide", () => { if(isOpen() && !holdLock) lockVault(); });
+window.addEventListener("blur", () => { if(isOpen()) document.body.classList.add("masked"); });
 window.addEventListener("focus", () => {
   document.body.classList.remove("masked");
   setTimeout(() => { holdLock = false; }, 1200);
@@ -836,9 +867,9 @@ function busyViewing(){
 }
 function resetIdle(){
   clearTimeout(idleTimer);
-  if(!vaultKey) return;
+  if(!isOpen()) return;
   idleTimer = setTimeout(() => {
-    if(!vaultKey) return;
+    if(!isOpen()) return;
     if(busyViewing()){ resetIdle(); return; }   // 見終わってから数え直す
     lockVault();
   }, 180000);
@@ -896,6 +927,13 @@ const SVG_X  = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 /* 上の表示だけを直す。一覧は組み直さない。
    縮小見本を作っている最中に一覧を組み直すと、順番待ちの列が消えてしまう。 */
 function paintStat(){
+  if(envMode){
+    const sum = items.reduce((s, x) => s + (x.meta.s || 0), 0);
+    $("#vStat").textContent = items.length
+      ? items.length + " 通 / " + fsize(sum) + "　·　上限なし"
+      : "「封じる」で封書を作り、「開く」で読みます。まとめて選べます。";
+    return;
+  }
   $("#vSave").classList.toggle("dirty", dirty);
   $("#vSave").textContent = dirty ? "保存（未）" : "保存";
   /* 足しただけなら、追加分だけの書き出しで足りる */
@@ -948,6 +986,9 @@ function rowOf(x){
     }
     if(cached) paintThumb(ic, x, cached);
     else if(thumbNG.has(x.rec.id)) thumbFallback(ic, x);   // 一度作れなかったものは触らない
+    /* 封書は見出しに縮小見本が無ければ諦める。
+       並べるためだけに何GBもの実体を解くのは割に合わない。 */
+    else if(envMode) thumbFallback(ic, x);
     else {
       ic.classList.add("loading");
       /* 画面に入ったものだけ作る */
@@ -958,7 +999,18 @@ function rowOf(x){
     }
   }
   el.querySelector(".dl").onclick = e => { e.stopPropagation(); saveOut(x); };
-  el.querySelector(".rm").onclick = e => { e.stopPropagation(); confirmDelete(x); };
+  el.querySelector(".rm").onclick = e => {
+    e.stopPropagation();
+    /* 封書は端末に何も持っていない。外すのは一覧からだけで、元のファイルは残る。 */
+    if(envMode){
+      envItems = envItems.filter(y => y !== x); items = envItems.slice();
+      const u = thumbs.get(x.rec.id);
+      if(u){ URL.revokeObjectURL(u); thumbs.delete(x.rec.id); }
+      paint(); toast("一覧から外しました。ファイルはそのままです");
+      return;
+    }
+    confirmDelete(x);
+  };
   return el;
 }
 $("#vFilter").addEventListener("input", paint);
@@ -1020,6 +1072,15 @@ let thumbQueue = [], thumbBusy = false, thumbIO = null;
 const THUMB_PX = 160, THUMB_Q = .7;
 
 function isMedia(x){ const k = kindOf(x.meta.t, x.meta.n); return k === "IMG" || k === "MOV"; }
+
+/* 中身の出どころを一箇所にまとめる。
+   金庫の中のものは封を解く。封書は刻みを繋ぐ（x.load が持っている）。
+   実体は Blob で返す。Blob は表に置かれるので、大きくても器に載らない。 */
+async function blobOf(x){
+  if(x.load) return await x.load();
+  const bytes = await unseal(vaultKey, x.rec.d);
+  return new Blob([bytes], {type:mimeOf(x.meta)});
+}
 
 /* 縮小見本は見出しの中（meta.tb）に一緒に納める。
    こうすると金庫を開いた時点でもう手元にあり、実体を復号せずに並べられる。
@@ -1096,8 +1157,9 @@ function paintThumb(el, x, url){
 /* 画像はそのまま、動画は先頭の一コマを写して縮小見本にする。
    一覧の枠は正方形で切り抜いて出すので、作る時点で正方形に切っておく。
    そのぶん軽く、拡大も掛からない。 */
-async function thumbBlob(bytes, type, kind){
-  const src = URL.createObjectURL(new Blob([bytes], {type: type || "application/octet-stream"}));
+async function thumbBlob(src0, type, kind){
+  const src = URL.createObjectURL(src0 instanceof Blob ? src0
+    : new Blob([src0], {type: type || "application/octet-stream"}));
   try {
     const bmp = kind === "IMG" ? await loadImage(src) : await grabFrame(src);
     const w = bmp.naturalWidth || bmp.videoWidth, h = bmp.naturalHeight || bmp.videoHeight;
@@ -1113,10 +1175,9 @@ async function thumbBlob(bytes, type, kind){
 }
 /* 見出しに縮小見本が無い金庫（前の版で作ったもの）は、実体を復号して作る */
 async function makeThumb(x){
-  const bytes = await unseal(vaultKey, x.rec.d);
-  const blob = await thumbBlob(bytes, mimeOf(x.meta), kindOf(x.meta.t, x.meta.n));
+  const blob = await thumbBlob(await blobOf(x), mimeOf(x.meta), kindOf(x.meta.t, x.meta.n));
   if(!blob) return null;
-  backfillThumb(x, new Uint8Array(await blob.arrayBuffer()));
+  if(x.rec.d) backfillThumb(x, new Uint8Array(await blob.arrayBuffer()));
   return URL.createObjectURL(blob);
 }
 function loadImage(src){
@@ -1164,8 +1225,7 @@ function mvCloseView(){
 }
 async function mvUrlFor(x){
   if(mvUrls.has(x.rec.id)) return mvUrls.get(x.rec.id);
-  const bytes = await unseal(vaultKey, x.rec.d);
-  const url = URL.createObjectURL(new Blob([bytes], {type:mimeOf(x.meta)}));
+  const url = URL.createObjectURL(await blobOf(x));
   mvUrls.set(x.rec.id, url);
   return url;
 }
@@ -1328,14 +1388,14 @@ $("#mvFit").addEventListener("click", () => {
 /* --- 取り出し・閲覧 --- */
 async function saveOut(x){
   try {
-    const bytes = await unseal(vaultKey, x.rec.d);
-    const file = new File([bytes], x.meta.n, {type:mimeOf(x.meta)});
+    const blob = await blobOf(x);
+    const file = new File([blob], x.meta.n, {type:mimeOf(x.meta)});
     holdLock = true;
     if(navigator.canShare && navigator.canShare({files:[file]})){
       try { await navigator.share({files:[file]}); }
       catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return; } }
     } else {
-      const url = URL.createObjectURL(new Blob([bytes], {type:mimeOf(x.meta)}));
+      const url = URL.createObjectURL(blob);
       urls.push(url);
       const a = document.createElement("a");
       a.href = url; a.download = x.meta.n; document.body.appendChild(a); a.click(); a.remove();
@@ -1351,20 +1411,20 @@ async function preview(x){
   vOpen(`<h3>閲覧</h3><div class="pv"><div class="nopv">読み込み中…</div></div>
     <p class="note" id="pvName"></p>
     <button class="pbtn" id="pvSave">取り出す</button>
-    <div class="gap"></div><button class="pbtn ghost" id="pvRename">名前を変える</button>
+    <div class="gap"></div><button class="pbtn ghost" id="pvRename"${x.rec.d ? "" : " hidden"}>名前を変える</button>
     <div class="gap"></div><button class="pbtn ghost" data-vclose>閉じる</button>`);
   $("#pvName").textContent = x.meta.n + " · " + fsize(x.meta.s);
   $("#pvSave").onclick = () => saveOut(x);
   $("#pvRename").onclick = () => renameItem(x);
   const pv = $("#vSheetBody .pv"), k = kindOf(x.meta.t, x.meta.n);
   try {
-    const bytes = await unseal(vaultKey, x.rec.d);
+    const blob = await blobOf(x);
     if(k === "TXT"){
       const pre = document.createElement("pre");
-      pre.textContent = dec.decode(bytes).slice(0, 200000);
+      pre.textContent = (await blob.slice(0, 400000).text()).slice(0, 200000);
       pv.innerHTML = ""; pv.appendChild(pre); return;
     }
-    const url = URL.createObjectURL(new Blob([bytes], {type:mimeOf(x.meta)}));
+    const url = URL.createObjectURL(blob);
     urls.push(url); pv.innerHTML = "";
     if(k === "IMG"){ const i = new Image(); i.src = url; pv.appendChild(i); }
     else if(k === "MOV"){ const v = document.createElement("video"); v.src = url; v.controls = true; v.playsInline = true; pv.appendChild(v); }
@@ -1574,6 +1634,181 @@ $("#mergePick").addEventListener("change", async e => {
   };
 });
 function b64d(s){ const b = atob(s), u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+
+/* =========================================================================
+   封書 — 1ファイルを1ファイルとして封じる
+   箱に溜めない。中身は端末にも残さない。読むときだけ解く。
+   刻んで封じるので、どれだけ大きくても器に載るのは刻み1つぶんだけ。
+   大きさの上限は無い。
+
+   [0..4)    合図 "UCS2"
+   [4..20)   salt（この端末の合言葉ぶん。使い回すので鍵づくりは一度で済む）
+   [20..32)  見出しの iv
+   [32..36)  見出しの長さ
+   [36..)    見出し（封じてある。名前・型・大きさ・日付・縮小見本・刻み幅）
+   以降      刻み：iv(12) + 封じた本体（平文 + 認証16）
+   ========================================================================= */
+const ENV_MAGIC = [0x55,0x43,0x53,0x32], ENV_HEAD = 36, CHUNK = 4 * 1024 * 1024, TAG = 16;
+let envKey = null, envSalt = null, envItems = [], envMode = false;
+
+/* salt はこの端末で固定。同じ合言葉なら鍵づくりが一度で済み、
+   何百枚を並べても待ちが増えない。 */
+async function envGetSalt(){
+  try {
+    const d = await openDB();
+    const r = await req(d.transaction(ST).objectStore(ST).get("envsalt"));
+    if(r && r.b && r.b.length === 16) return new Uint8Array(r.b);
+  } catch(e){}
+  const s = rand(16);
+  try {
+    const d = await openDB();
+    await req(d.transaction(ST, "readwrite").objectStore(ST).put({k:"envsalt", b:s}));
+  } catch(e){}
+  return s;
+}
+function envChunkCount(size){ return Math.max(1, Math.ceil(size / CHUNK)); }
+/* 刻みの並びは決まった間隔なので、何番目がどこにあるか計算で出せる */
+function envChunkAt(i, size, hEnd){
+  const before = i * (12 + Math.min(CHUNK, size) + TAG);
+  const plain = Math.min(CHUNK, size - i * CHUNK);
+  return {start: hEnd + before, end: hEnd + before + 12 + plain + TAG, plain};
+}
+
+/* --- 封じる --- */
+async function envSeal(file, onProg){
+  const meta = {n:file.name, t:file.type, s:file.size, d:Date.now(), c:CHUNK};
+  const k = kindOf(file.type, file.name);
+  if(k === "IMG" || k === "MOV"){
+    /* 元のファイルをそのまま渡す。表に置くだけなので、大きくても読み込まれない。 */
+    try {
+      const tb = await thumbBlob(file.slice(0, file.size, mimeOf(meta)), mimeOf(meta), k);
+      if(tb) meta.tb = b64e(new Uint8Array(await tb.arrayBuffer()));
+    } catch(e){ /* 縮小見本なしで封じる */ }
+  }
+  const hIV = rand(12);
+  const hCt = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv:hIV}, envKey,
+    enc.encode(JSON.stringify(meta))));
+  const head = new Uint8Array(ENV_HEAD);
+  head.set(ENV_MAGIC, 0); head.set(envSalt, 4); head.set(hIV, 20);
+  new DataView(head.buffer).setUint32(32, hCt.length);
+
+  const parts = [head, hCt];
+  const n = envChunkCount(file.size);
+  for(let i = 0; i < n; i++){
+    const slice = file.slice(i * CHUNK, Math.min(file.size, (i + 1) * CHUNK));
+    const iv = rand(12);
+    const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, envKey, await slice.arrayBuffer());
+    /* すぐ Blob にして表へ逃がす。器に残すと、刻んだ意味が無くなる。 */
+    parts.push(new Blob([iv, ct]));
+    if(onProg) onProg((i + 1) / n);
+  }
+  return new Blob(parts, {type:"application/octet-stream"});
+}
+function envName(n){ return (String(n).replace(/\.[^.]*$/, "") || "file") + ".dat"; }
+
+/* --- 見出しだけ読む（並べるのに実体は要らない） --- */
+async function envReadHead(file){
+  const h = new Uint8Array(await file.slice(0, ENV_HEAD).arrayBuffer());
+  if(h.length < ENV_HEAD) return null;
+  for(let i = 0; i < 4; i++) if(h[i] !== ENV_MAGIC[i]) return null;
+  const salt = h.slice(4, 20), hIV = h.slice(20, 32);
+  const hLen = new DataView(h.buffer, h.byteOffset, h.byteLength).getUint32(32);
+  if(hLen <= 0 || hLen > 1 << 22) return null;
+  const ct = new Uint8Array(await file.slice(ENV_HEAD, ENV_HEAD + hLen).arrayBuffer());
+  const key = await envKeyFor(salt);
+  if(!key) return null;
+  try {
+    const meta = JSON.parse(dec.decode(new Uint8Array(
+      await crypto.subtle.decrypt({name:"AES-GCM", iv:hIV}, key, ct))));
+    return {meta, key, hEnd: ENV_HEAD + hLen};
+  } catch(e){ return null; }
+}
+/* 他の端末で封じたものは salt が違う。その salt ぶんの鍵だけ作り直して覚えておく */
+const envKeys = new Map();
+let envPass = "";
+async function envKeyFor(salt){
+  const id = b64e(salt);
+  if(envKeys.has(id)) return envKeys.get(id);
+  if(!envPass) return null;
+  const k = await derive(envPass, salt);
+  envKeys.set(id, k);
+  return k;
+}
+
+/* --- 封書の画面。金庫と同じ棚を使うが、道具立てだけ差し替える --- */
+function enterEnv(){
+  envMode = true; envItems = []; items = []; records = [];
+  document.activeElement && document.activeElement.blur();
+  $("#vault").classList.add("on"); $("#vault").setAttribute("aria-hidden", "false");
+  $("#vTitle").textContent = "封書";
+  $("#vWhere").textContent = "端末には残しません";
+  $("#vFilter").value = "";
+  ["vAdd","vSave","vPart"].forEach(id => $("#" + id).hidden = true);
+  ["eSeal","eOpen"].forEach(id => $("#" + id).hidden = false);
+  paint(); resetIdle();
+}
+function envClear(){
+  envMode = false; envItems = []; envKey = null; envSalt = null; envPass = "";
+  envKeys.clear();
+  $("#vTitle").textContent = "蔵";
+  ["vAdd","vSave"].forEach(id => $("#" + id).hidden = false);
+  ["eSeal","eOpen","vPart"].forEach(id => $("#" + id).hidden = true);
+}
+
+$("#eSeal").addEventListener("click", () => { holdLock = true; $("#sealPick").click(); });
+$("#sealPick").addEventListener("change", async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if(!files.length || !envKey){ holdLock = false; return; }
+  let ok = 0, ng = 0, n = 0;
+  for(const f of files){
+    try {
+      const blob = await envSeal(f, r => prog((n + r) / files.length));
+      const out = envName(f.name);
+      if(!await handOff(blob, out)) { holdLock = false; prog(null); return; }
+      ok++;
+    } catch(err){ ng++; }
+    n++; prog(n / files.length);
+  }
+  prog(null); holdLock = false;
+  toast(ng ? ok + " 通を封じました（" + ng + " 通は失敗）" : ok + " 通を封じました。元のファイルは自分で片付けてください", 4200);
+});
+
+$("#eOpen").addEventListener("click", () => { holdLock = true; $("#envPick").click(); });
+$("#envPick").addEventListener("change", async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if(!files.length || !envKey){ holdLock = false; return; }
+  let ng = 0, n = 0;
+  for(const f of files){
+    const h = await envReadHead(f);          // 見出しだけ。実体は読まない
+    if(h) envItems.push({rec:{id:crypto.randomUUID()}, meta:h.meta,
+      ent:{file:f, meta:h.meta, key:h.key, hEnd:h.hEnd},
+      load(){ return envOpen(this.ent, r => prog(r)).then(b => { prog(null); return b; }); }});
+    else ng++;
+    n++; prog(n / files.length);
+  }
+  prog(null); holdLock = false;
+  items = envItems.slice();
+  paint();
+  toast(ng ? (files.length - ng) + " 通を開きました（" + ng + " 通は合言葉が違うか封書ではありません）"
+           : files.length + " 通を開きました", 3600);
+});
+
+/* --- 開く（刻みを順に解いて繋ぐ） --- */
+async function envOpen(ent, onProg){
+  const {file, meta, key, hEnd} = ent;
+  const n = envChunkCount(meta.s);
+  const parts = [];
+  for(let i = 0; i < n; i++){
+    const at = envChunkAt(i, meta.s, hEnd);
+    const buf = new Uint8Array(await file.slice(at.start, at.end).arrayBuffer());
+    const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:buf.subarray(0, 12)}, key, buf.subarray(12));
+    parts.push(new Blob([pt]));              // 解いたそばから表へ置く
+    if(onProg) onProg((i + 1) / n);
+  }
+  return new Blob(parts, {type:mimeOf(meta)});
+}
 
 function uiWipeMine(){
   vOpen(`<h3>この区画を空にする</h3>
