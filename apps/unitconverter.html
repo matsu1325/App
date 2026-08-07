@@ -780,8 +780,9 @@ $("#vaultPick").addEventListener("change", async e => {
 
 /* --- 保存（共有シート → 「"ファイル"に保存」→ iCloud Drive） --- */
 /* 端末の外へ渡す口はここ1つ。まるごとでも追加分だけでも通る。 */
-async function handOff(bytes, name){
-  const file = new File([bytes], name, {type:"application/octet-stream"});
+async function handOff(bytes, name, type){
+  type = type || "application/octet-stream";
+  const file = new File([bytes], name, {type});
   holdLock = true;
   let done = false;
   if(navigator.canShare && navigator.canShare({files:[file]})){
@@ -789,7 +790,7 @@ async function handOff(bytes, name){
     catch(e){ if(e && e.name === "AbortError"){ holdLock = false; return false; } }
   }
   if(!done){
-    const url = URL.createObjectURL(new Blob([bytes], {type:"application/octet-stream"}));
+    const url = URL.createObjectURL(new Blob([bytes], {type}));
     urls.push(url);
     const a = document.createElement("a");
     a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -1665,6 +1666,22 @@ function b64d(s){ const b = atob(s), u = new Uint8Array(b.length); for(let i = 0
 const ENV_MAGIC = [0x55,0x43,0x53,0x32], ENV_HEAD = 36, CHUNK = 4 * 1024 * 1024, TAG = 16;
 let envKey = null, envSalt = null, envItems = [], envMode = false;
 
+/* CRC-32。zip の検査値に使う。刻みを作る・解くその場で回すので、
+   そのために実体をもう一度読み直すことはない。 */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32Update(crc, bytes){
+  for(let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  return crc >>> 0;
+}
+
 /* salt はこの端末で固定。同じ合言葉なら鍵づくりが一度で済み、
    何百枚を並べても待ちが増えない。 */
 async function envGetSalt(){
@@ -1706,17 +1723,20 @@ async function envSeal(file, onProg){
   head.set(ENV_MAGIC, 0); head.set(envSalt, 4); head.set(hIV, 20);
   new DataView(head.buffer).setUint32(32, hCt.length);
 
+  let crc = 0xFFFFFFFF, size = head.length + hCt.length;
+  crc = crc32Update(crc, head); crc = crc32Update(crc, hCt);
   const parts = [head, hCt];
   const n = envChunkCount(file.size);
   for(let i = 0; i < n; i++){
     const slice = file.slice(i * CHUNK, Math.min(file.size, (i + 1) * CHUNK));
     const iv = rand(12);
-    const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, envKey, await slice.arrayBuffer());
+    const ct = new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM", iv}, envKey, await slice.arrayBuffer()));
+    crc = crc32Update(crc, iv); crc = crc32Update(crc, ct); size += iv.length + ct.length;
     /* すぐ Blob にして表へ逃がす。器に残すと、刻んだ意味が無くなる。 */
     parts.push(new Blob([iv, ct]));
     if(onProg) onProg((i + 1) / n);
   }
-  return new Blob(parts, {type:"application/octet-stream"});
+  return {blob: new Blob(parts, {type:"application/octet-stream"}), crc32: (crc ^ 0xFFFFFFFF) >>> 0, size};
 }
 function envName(n){ return (String(n).replace(/\.[^.]*$/, "") || "file") + ".dat"; }
 
@@ -1769,23 +1789,126 @@ function envClear(){
   ["eSeal","eOpen","eOut","vPart"].forEach(id => $("#" + id).hidden = true);
 }
 
-/* まとめて渡す。1通ずつ共有シートを出していては、何十枚も扱えない。
-   共有シートは一度で全部を受け取れるので、まず一度で試す。
-   使えない・断られた時だけ、1通ずつ書き出しに落とす。 */
-async function handOffMany(files){
-  if(!files.length) return true;
-  if(navigator.canShare && navigator.canShare({files})){
-    try { await navigator.share({files}); return true; }
-    catch(e){ if(e && e.name === "AbortError") return false; }
+/* =========================================================================
+   まとめて渡す — 何通できても、置き場所を選ぶのは一度だけ
+   共有シートに複数ファイルを渡しても、端末によっては1件ずつ場所を
+   聞かれる。確実に一度にするには、1個のファイルにしてしまうのが早い。
+   2通以上は圧縮せずに zip へ包む。1通だけならそのまま渡す。
+   ========================================================================= */
+function tsName(){
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
+function uniqueName(used, name){
+  if(!used.has(name)){ used.add(name); return name; }
+  const m = String(name).match(/^(.*?)(\.[^.]*)?$/), base = m[1], ext = m[2] || "";
+  let i = 2, cand;
+  do { cand = base + " (" + i + ")" + ext; i++; } while(used.has(cand));
+  used.add(cand);
+  return cand;
+}
+function packLE(fields){
+  let len = 0; for(const [n] of fields) len += n;
+  const buf = new Uint8Array(len), dv = new DataView(buf.buffer);
+  let o = 0;
+  for(const [n, v] of fields){
+    if(n === 2) dv.setUint16(o, v, true);
+    else if(n === 4) dv.setUint32(o, v >>> 0, true);
+    else if(n === 8) dv.setBigUint64(o, BigInt(v), true);
+    o += n;
   }
-  for(const f of files){
-    const url = URL.createObjectURL(f);
-    urls.push(url);
-    const a = document.createElement("a");
-    a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
-    await new Promise(r => setTimeout(r, 120));      // 続けざまだと取りこぼす端末がある
+  return buf;
+}
+/* zip は無圧縮（封じてあるので圧縮の余地がない）で、常に zip64 の形で書く。
+   数GBの通が混ざっても崩れないよう、大きさで場合分けしない一本の道にした。 */
+async function buildZip(entries){
+  const d = new Date();
+  const time = ((d.getHours() & 0x1F) << 11) | ((d.getMinutes() & 0x3F) << 5) | ((d.getSeconds() >> 1) & 0x1F);
+  const date = ((Math.max(0, d.getFullYear() - 1980) & 0x7F) << 9) | (((d.getMonth() + 1) & 0xF) << 5) | (d.getDate() & 0x1F);
+  const parts = [], central = [];
+  let offset = 0n;
+  for(const e of entries){
+    const nameBytes = enc.encode(e.name), size = BigInt(e.size);
+    const lfh = packLE([[4,0x04034b50],[2,45],[2,0x0800],[2,0],[2,time],[2,date],
+      [4,e.crc32],[4,0xFFFFFFFF],[4,0xFFFFFFFF],[2,nameBytes.length],[2,20]]);
+    const lfhExtra = packLE([[2,0x0001],[2,16],[8,size],[8,size]]);
+    parts.push(lfh, nameBytes, lfhExtra, e.blob);
+
+    const cdh = packLE([[4,0x02014b50],[2,45],[2,45],[2,0x0800],[2,0],[2,time],[2,date],
+      [4,e.crc32],[4,0xFFFFFFFF],[4,0xFFFFFFFF],[2,nameBytes.length],[2,28],[2,0],[2,0],[2,0],[4,0],[4,0xFFFFFFFF]]);
+    const cdhExtra = packLE([[2,0x0001],[2,24],[8,size],[8,size],[8,offset]]);
+    central.push(cdh, nameBytes, cdhExtra);
+
+    offset += BigInt(lfh.length + nameBytes.length + lfhExtra.length) + size;
   }
-  return true;
+  const cdBlob = new Blob(central), cdSize = BigInt(cdBlob.size), cdOffset = offset, n = BigInt(entries.length);
+  const z64eocd = packLE([[4,0x06064b50],[8,44],[2,45],[2,45],[4,0],[4,0],[8,n],[8,n],[8,cdSize],[8,cdOffset]]);
+  const z64loc  = packLE([[4,0x07064b50],[4,0],[8,cdOffset + cdSize],[4,1]]);
+  const eocd    = packLE([[4,0x06054b50],[2,0],[2,0],[2,0xFFFF],[2,0xFFFF],[4,0xFFFFFFFF],[4,0xFFFFFFFF],[2,0]]);
+  return new Blob([...parts, cdBlob, z64eocd, z64loc, eocd], {type:"application/zip"});
+}
+/* zip を読む側。自分で作った無圧縮 zip しか想定しない
+   （圧縮されている中身は開かない。読めないと分かるだけにする）。 */
+async function zipEntries(file){
+  const tailLen = Math.min(file.size, 65557);
+  if(tailLen < 22) return null;
+  const tail = new Uint8Array(await file.slice(file.size - tailLen, file.size).arrayBuffer());
+  let eocdAt = -1;
+  for(let i = tail.length - 22; i >= 0; i--){
+    if(tail[i] === 0x50 && tail[i+1] === 0x4b && tail[i+2] === 0x05 && tail[i+3] === 0x06){ eocdAt = i; break; }
+  }
+  if(eocdAt < 0) return null;
+  const dv = new DataView(tail.buffer, tail.byteOffset, tail.byteLength);
+  let cdOffset = dv.getUint32(eocdAt + 16, true), cdSize = dv.getUint32(eocdAt + 12, true), total = dv.getUint16(eocdAt + 10, true);
+  if(cdOffset === 0xFFFFFFFF || total === 0xFFFF){
+    const locAt = eocdAt - 20;
+    if(locAt < 0 || !(tail[locAt] === 0x50 && tail[locAt+1] === 0x4b && tail[locAt+2] === 0x06 && tail[locAt+3] === 0x07)) return null;
+    const z64off = Number(dv.getBigUint64(locAt + 8, true));
+    const head = new Uint8Array(await file.slice(z64off, z64off + 56).arrayBuffer());
+    if(!(head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x06 && head[3] === 0x06)) return null;
+    const hdv = new DataView(head.buffer);
+    total = Number(hdv.getBigUint64(32, true)); cdSize = Number(hdv.getBigUint64(40, true)); cdOffset = Number(hdv.getBigUint64(48, true));
+  }
+  const cd = new Uint8Array(await file.slice(cdOffset, cdOffset + cdSize).arrayBuffer());
+  const cdv = new DataView(cd.buffer);
+  const out = []; let o = 0;
+  for(let i = 0; i < total; i++){
+    if(o + 46 > cd.length || !(cd[o] === 0x50 && cd[o+1] === 0x4b && cd[o+2] === 0x01 && cd[o+3] === 0x02)) break;
+    const method = cdv.getUint16(o + 10, true), crc32v = cdv.getUint32(o + 16, true);
+    let csize = cdv.getUint32(o + 20, true), usize = cdv.getUint32(o + 24, true);
+    const nameLen = cdv.getUint16(o + 28, true), extraLen = cdv.getUint16(o + 30, true), commentLen = cdv.getUint16(o + 32, true);
+    let lho = cdv.getUint32(o + 42, true);
+    const name = dec.decode(cd.subarray(o + 46, o + 46 + nameLen));
+    let p = o + 46 + nameLen, pend = p + extraLen;
+    while(p + 4 <= pend){
+      const tag = cdv.getUint16(p, true), sz = cdv.getUint16(p + 2, true);
+      if(tag === 0x0001){
+        let q = p + 4;
+        if(usize === 0xFFFFFFFF){ usize = Number(cdv.getBigUint64(q, true)); q += 8; }
+        if(csize === 0xFFFFFFFF){ csize = Number(cdv.getBigUint64(q, true)); q += 8; }
+        if(lho === 0xFFFFFFFF){ lho = Number(cdv.getBigUint64(q, true)); q += 8; }
+      }
+      p += 4 + sz;
+    }
+    out.push({name, method, crc32:crc32v, size:usize, lho});
+    o += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}
+async function zipEntryBlob(file, ent){
+  const head = new Uint8Array(await file.slice(ent.lho, ent.lho + 30).arrayBuffer());
+  const dv = new DataView(head.buffer);
+  const nameLen = dv.getUint16(26, true), extraLen = dv.getUint16(28, true);
+  const start = ent.lho + 30 + nameLen + extraLen;
+  return file.slice(start, start + ent.size);
+}
+/* 1個ならそのまま渡す。2個以上は zip へ包んでから渡す。
+   共有シートが使えない環境だけ、1個ずつのダウンロードに落ちる（handOff の中で）。 */
+async function handOffBundle(entries, zipName){
+  if(!entries.length) return true;
+  if(entries.length === 1) return await handOff(entries[0].blob, entries[0].name);
+  const zip = await buildZip(entries);
+  return await handOff(zip, zipName, "application/zip");
 }
 function envBusy(txt){
   $("#vStat").innerHTML = txt ? "<b>" + txt + "</b>" : "";
@@ -1801,14 +1924,14 @@ $("#sealPick").addEventListener("change", async e => {
   for(const f of files){
     envBusy("封じています　" + (n + 1) + " / " + files.length + "　" + f.name);
     try {
-      const blob = await envSeal(f, r => prog((n + r) / files.length));
-      out.push(new File([blob], envName(f.name), {type:"application/octet-stream"}));
+      const sealed = await envSeal(f, r => prog((n + r) / files.length));
+      out.push({name: envName(f.name), blob: sealed.blob, crc32: sealed.crc32, size: sealed.size});
     } catch(err){ ng++; }
     n++; prog(n / files.length);
   }
   prog(null);
   envBusy(out.length + " 通を渡しています…");
-  const done = await handOffMany(out);
+  const done = await handOffBundle(out, "seal-" + tsName() + ".zip");
   envBusy(""); paint();
   setTimeout(() => { holdLock = false; }, 2000);
   if(!done){ toast("渡すのをやめました"); return; }
@@ -1820,15 +1943,18 @@ $("#sealPick").addEventListener("change", async e => {
 $("#eOut").addEventListener("click", async () => {
   if(!items.length) return;
   holdLock = true;
-  const out = []; let n = 0;
+  const out = [], used = new Set(); let n = 0;
   for(const x of items){
     envBusy("解いています　" + (n + 1) + " / " + items.length + "　" + x.meta.n);
-    try { out.push(new File([await blobOf(x)], x.meta.n, {type:mimeOf(x.meta)})); } catch(e){}
+    try {
+      const r = await envOpen(x.ent, r => prog(r));
+      out.push({name: uniqueName(used, x.meta.n), blob: r.blob, crc32: r.crc32, size: r.size});
+    } catch(e){}
     n++; prog(n / items.length);
   }
   prog(null);
   envBusy(out.length + " 点を渡しています…");
-  const done = await handOffMany(out);
+  const done = await handOffBundle(out, "extract-" + tsName() + ".zip");
   envBusy(""); paint();
   setTimeout(() => { holdLock = false; }, 2000);
   toast(done ? out.length + " 点を取り出しました" : "取り出すのをやめました");
@@ -1836,15 +1962,31 @@ $("#eOut").addEventListener("click", async () => {
 
 $("#eOpen").addEventListener("click", () => { holdLock = true; $("#envPick").click(); });
 $("#envPick").addEventListener("change", async e => {
-  const files = Array.from(e.target.files || []);
+  const picked = Array.from(e.target.files || []);
   e.target.value = "";
-  if(!files.length || !envKey){ holdLock = false; return; }
+  if(!picked.length || !envKey){ holdLock = false; return; }
+  /* まとめて封じた zip をそのまま選んでもらえるよう、開く前に中を広げる。
+     手で解凍させると、せっかく保存を一度にした意味が半分消える。 */
+  const files = [];
+  for(const f of picked){
+    if(/\.zip$/i.test(f.name)){
+      const ents = await zipEntries(f);
+      if(ents){
+        for(const ent of ents){
+          if(ent.method !== 0) continue;      // 圧縮されたものはこの道具では作らない。読めないとする
+          files.push(new File([await zipEntryBlob(f, ent)], ent.name, {type:"application/octet-stream"}));
+        }
+        continue;
+      }
+    }
+    files.push(f);
+  }
   let ng = 0, n = 0;
   for(const f of files){
     const h = await envReadHead(f);          // 見出しだけ。実体は読まない
     if(h) envItems.push({rec:{id:crypto.randomUUID()}, meta:h.meta,
       ent:{file:f, meta:h.meta, key:h.key, hEnd:h.hEnd},
-      load(){ return envOpen(this.ent, r => prog(r)).then(b => { prog(null); return b; }); }});
+      load(){ return envOpen(this.ent, r => prog(r)).then(r => { prog(null); return r.blob; }); }});
     else ng++;
     n++; prog(n / files.length);
   }
@@ -1860,14 +2002,16 @@ async function envOpen(ent, onProg){
   const {file, meta, key, hEnd} = ent;
   const n = envChunkCount(meta.s);
   const parts = [];
+  let crc = 0xFFFFFFFF;
   for(let i = 0; i < n; i++){
     const at = envChunkAt(i, meta.s, hEnd);
     const buf = new Uint8Array(await file.slice(at.start, at.end).arrayBuffer());
-    const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:buf.subarray(0, 12)}, key, buf.subarray(12));
+    const pt = new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:buf.subarray(0, 12)}, key, buf.subarray(12)));
+    crc = crc32Update(crc, pt);
     parts.push(new Blob([pt]));              // 解いたそばから表へ置く
     if(onProg) onProg((i + 1) / n);
   }
-  return new Blob(parts, {type:mimeOf(meta)});
+  return {blob: new Blob(parts, {type:mimeOf(meta)}), crc32: (crc ^ 0xFFFFFFFF) >>> 0, size: meta.s};
 }
 
 function uiWipeMine(){
