@@ -21,6 +21,7 @@
   --ko:#4a7a5f;
   --otsu:#4a6d8c;
   --hei:#8c4a52;
+  --shu:#b4453c;
   --line:rgba(201,162,39,.22);
   --mincho:"Hiragino Mincho ProN","Yu Mincho",YuMincho,"Noto Serif JP",serif;
   --gothic:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
@@ -94,6 +95,7 @@ textarea::placeholder{color:#5d564b}
 }
 .jacks{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;position:relative;z-index:1}
 .jack{
+  position:relative;
   border:1px solid var(--line);border-radius:2px;background:#191411;
   padding:11px 6px 10px;text-align:center;cursor:pointer;color:inherit;
   display:flex;flex-direction:column;align-items:center;gap:7px;
@@ -111,11 +113,21 @@ textarea::placeholder{color:#5d564b}
   content:"";position:absolute;inset:0;border-radius:50%;
   box-shadow:0 0 0 0 var(--c);opacity:0;transition:box-shadow .35s,opacity .35s;
 }
+.jack.done .socket::after{box-shadow:0 0 9px 1px var(--c);opacity:.42}
 .jack.live .socket::after{box-shadow:0 0 14px 3px var(--c);opacity:.85}
 .idx{font-family:var(--mincho);font-size:15px;color:var(--brass);letter-spacing:.1em}
 .svc{font-family:var(--mono);font-size:10.5px;color:var(--ivory-dim);letter-spacing:.04em}
 .mode{font-size:10px;color:#6d6558;font-family:var(--gothic)}
 .jack[data-k="ko"]{--c:var(--ko)} .jack[data-k="otsu"]{--c:var(--otsu)} .jack[data-k="hei"]{--c:var(--hei)}
+/* 送り終えた口に朱の済が点く */
+.seal{
+  position:absolute;top:5px;right:5px;width:17px;height:17px;border-radius:50%;
+  border:1px solid var(--shu);color:var(--shu);background:rgba(23,19,16,.7);
+  font-family:var(--mincho);font-size:9.5px;line-height:15px;text-align:center;
+  opacity:0;transform:scale(.8);transition:opacity .22s,transform .22s;
+}
+.jack.done .seal{opacity:1;transform:none}
+.jack.done{border-color:rgba(180,69,60,.45)}
 .jack.live{background:#1f1a15;border-color:var(--c)}
 
 /* 一括 */
@@ -137,7 +149,8 @@ textarea::placeholder{color:#5d564b}
 .log b{color:var(--lamp);font-weight:400}
 
 /* 控え */
-.stub{border:1px solid var(--line);border-radius:2px;background:var(--panel);padding:10px 12px;margin-bottom:7px;cursor:pointer}
+.stub{border:1px solid var(--line);border-radius:2px;background:var(--panel);padding:10px 12px;margin-bottom:7px;cursor:pointer;transition:border-color .18s,background .18s}
+.stub.warn{border-color:var(--brass);background:var(--panel-hi)}
 .stub .t{font-size:13px;color:var(--ivory);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .stub .m{font-family:var(--mono);font-size:10px;color:#6d6558;margin-top:5px;letter-spacing:.06em}
 .empty{font-size:12.5px;color:#6d6558;padding:4px 2px}
@@ -178,7 +191,9 @@ textarea::placeholder{color:#5d564b}
 
   <p class="foot">
     甲・乙は文面を載せた回線を直に開く。丙は先方が受け取り口を持たないため、写しを盤に取ってから開く（貼り付けは手作業）。
-    長い電文は回線に載らないので、三口とも写し送りに切り替わる。
+    長い電文は回線に載らないので、三口とも写し送りに切り替わる。<br>
+    送り終えた口には朱の<span style="color:var(--shu)">済</span>が点く。電文を書き換えると消える。
+    書きかけの電文と順送りの途中は盤に残るので、席を外して戻っても続きから送れる。
   </p>
 </div>
 
@@ -198,17 +213,26 @@ const PREFIX = [
 ];
 
 const store = (()=>{ try{ localStorage.setItem("_t","1"); localStorage.removeItem("_t"); return localStorage }
-  catch(e){ const m={}; return {getItem:k=>k in m?m[k]:null, setItem:(k,v)=>m[k]=v}; } })();
+  catch(e){ const m={}; return {getItem:k=>k in m?m[k]:null, setItem:(k,v)=>{m[k]=v}, removeItem:k=>{delete m[k]}}; } })();
+function load(key, fb){ try{ const v=JSON.parse(store.getItem(key)); return v==null?fb:v; }catch(e){ return fb; } }
+function save(key, v){ try{ store.setItem(key, JSON.stringify(v)); }catch(e){} }
 
 const $ = s=>document.querySelector(s);
 const msg=$("#msg"), meter=$("#meter"), logEl=$("#log");
+
 let prefix = store.getItem("sw.prefix") || "none";
-let queue = [];
+if(!PREFIX.some(p=>p.k===prefix)) prefix = "none";
+/* 順送りの残り口。席を外しても続きから送れるよう盤に残す */
+let queue = load("sw.queue", []).filter(k=>k in ROUTES);
+/* 送済の印。どの文面をどの口へ送ったか */
+let sent = (()=>{ const s=load("sw.sent",null);
+  return (s && typeof s.t==="string" && Array.isArray(s.k)) ? {t:s.t, k:s.k.filter(k=>k in ROUTES)} : {t:"", k:[]}; })();
 
 function body(){
   const p = PREFIX.find(x=>x.k===prefix);
   return ((p?p.text:"") + msg.value).trim();
 }
+function prefixLabel(k){ const p=PREFIX.find(x=>x.k===k); return (p && p.k!=="none") ? p.label : ""; }
 function tooLong(){ return encodeURIComponent(body()).length > LIMIT*3 || body().length > LIMIT; }
 function log(html){ logEl.innerHTML = html; }
 
@@ -217,10 +241,13 @@ const tagsEl=$("#tags");
 PREFIX.forEach(p=>{
   const b=document.createElement("button");
   b.className="tag"; b.textContent=p.label; b.setAttribute("aria-pressed", p.k===prefix);
-  b.onclick=()=>{ prefix=p.k; store.setItem("sw.prefix",p.k);
-    [...tagsEl.children].forEach((c,i)=>c.setAttribute("aria-pressed", PREFIX[i].k===prefix)); paint(); };
+  b.onclick=()=>{ setPrefix(p.k); paint(); };
   tagsEl.appendChild(b);
 });
+function setPrefix(k){
+  prefix=k; store.setItem("sw.prefix",k);
+  [...tagsEl.children].forEach((c,i)=>c.setAttribute("aria-pressed", PREFIX[i].k===prefix));
+}
 
 /* ジャック */
 const jacksEl=$("#jacks");
@@ -228,53 +255,78 @@ Object.entries(ROUTES).forEach(([k,r])=>{
   const b=document.createElement("button");
   b.className="jack"; b.dataset.k=k;
   b.innerHTML=`<span class="socket"></span><span class="idx">${r.idx}</span>
-    <span class="svc">${r.svc}</span><span class="mode"></span>`;
+    <span class="svc">${r.svc}</span><span class="mode"></span><span class="seal">済</span>`;
   b.onclick=()=>connect(k);
   jacksEl.appendChild(b);
 });
 
 function paint(){
-  const n = body().length;
-  meter.textContent = n.toLocaleString("ja-JP") + " 字";
-  meter.classList.toggle("over", n > LIMIT);
+  const text = body();
+  meter.textContent = text.length.toLocaleString("ja-JP") + " 字";
+  meter.classList.toggle("over", text.length > LIMIT);
+  if(sent.k.length && sent.t !== text){ sent = {t:"", k:[]}; save("sw.sent", sent); }
   const copyAll = tooLong();
   [...jacksEl.children].forEach(b=>{
     const r = ROUTES[b.dataset.k];
     b.querySelector(".mode").textContent = (r.direct && !copyAll) ? "直結" : "写し送り";
+    b.classList.toggle("done", sent.k.includes(b.dataset.k));
+    b.setAttribute("aria-label", `${r.idx} ${r.svc} へ送る${sent.k.includes(b.dataset.k) ? "（送済）" : ""}`);
   });
 }
-msg.addEventListener("input", paint);
+msg.addEventListener("input", ()=>{ store.setItem("sw.draft", msg.value); paint(); });
 
-async function toClipboard(text){
-  try{ await navigator.clipboard.writeText(text); return true; }
-  catch(e){
-    const ta=document.createElement("textarea");
-    ta.value=text; ta.style.cssText="position:fixed;top:0;left:0;opacity:0";
-    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,text.length);
-    const ok=document.execCommand("copy"); ta.remove(); return ok;
-  }
+function markSent(k, text){
+  if(sent.t !== text) sent = {t:text, k:[]};
+  if(!sent.k.includes(k)) sent.k.push(k);
+  save("sw.sent", sent);
+}
+
+/* 写しは窓を開ける前に、同期で取る。
+   await を挟むと操作の余熱が切れて Safari が窓を閉ざす。 */
+function copyNow(text){
+  const ta=document.createElement("textarea");
+  ta.value=text; ta.style.cssText="position:fixed;top:0;left:0;opacity:0;font-size:16px";
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,text.length);
+  let ok=false; try{ ok=document.execCommand("copy"); }catch(e){}
+  ta.remove(); return ok;
 }
 
 async function connect(k){
-  const text = body();
+  const text = body(), raw = msg.value, pfx = prefix;
   if(!text){ log("電文が空。まず用件を書く。"); msg.focus(); return; }
   const r = ROUTES[k];
+  const direct = r.direct && !tooLong();
+  const url = direct ? r.base(text) : r.home;
+
+  /* ここから window.open までは同期で通す */
+  let copied = direct ? null : copyNow(text);
+  let pending = null;
+  if(copied === false){
+    try{ if(navigator.clipboard) pending = navigator.clipboard.writeText(text).then(()=>true, ()=>false); }catch(e){}
+  }
   const jack = jacksEl.querySelector(`[data-k="${k}"]`);
   jack.classList.add("live"); setTimeout(()=>jack.classList.remove("live"), 2600);
-
-  let url, note;
-  if(r.direct && !tooLong()){
-    url = r.base(text);
-    note = `<b>${r.idx}</b> ${r.svc} へ直結。文面を載せて開いた。`;
-  }else{
-    const ok = await toClipboard(text);
-    url = r.home;
-    note = ok ? `<b>${r.idx}</b> ${r.svc} を開いた。写しは盤に取ってある — 入力欄に貼り付ける。`
-              : `<b>${r.idx}</b> ${r.svc} を開いた。写しが取れなかったので電文欄から自分で複写する。`;
-  }
   window.open(url, "_blank", "noopener");
-  record(text);
-  log(note + (queue.length ? ` 次は <b>${ROUTES[queue[0]].idx}</b>。` : ""));
+
+  if(pending) copied = await pending;
+
+  record(raw, pfx);
+  markSent(k, text);
+  paint();
+
+  const note = direct
+    ? `<b>${r.idx}</b> ${r.svc} へ直結。文面を載せて開いた。`
+    : copied ? `<b>${r.idx}</b> ${r.svc} を開いた。写しは盤に取ってある — 入力欄に貼り付ける。`
+             : `<b>${r.idx}</b> ${r.svc} を開いた。写しが取れなかったので電文欄から自分で複写する。`;
+  log(note + remainder());
+}
+
+/* 残りの口を言葉にする */
+function unsent(){ return Object.keys(ROUTES).filter(k=>!sent.k.includes(k)); }
+function remainder(){
+  if(queue.length) return ` 次は <b>${ROUTES[queue[0]].idx}</b>。`;
+  const rest = unsent();
+  return rest.length ? ` 未送は <b>${rest.map(k=>ROUTES[k].idx).join("・")}</b>。` : " 三口とも送り終えた。";
 }
 
 /* 順送り: iPhone は一度に複数の窓を開けないので、一口ずつ手で送る */
@@ -283,39 +335,70 @@ allBtn.onclick=async ()=>{
   if(!body()){ log("電文が空。まず用件を書く。"); msg.focus(); return; }
   if(!queue.length) queue = Object.keys(ROUTES);
   const k = queue.shift();
+  save("sw.queue", queue);
+  paintQueue();
   await connect(k);
-  if(queue.length){
-    allBtn.textContent = `次 の 口 へ  ―  ${ROUTES[queue[0]].idx} ${ROUTES[queue[0]].svc}`;
-  }else{
-    allBtn.textContent = "三 口 順 送 り";
-  }
 };
+function paintQueue(){
+  allBtn.textContent = queue.length
+    ? `次 の 口 へ  ―  ${ROUTES[queue[0]].idx} ${ROUTES[queue[0]].svc}`
+    : "三 口 順 送 り";
+}
 
-/* 控え */
-function record(text){
-  const list = JSON.parse(store.getItem("sw.stubs") || "[]").filter(x=>x.t!==text);
-  list.unshift({t:text, d:Date.now()});
-  store.setItem("sw.stubs", JSON.stringify(list.slice(0,20)));
+/* 控え。素の電文と前置きの銘を別々に持つ（合成した文面を戻すと前置きが二重に付くため） */
+function record(t, p){
+  if(!t.trim()) return;
+  const list = load("sw.stubs", []).filter(x=>!(x.t===t && (x.p||"none")===p));
+  list.unshift({t:t, p:p, d:Date.now()});
+  save("sw.stubs", list.slice(0,20));
   drawStubs();
 }
 function drawStubs(){
-  const el=$("#stubs"), list=JSON.parse(store.getItem("sw.stubs") || "[]");
+  const el=$("#stubs"), list=load("sw.stubs", []);
   el.innerHTML="";
   if(!list.length){ el.innerHTML='<p class="empty">まだ控えはない。送った電文がここに残る。</p>'; return; }
   list.forEach(s=>{
-    const d=new Date(s.d);
+    const d=new Date(s.d), label=prefixLabel(s.p||"none");
     const div=document.createElement("div");
     div.className="stub";
-    div.innerHTML=`<div class="t"></div><div class="m">${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}　${s.t.length}字</div>`;
+    div.innerHTML=`<div class="t"></div><div class="m">${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}　${label?label+"　":""}${s.t.length}字</div>`;
     div.querySelector(".t").textContent=s.t;
-    div.onclick=()=>{ msg.value=s.t; prefix="none";
-      [...tagsEl.children].forEach((c,i)=>c.setAttribute("aria-pressed", PREFIX[i].k==="none"));
-      paint(); msg.focus(); log("控えを電文欄に戻した。"); window.scrollTo({top:0,behavior:"smooth"}); };
+    div.onclick=()=>restore(s, div);
     el.appendChild(div);
   });
 }
 
-drawStubs(); paint();
+/* 書きかけを黙って消さない。違う文面が載っているときは二度押しで置き換える */
+let armed=null, armedTimer=0;
+function disarm(){ armed=null; clearTimeout(armedTimer);
+  document.querySelectorAll(".stub.warn").forEach(x=>x.classList.remove("warn")); }
+function restore(s, el){
+  const draft = msg.value.trim();
+  if(draft && draft !== s.t.trim() && armed !== s){
+    disarm(); armed=s; el.classList.add("warn");
+    armedTimer=setTimeout(disarm, 6000);
+    log("電文欄に書きかけがある。<b>もう一度</b>押すと置き換える。");
+    return;
+  }
+  disarm();
+  msg.value = s.t; store.setItem("sw.draft", msg.value);
+  setPrefix(PREFIX.some(p=>p.k===s.p) ? s.p : "none");
+  paint(); msg.focus();
+  log("控えを電文欄に戻した。" + (prefixLabel(prefix) ? ` 前置きは「${prefixLabel(prefix)}」。` : ""));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* 書きかけの電文は盤に残す。裏に回された拍子に消えないように */
+msg.value = store.getItem("sw.draft") || "";
+setPrefix(prefix);
+drawStubs(); paintQueue(); paint();
+if(queue.length){
+  log(`順送りの途中。次は <b>${ROUTES[queue[0]].idx}</b> ${ROUTES[queue[0]].svc}。`);
+}else if(sent.k.length){
+  const rest = unsent();
+  log(rest.length ? `この電文の未送は <b>${rest.map(k=>ROUTES[k].idx).join("・")}</b>。`
+                  : "この電文は三口とも送り終えた。");
+}
 </script>
 </body>
 </html>
