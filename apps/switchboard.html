@@ -55,8 +55,15 @@ header .sub{font-family:var(--mono);font-size:10px;color:var(--ivory-dim);letter
 section{margin-top:14px}
 .plate{
   font-family:var(--mincho);font-size:11.5px;letter-spacing:.3em;color:var(--brass-dim);
-  margin:0 0 7px 2px;
+  margin:0 0 7px 2px;display:flex;align-items:center;
 }
+.mini{
+  margin-left:auto;border:1px solid var(--line);border-radius:2px;background:var(--panel);
+  color:var(--ivory-dim);font-family:var(--gothic);font-size:11px;letter-spacing:.14em;
+  padding:5px 10px;cursor:pointer;
+}
+.mini:active{background:var(--panel-hi)}
+.mini:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .telegram{
   position:relative;border:1px solid var(--line);border-radius:3px;
   background:#0f0c0a;box-shadow:inset 0 2px 10px rgba(0,0,0,.6);
@@ -139,6 +146,13 @@ textarea::placeholder{color:#5d564b}
 }
 .allbtn:active{background:rgba(201,162,39,.12)}
 .allbtn[disabled]{opacity:.35;cursor:default}
+.subbtn{
+  margin-top:7px;width:100%;position:relative;z-index:1;
+  border:0;background:transparent;color:var(--ivory-dim);
+  font-family:var(--gothic);font-size:11.5px;letter-spacing:.2em;padding:8px;cursor:pointer;
+}
+.subbtn:active{color:var(--brass)}
+.subbtn[disabled]{opacity:.35;cursor:default}
 
 /* 通信欄 */
 .log{
@@ -147,12 +161,28 @@ textarea::placeholder{color:#5d564b}
   letter-spacing:.03em;position:relative;z-index:1;
 }
 .log b{color:var(--lamp);font-weight:400}
+.log [data-act]{color:var(--brass);border-bottom:1px solid var(--brass-dim);cursor:pointer;padding:0 1px}
 
 /* 控え */
-.stub{border:1px solid var(--line);border-radius:2px;background:var(--panel);padding:10px 12px;margin-bottom:7px;cursor:pointer;transition:border-color .18s,background .18s}
+.stub{
+  border:1px solid var(--line);border-radius:2px;background:var(--panel);
+  padding:10px 12px;margin-bottom:7px;cursor:pointer;display:flex;gap:8px;
+  transition:border-color .18s,background .18s;
+}
 .stub.warn{border-color:var(--brass);background:var(--panel-hi)}
+.stub.pinned{border-left:2px solid var(--brass-dim)}
+.stub .s-main{flex:1;min-width:0}
 .stub .t{font-size:13px;color:var(--ivory);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .stub .m{font-family:var(--mono);font-size:10px;color:#6d6558;margin-top:5px;letter-spacing:.06em}
+.ops{display:flex;flex-direction:column;gap:4px;flex:none}
+.op{
+  border:0;background:transparent;color:#6d6558;cursor:pointer;padding:3px 5px;
+  font-family:var(--mincho);font-size:12px;line-height:1;border-radius:2px;
+}
+.op:active{background:var(--panel-hi)}
+.op:focus-visible{outline:2px solid var(--brass);outline-offset:1px}
+.op[aria-pressed="true"]{color:var(--brass)}
+.op.del{font-family:var(--gothic);font-size:14px}
 .empty{font-size:12.5px;color:#6d6558;padding:4px 2px}
 .foot{margin-top:18px;font-size:11px;color:#5d564b;line-height:1.8}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -166,9 +196,9 @@ textarea::placeholder{color:#5d564b}
   </header>
 
   <section>
-    <p class="plate">電 文</p>
+    <p class="plate">電 文 <button class="mini" id="paste">貼 る</button></p>
     <div class="telegram">
-      <textarea id="msg" placeholder="ここに用件を書く。三口へ同じ電文を送れる。" enterkeyhint="done"></textarea>
+      <textarea id="msg" placeholder="ここに用件を書く。三口へ同じ電文を送れる。"></textarea>
       <span class="meter" id="meter">0 字</span>
     </div>
   </section>
@@ -181,7 +211,8 @@ textarea::placeholder{color:#5d564b}
   <section class="board">
     <div class="jacks" id="jacks"></div>
     <button class="allbtn" id="all">三 口 順 送 り</button>
-    <div class="log" id="log">電文を書いて口を選ぶ。</div>
+    <button class="subbtn" id="copy">写 し を 取 る</button>
+    <div class="log" id="log" aria-live="polite">電文を書いて口を選ぶ。</div>
   </section>
 
   <section>
@@ -192,8 +223,10 @@ textarea::placeholder{color:#5d564b}
   <p class="foot">
     甲・乙は文面を載せた回線を直に開く。丙は先方が受け取り口を持たないため、写しを盤に取ってから開く（貼り付けは手作業）。
     長い電文は回線に載らないので、三口とも写し送りに切り替わる。<br>
-    送り終えた口には朱の<span style="color:var(--shu)">済</span>が点く。電文を書き換えると消える。
-    書きかけの電文と順送りの途中は盤に残るので、席を外して戻っても続きから送れる。
+    送り終えた口には朱の<span style="color:var(--shu)">済</span>が点く。順送りは未送の口だけを継ぐ。電文を書き換えると印は消える。
+    書きかけの電文は盤に残るので、席を外して戻っても続きから送れる。<br>
+    控えは <span style="color:var(--brass-dim)">留</span> で留めれば流れ落ちない。<span style="color:var(--brass-dim)">×</span> で捨てても一度だけ戻せる。
+    ⌘（Ctrl）+ Enter で順送り。
   </p>
 </div>
 
@@ -222,8 +255,7 @@ const msg=$("#msg"), meter=$("#meter"), logEl=$("#log");
 
 let prefix = store.getItem("sw.prefix") || "none";
 if(!PREFIX.some(p=>p.k===prefix)) prefix = "none";
-/* 順送りの残り口。席を外しても続きから送れるよう盤に残す */
-let queue = load("sw.queue", []).filter(k=>k in ROUTES);
+store.removeItem("sw.queue");   /* 順送りの残りは送済の印から導くようになった */
 /* 送済の印。どの文面をどの口へ送ったか */
 let sent = (()=>{ const s=load("sw.sent",null);
   return (s && typeof s.t==="string" && Array.isArray(s.k)) ? {t:s.t, k:s.k.filter(k=>k in ROUTES)} : {t:"", k:[]}; })();
@@ -234,7 +266,13 @@ function body(){
 }
 function prefixLabel(k){ const p=PREFIX.find(x=>x.k===k); return (p && p.k!=="none") ? p.label : ""; }
 function tooLong(){ return encodeURIComponent(body()).length > LIMIT*3 || body().length > LIMIT; }
-function log(html){ logEl.innerHTML = html; }
+/* 通信欄。差し戻しなど一手だけ添えられる */
+function log(html, act){
+  logEl.innerHTML = html;
+  const a = act && logEl.querySelector("[data-act]");
+  if(a){ a.setAttribute("role","button"); a.tabIndex=0;
+    a.onclick=act; a.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); act(); } }; }
+}
 
 /* 前置き */
 const tagsEl=$("#tags");
@@ -272,8 +310,13 @@ function paint(){
     b.classList.toggle("done", sent.k.includes(b.dataset.k));
     b.setAttribute("aria-label", `${r.idx} ${r.svc} へ送る${sent.k.includes(b.dataset.k) ? "（送済）" : ""}`);
   });
+  paintAllBtn();
+  copyBtn.disabled = !text;
 }
 msg.addEventListener("input", ()=>{ store.setItem("sw.draft", msg.value); paint(); });
+msg.addEventListener("keydown", e=>{
+  if((e.metaKey||e.ctrlKey) && e.key==="Enter"){ e.preventDefault(); allBtn.click(); }
+});
 
 function markSent(k, text){
   if(sent.t !== text) sent = {t:text, k:[]};
@@ -324,47 +367,111 @@ async function connect(k){
 /* 残りの口を言葉にする */
 function unsent(){ return Object.keys(ROUTES).filter(k=>!sent.k.includes(k)); }
 function remainder(){
-  if(queue.length) return ` 次は <b>${ROUTES[queue[0]].idx}</b>。`;
   const rest = unsent();
-  return rest.length ? ` 未送は <b>${rest.map(k=>ROUTES[k].idx).join("・")}</b>。` : " 三口とも送り終えた。";
+  if(!rest.length) return " 三口とも送り終えた。";
+  return rest.length === 1 ? ` 残るは <b>${ROUTES[rest[0]].idx}</b>。`
+                           : ` 未送は <b>${rest.map(k=>ROUTES[k].idx).join("・")}</b>。`;
 }
 
-/* 順送り: iPhone は一度に複数の窓を開けないので、一口ずつ手で送る */
-const allBtn=$("#all");
+/* 順送り: iPhone は一度に複数の窓を開けないので、一口ずつ手で送る。
+   送る先は送済の印から導くので、手で送った口は自ずと飛ばされる */
+const allBtn=$("#all"), copyBtn=$("#copy");
 allBtn.onclick=async ()=>{
   if(!body()){ log("電文が空。まず用件を書く。"); msg.focus(); return; }
-  if(!queue.length) queue = Object.keys(ROUTES);
-  const k = queue.shift();
-  save("sw.queue", queue);
-  paintQueue();
-  await connect(k);
+  const rest = unsent();
+  if(!rest.length){ log("三口とも送り終えた。電文を書き換えれば印は消える。"); return; }
+  await connect(rest[0]);
 };
-function paintQueue(){
-  allBtn.textContent = queue.length
-    ? `次 の 口 へ  ―  ${ROUTES[queue[0]].idx} ${ROUTES[queue[0]].svc}`
-    : "三 口 順 送 り";
+function paintAllBtn(){
+  const rest = unsent(), all = Object.keys(ROUTES).length;
+  allBtn.disabled = !rest.length;
+  allBtn.textContent = !rest.length ? "三 口 と も 送 り 了 え た"
+    : rest.length === all ? "三 口 順 送 り"
+    : `次 の 口 へ  ―  ${ROUTES[rest[0]].idx} ${ROUTES[rest[0]].svc}`;
 }
 
+/* 写しを取り直す。先方で貼る前に盤を上書きしてしまった時のため */
+copyBtn.onclick=()=>{
+  const text = body();
+  if(!text){ log("電文が空。まず用件を書く。"); msg.focus(); return; }
+  if(copyNow(text)){ log("電文の写しを盤に取った。"); return; }
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(
+      ()=>log("電文の写しを盤に取った。"),
+      ()=>log("写しが取れなかった。電文欄から自分で複写する。"));
+  }else{
+    log("写しが取れなかった。電文欄から自分で複写する。");
+  }
+};
+
+/* 盤の写しを電文欄へ。書きかけは消さず継ぎ足す */
+$("#paste").onclick=async ()=>{
+  if(!navigator.clipboard || !navigator.clipboard.readText){
+    log("この browser では盤を読めない。電文欄を長押しして貼る。"); return;
+  }
+  try{
+    const t = await navigator.clipboard.readText();
+    if(!t.trim()){ log("盤に写しがない。"); return; }
+    msg.value = msg.value.trim() ? msg.value.replace(/\s+$/,"") + "\n" + t : t;
+    store.setItem("sw.draft", msg.value); paint(); msg.focus();
+    log("盤の写しを電文欄に継いだ。");
+  }catch(e){ log("盤を読めなかった。電文欄を長押しして貼る。"); }
+};
+
 /* 控え。素の電文と前置きの銘を別々に持つ（合成した文面を戻すと前置きが二重に付くため） */
+const KEEP = 20;
 function record(t, p){
   if(!t.trim()) return;
-  const list = load("sw.stubs", []).filter(x=>!(x.t===t && (x.p||"none")===p));
-  list.unshift({t:t, p:p, d:Date.now()});
-  save("sw.stubs", list.slice(0,20));
+  const list = load("sw.stubs", []);
+  const prev = list.find(x=>x.t===t && (x.p||"none")===p);
+  const rest = list.filter(x=>x!==prev);
+  rest.unshift({t:t, p:p, d:Date.now(), pin: prev ? !!prev.pin : false});
+  save("sw.stubs", cull(rest));
   drawStubs();
+}
+/* 留めた控えは数に入れない。捨てるまで残る */
+function cull(list){
+  let n=0;
+  return list.filter(s=>s.pin || ++n <= KEEP);
 }
 function drawStubs(){
   const el=$("#stubs"), list=load("sw.stubs", []);
   el.innerHTML="";
   if(!list.length){ el.innerHTML='<p class="empty">まだ控えはない。送った電文がここに残る。</p>'; return; }
-  list.forEach(s=>{
+  /* 留めた控えを上に。同じ組の中では新しい順のまま */
+  list.map((s,i)=>({s,i})).sort((a,b)=>(b.s.pin?1:0)-(a.s.pin?1:0)).forEach(({s,i})=>{
     const d=new Date(s.d), label=prefixLabel(s.p||"none");
     const div=document.createElement("div");
-    div.className="stub";
-    div.innerHTML=`<div class="t"></div><div class="m">${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}　${label?label+"　":""}${s.t.length}字</div>`;
+    div.className="stub" + (s.pin ? " pinned" : "");
+    div.innerHTML=`<div class="s-main"><div class="t"></div><div class="m">`
+      + `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`
+      + `　${label?label+"　":""}${s.t.length}字</div></div>`
+      + `<div class="ops"><button class="op pin" aria-pressed="${!!s.pin}" aria-label="留める">留</button>`
+      + `<button class="op del" aria-label="捨てる">×</button></div>`;
     div.querySelector(".t").textContent=s.t;
     div.onclick=()=>restore(s, div);
+    div.querySelector(".pin").onclick=e=>{ e.stopPropagation(); pin(i); };
+    div.querySelector(".del").onclick=e=>{ e.stopPropagation(); drop(i); };
     el.appendChild(div);
+  });
+}
+function pin(i){
+  const list = load("sw.stubs", []);
+  if(!list[i]) return;
+  list[i].pin = !list[i].pin;
+  save("sw.stubs", list); disarm(); drawStubs();
+  log(list[i].pin ? "控えを留めた。流れ落ちなくなる。" : "留めを外した。");
+}
+function drop(i){
+  const list = load("sw.stubs", []);
+  if(!list[i]) return;
+  const gone = list.splice(i,1)[0];
+  save("sw.stubs", list); disarm(); drawStubs();
+  log('控えを一件捨てた。<b data-act>戻す</b>', ()=>{
+    const cur = load("sw.stubs", []);
+    cur.splice(Math.min(i, cur.length), 0, gone);
+    save("sw.stubs", cur); drawStubs();
+    log("控えを戻した。");
   });
 }
 
@@ -391,12 +498,10 @@ function restore(s, el){
 /* 書きかけの電文は盤に残す。裏に回された拍子に消えないように */
 msg.value = store.getItem("sw.draft") || "";
 setPrefix(prefix);
-drawStubs(); paintQueue(); paint();
-if(queue.length){
-  log(`順送りの途中。次は <b>${ROUTES[queue[0]].idx}</b> ${ROUTES[queue[0]].svc}。`);
-}else if(sent.k.length){
+drawStubs(); paint();
+if(sent.k.length){
   const rest = unsent();
-  log(rest.length ? `この電文の未送は <b>${rest.map(k=>ROUTES[k].idx).join("・")}</b>。`
+  log(rest.length ? `送りかけの電文。未送は <b>${rest.map(k=>ROUTES[k].idx).join("・")}</b>。`
                   : "この電文は三口とも送り終えた。");
 }
 </script>
