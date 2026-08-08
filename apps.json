@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-07T04:34:39.832Z",
-  "count": 11,
-  "totalBytes": 2233173,
+  "generated": "2026-08-08T05:29:27.073Z",
+  "count": 12,
+  "totalBytes": 2246211,
   "categories": [
     "未分類"
   ],
@@ -137,7 +137,19 @@
       "tags": [],
       "updated": "2026-08-07T13:34:24+09:00",
       "bytes": 102121
+    },
+    {
+      "no": "013",
+      "file": "apps/switchboard.html",
+      "name": "三口交換台",
+      "reading": "",
+      "desc": "",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [],
+      "updated": "2026-08-08T14:29:03+09:00",
+      "bytes": 13038
     }
   ],
-  "nextNo": 13
+  "nextNo": 14
 }
