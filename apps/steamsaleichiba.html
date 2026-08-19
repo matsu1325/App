@@ -119,15 +119,6 @@
 <main class="wrap">
   <section class="panel" aria-label="絞り込み">
     <div class="row">
-      <div class="field full">
-        <label for="src">仕入れ口</label>
-        <select id="src">
-          <option value="ai" selected>Claudeの検索で集める（このアプリ内で動く）</option>
-          <option value="steam">Steamから直に取る（外部ブラウザで開いた時だけ）</option>
-        </select>
-      </div>
-    </div>
-    <div class="row">
       <div class="field">
         <label for="cc">地域・通貨</label>
         <select id="cc">
@@ -210,7 +201,7 @@
     <div class="row">
       <button class="go" id="go">札を出す</button>
     </div>
-    <p class="hint" id="hint"></p>
+    <p class="hint">Steamの売れ筋×セール一覧をそのまま写す。中継を通すので数秒かかる。</p>
   </section>
 
   <p class="status" id="status">「札を出す」で、いま売れ筋のセール中ゲームを集める。</p>
@@ -220,12 +211,11 @@
 
   <p class="note">
     <strong>仕入れ口について。</strong>
-    Steamは外部サイトからの直接読み込みを許していないため、ブラウザから素で取ることはできない。
-    加えてこのアプリをClaude内のビューアで開いている場合、外部への通信自体が遮断されるので中継サーバー（CORSプロキシ）も使えない。
-    そこで既定では、唯一許可されているAnthropic APIを通してClaudeにウェブ検索させ、その結果を札にしている。
-    価格は<strong>取得時点の目安</strong>として扱い、買う前にストアで確認して。
-    正確な値が要るなら、このHTMLをダウンロードしてSafariで直接開き、仕入れ口を「Steamから直に取る」に切り替える。
-    そちらはSteamの売れ筋×セール一覧をそのまま写す。
+    Steamは外部サイトからの直接読み込みを許していないため、中継サーバー（CORSプロキシ）を通して取っている。
+    三つの中継を順に試すので、一つが落ちていても繋がることが多い。
+    外部への通信が遮断された環境——Claude内のビューアなど——では、どの中継も使えないので取得できない。
+    その場合は台帳から普通のブラウザで開き直す。
+    値はSteamの一覧をそのまま写しているが、買う前にストアで確認して。
   </p>
 </main>
 
@@ -237,9 +227,8 @@
 <script>
 (function(){
   const $ = s => document.querySelector(s);
-  const listEl=$('#list'), statusEl=$('#status'), moreBtn=$('#more'), goBtn=$('#go'), hintEl=$('#hint');
+  const listEl=$('#list'), statusEl=$('#status'), moreBtn=$('#more'), goBtn=$('#go');
 
-  const CUR = {jp:'日本円（¥）', us:'米ドル（$）', eu:'ユーロ（€）', uk:'英ポンド（£）'};
   const PAGE = 50;
 
   let items=[], shown=[], start=0, total=0, busy=false;
@@ -264,85 +253,7 @@
       : 'https://store.steampowered.com/search/?term='+encodeURIComponent(it.title);
   }
 
-  function updateHint(){
-    hintEl.textContent = $('#src').value === 'ai'
-      ? 'Claudeがウェブを検索して集める。10〜20秒かかる。価格は目安。'
-      : 'Steamの生データを取る。Claude内のビューアでは通信が遮断されるため、ダウンロードしてSafariで開いた時だけ動く。';
-  }
-
-  /* ───────── 仕入れ口 A: Claude検索 ───────── */
-  async function loadViaClaude(more){
-    const cc = $('#cc').value;
-    const minOff = $('#minoff').value;
-    const cap = $('#cap').value.trim();
-    const genreLabel = $('#genre').selectedOptions[0].textContent;
-    const kw = $('#kw').value.trim();
-    const known = items.map(i=>i.title).slice(0,60);
-
-    const prompt = [
-      '今日は' + new Date().toISOString().slice(0,10) + '。ウェブ検索で、現在Steamでセール中の「売れ筋・人気の高いゲーム」を調べて。',
-      'store.steampowered.com の売れ筋×セール一覧（filter=topsellers&specials=1）、SteamDB、IsThereAnyDeal などの最新情報を参照する。',
-      '条件: 通貨=' + (CUR[cc]||'日本円') + '。ゲーム本体のみ（DLC・ソフトウェア・サントラは除外）。',
-      minOff !== '0' ? '割引率は' + minOff + '%以上。' : '',
-      cap ? 'セール価格は ' + cap + ' 以下。' : '',
-      genreLabel !== '指定なし' ? 'ジャンルは「' + genreLabel + '」に該当するものだけ。他ジャンルは含めない。' : '',
-      kw ? 'タイトルまたは内容が「' + kw + '」に関連するものだけ。' : '',
-      known.length ? '次のタイトルは既出なので除外: ' + known.join(' / ') : '',
-      '最大16件。売れ筋・知名度の高い順に並べる。',
-      '',
-      '出力はJSON配列のみ。前置き・説明・コードフェンスは一切書かない。各要素は次の形:',
-      '{"t":"タイトル","id":Steam appid の数値 or null,"off":割引率の数値,"was":"定価（通貨記号つき文字列）","now":"セール価格（通貨記号つき文字列）","rev":"レビュー要約（例: 非常に好評）","n":レビュー件数の数値 or null}',
-      '検索結果で確認できた情報だけを使い、確認できない項目は null にする。推測で埋めない。'
-    ].filter(Boolean).join('\n');
-
-    setStatus('Claudeがウェブを検索している…（10〜20秒）','work');
-
-    const res = await withTimeout(fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-6',
-        max_tokens:1000,
-        messages:[{role:'user',content:prompt}],
-        tools:[{type:'web_search_20250305', name:'web_search'}]
-      })
-    }), 90000);
-
-    if(!res.ok) throw new Error('API ' + res.status);
-    const data = await res.json();
-    const text = (data.content||[]).map(b => b.type==='text' ? b.text : '').join('\n');
-    const body = text.replace(/```json|```/g,'').trim();
-    const s = body.indexOf('['), e = body.lastIndexOf(']');
-    if(s < 0 || e < 0) throw new Error('結果を読み取れなかった');
-
-    const arr = JSON.parse(body.slice(s, e+1));
-    const seen = new Set(items.map(i=>i.title));
-    let added = 0;
-    arr.forEach(r=>{
-      const title = (r.t||'').trim();
-      if(!title || seen.has(title)) return;
-      const off = parseInt(r.off,10);
-      if(!off) return;
-      const appid = r.id ? String(r.id).replace(/\D/g,'') : '';
-      items.push({
-        appid, title, off,
-        img: capsule(appid),
-        was: r.was || '', now: r.now || '',
-        nowVal: num(r.now) ?? 0,
-        revSummary: r.rev || '', revPct: null,
-        revCount: (typeof r.n === 'number' ? r.n : num(r.n)),
-        revTone: /非常に好評|圧倒的|好評/.test(r.rev||'') ? 'good' : (/賛否|やや不評|不評/.test(r.rev||'') ? 'mixed' : ''),
-        approx: true
-      });
-      seen.add(title); added++;
-    });
-    if(!added && !items.length) throw new Error('条件に合うセールが見つからなかった');
-    total = 0;
-    moreBtn.hidden = false;
-    moreBtn.textContent = 'さらに探す';
-  }
-
-  /* ───────── 仕入れ口 B: Steam直取り ───────── */
+  /* ───────── 仕入れ口: Steam直取り ───────── */
   const PROXIES = [
     u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
     u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
@@ -382,7 +293,7 @@
     }
     const msg = String(lastErr && lastErr.message || '');
     if(/Load failed|Failed to fetch|NetworkError|cloned/i.test(msg)){
-      throw new Error('外部への通信が遮断されている。Claude内のビューアではSteam直取りは動かないので、HTMLをダウンロードしてSafariで開くか、仕入れ口を「Claudeの検索で集める」に戻して');
+      throw new Error('外部への通信が遮断されている。中継を通せないので、台帳から普通のブラウザで開き直して');
     }
     throw lastErr || new Error('取得に失敗');
   }
@@ -429,7 +340,7 @@
         revTone = cn.includes('positive') ? 'good' : cn.includes('mixed') ? 'mixed' : cn.includes('negative') ? 'bad' : '';
       }
 
-      out.push({appid,title,img,off,was,now,nowVal:num(now)??0,revSummary,revPct,revCount,revTone,approx:false});
+      out.push({appid,title,img,off,was,now,nowVal:num(now)??0,revSummary,revPct,revCount,revTone});
     });
     return out;
   }
@@ -487,9 +398,7 @@
         </li>`).join('');
     }
 
-    const approx = shown.some(i=>i.approx);
-    setStatus(`札 <b>${shown.length}</b> 枚（集めた ${items.length} 件${total ? ' / 全 '+total+' 件' : ''}）`
-      + (approx ? '　※価格は検索時点の目安。ストアで要確認。' : ''));
+    setStatus(`札 <b>${shown.length}</b> 枚（集めた ${items.length} 件${total ? ' / 全 '+total+' 件' : ''}）`);
   }
 
   /* ───────── 実行 ───────── */
@@ -498,8 +407,7 @@
     busy = true; goBtn.disabled = true; moreBtn.disabled = true;
     if(reset){ items=[]; start=0; total=0; listEl.innerHTML=''; moreBtn.hidden=true; }
     try{
-      if($('#src').value === 'ai') await loadViaClaude(!reset);
-      else await loadViaSteam();
+      await loadViaSteam();
       render();
     }catch(e){
       setStatus('取得できなかった。' + esc(e.message||'原因不明'), 'err');
@@ -516,14 +424,12 @@
 
   goBtn.addEventListener('click', ()=> load(true));
   moreBtn.addEventListener('click', ()=> load(false));
-  $('#src').addEventListener('change', ()=>{ updateHint(); items=[]; start=0; total=0; listEl.innerHTML=''; moreBtn.hidden=true;
-    setStatus('仕入れ口を変えた。「札を出す」で集め直す。'); });
   ['minoff','pop','score','sort','cap'].forEach(id=>{
     $('#'+id).addEventListener('change', ()=>{ if(items.length) render(); });
   });
   $('#kw').addEventListener('input', ()=>{ if(items.length) render(); });
   $('#genre').addEventListener('change', ()=>{
-    // ジャンルはSteam直取りではURL条件、Claude検索では取り直しが必要なので再取得を促す
+    // ジャンルは取得URLの条件なので、変えたら集め直す
     if(items.length){ items=[]; start=0; total=0; listEl.innerHTML=''; moreBtn.hidden=true;
       setStatus('ジャンルを変えた。「札を出す」で集め直す。'); }
   });
@@ -544,7 +450,6 @@
     }
   });
 
-  updateHint();
 })();
 </script>
 </body>
