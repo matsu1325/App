@@ -1,7 +1,7 @@
 {
-  "generated": "2026-08-08T05:29:27.073Z",
-  "count": 12,
-  "totalBytes": 2246211,
+  "generated": "2026-09-10T11:03:58.437Z",
+  "count": 13,
+  "totalBytes": 2249138,
   "categories": [
     "未分類"
   ],
@@ -149,7 +149,21 @@
       "tags": [],
       "updated": "2026-08-08T14:29:03+09:00",
       "bytes": 13038
+    },
+    {
+      "no": "014",
+      "file": "apps/test-app.html",
+      "name": "試験器",
+      "reading": "しけんき",
+      "desc": "器械台帳への新規ツール追加・公開・一覧連携を確認するテストアプリ。",
+      "category": "未分類",
+      "icon": "◇",
+      "tags": [
+        "test"
+      ],
+      "updated": "2026-09-10T20:03:43+09:00",
+      "bytes": 2927
     }
   ],
-  "nextNo": 14
+  "nextNo": 15
 }
