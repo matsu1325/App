@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>試験器</title>
+<meta name="description" content="器械台帳の新規追加・公開・一覧連携を確認するためのテストアプリ">
+<script type="application/json" id="app-manifest">
+{
+  "name": "試験器",
+  "reading": "しけんき",
+  "desc": "器械台帳への新規ツール追加・公開・一覧連携を確認するテストアプリ。",
+  "category": "未分類",
+  "icon": "◇",
+  "tags": ["test"]
+}
+</script>
+<style>
+:root{
+  --ink:#0E1621;--ink2:#16212E;--rule:#24344A;--paper:#DCD3BE;
+  --dim:#7E8898;--brass:#C08A3E;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100dvh;display:grid;place-items:center;padding:24px;
+  background:var(--ink);color:var(--paper);
+  font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+main{
+  width:min(560px,100%);background:var(--ink2);border:1px solid var(--rule);
+  padding:28px;border-radius:4px;box-shadow:0 24px 70px rgba(0,0,0,.28);
+}
+.kicker{
+  font:11px ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.18em;color:var(--brass);text-transform:uppercase;
+}
+h1{
+  margin:8px 0 12px;font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
+  font-size:28px;letter-spacing:.16em;
+}
+p{color:var(--dim);line-height:1.8;margin:0 0 18px}
+.status{
+  border:1px solid var(--rule);padding:14px;margin:18px 0;
+  display:flex;justify-content:space-between;gap:12px;align-items:center;
+}
+.status b{color:var(--brass);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+button,a{
+  appearance:none;border:1px solid var(--brass);background:transparent;color:var(--paper);
+  padding:10px 14px;font:600 13px system-ui,sans-serif;text-decoration:none;cursor:pointer;
+}
+button:active,a:active{background:var(--brass);color:var(--ink)}
+small{display:block;color:var(--dim);margin-top:18px;font-size:11px}
+</style>
+</head>
+<body>
+<main>
+  <div class="kicker">Instrument Register Test</div>
+  <h1>試験器</h1>
+  <p>このページが開けば、器械本体の公開は成功です。下の計数器が動けば JavaScript も正常に動作しています。</p>
+
+  <div class="status">
+    <span>計数</span>
+    <b id="count">0</b>
+  </div>
+
+  <div class="actions">
+    <button id="increment" type="button">一つ進める</button>
+    <button id="reset" type="button">零に戻す</button>
+    <a href="../index.html">器械台帳へ戻る</a>
+  </div>
+
+  <small>Test app for matsu1325/App</small>
+</main>
+<script>
+let count = 0;
+const out = document.getElementById('count');
+document.getElementById('increment').addEventListener('click', () => {
+  count += 1;
+  out.textContent = count;
+});
+document.getElementById('reset').addEventListener('click', () => {
+  count = 0;
+  out.textContent = count;
+});
+</script>
+</body>
+</html>
