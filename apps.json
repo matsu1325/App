@@ -1,7 +1,7 @@
 {
-  "generated": "2026-09-10T11:27:26.147Z",
+  "generated": "2026-09-10T11:30:13.526Z",
   "count": 13,
-  "totalBytes": 2249138,
+  "totalBytes": 2238466,
   "categories": [
     "未分類"
   ],
@@ -58,13 +58,17 @@
       "no": "005",
       "file": "apps/steamsaleichiba.html",
       "name": "蒸気特売市",
-      "reading": "",
-      "desc": "",
+      "reading": "じょうきとくばいいち",
+      "desc": "Steamの人気セールを割引率・ジャンル・レビュー・価格で絞り込む。",
       "category": "未分類",
       "icon": "◇",
-      "tags": [],
-      "updated": "2026-08-01T01:52:17+09:00",
-      "bytes": 26612
+      "tags": [
+        "Steam",
+        "セール",
+        "ゲーム"
+      ],
+      "updated": "2026-09-10T20:28:23+09:00",
+      "bytes": 15940
     },
     {
       "no": "006",
