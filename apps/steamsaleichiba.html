@@ -16,282 +16,52 @@
 }
 </script>
 <style>
-:root{
-  --paper:#FAF3E0;--card:#FFFDF6;--ink:#1A1A1A;--dim:#5C5750;
-  --beni:#D7263D;--ki:#F2D64B;--ai:#1F4E79;--green:#2B6B3F;
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0}
-body{
-  background:var(--paper);color:var(--ink);
-  font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
-  font-size:15px;line-height:1.6;
-  padding-bottom:calc(96px + env(safe-area-inset-bottom));
-  -webkit-text-size-adjust:100%;
-}
+:root{--paper:#FAF3E0;--card:#FFFDF6;--ink:#1A1A1A;--dim:#5C5750;--beni:#D7263D;--ki:#F2D64B;--ai:#1F4E79;--green:#2B6B3F}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;font-size:15px;line-height:1.6;padding-bottom:calc(96px + env(safe-area-inset-bottom));-webkit-text-size-adjust:100%}
 .wrap{max-width:620px;margin:0 auto;padding:0 14px}
-header{
-  background:var(--ki);border-bottom:3px solid var(--ink);
-  padding:calc(14px + env(safe-area-inset-top)) 0 12px;
-  position:relative;overflow:hidden
-}
+header{background:var(--ki);border-bottom:3px solid var(--ink);padding:calc(14px + env(safe-area-inset-top)) 0 12px;position:relative;overflow:hidden}
 header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:8px;background:repeating-linear-gradient(-45deg,var(--beni) 0 10px,transparent 10px 20px)}
-.banner{display:flex;align-items:center;gap:10px}
-.banner h1{margin:0;font-size:29px;font-weight:900;letter-spacing:.06em;line-height:1.1}
-.banner h1 em{font-style:normal;color:var(--beni)}
-.lead{margin:4px 0 0;font-size:12px;font-weight:700;color:#4a3f14}
-.sticker{margin-left:auto;flex:none;width:60px;height:60px;border-radius:50%;background:var(--card);border:3px solid var(--beni);display:grid;place-items:center;transform:rotate(-9deg);color:var(--beni);font-weight:900;font-size:12px;line-height:1.05;text-align:center;box-shadow:2px 2px 0 var(--ink)}
-.panel{background:var(--card);border:2px solid var(--ink);margin:16px 0;padding:12px;box-shadow:4px 4px 0 rgba(26,26,26,.15)}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.row:last-child{margin-bottom:0}
-.field{flex:1 1 46%;min-width:0}.field.full{flex:1 1 100%}
-.field label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--dim);margin-bottom:4px}
-select,input{width:100%;height:44px;padding:0 10px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff;border:2px solid var(--ink);border-radius:2px}
-select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%);background-position:calc(100% - 16px) 19px,calc(100% - 11px) 19px;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
-button{font-family:inherit;cursor:pointer}
-.go{width:100%;height:52px;border:2px solid var(--ink);background:var(--beni);color:white;font-weight:900;font-size:17px;letter-spacing:.1em;box-shadow:3px 3px 0 var(--ink)}
-.go:active{transform:translate(3px,3px);box-shadow:none}.go[disabled]{opacity:.55}
-.hint{margin:8px 2px 0;font-size:11px;color:var(--dim);line-height:1.65}
-.status{font-size:12px;color:var(--dim);margin:10px 2px;min-height:1.6em}.status b{color:var(--ink)}.status.err{color:var(--beni);font-weight:700}.status.work{color:var(--ai);font-weight:700}
-.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
-.fuda{position:relative;background:var(--card);border:2px solid var(--ink);box-shadow:4px 4px 0 rgba(26,26,26,.18)}
-.hit{display:flex;gap:10px;padding:10px;text-decoration:none;color:inherit;align-items:flex-start}
-.cap{flex:none;width:112px;aspect-ratio:231/87;object-fit:cover;border:1px solid var(--ink);background:#e6e0d2}
-.meta{min-width:0;flex:1}.name{font-weight:700;font-size:15px;line-height:1.35;margin:0 0 4px;word-break:break-word;padding-right:44px}
-.rev{font-size:11px;color:var(--dim);margin:0 0 6px}.good{color:var(--green);font-weight:700}.mixed{color:#8a6a12;font-weight:700}.bad{color:var(--beni);font-weight:700}
-.prices{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}.was{position:relative;font-size:12px;color:var(--dim)}.was::after{content:"";position:absolute;left:-2px;right:-2px;top:52%;height:2px;background:var(--beni);transform:rotate(-6deg)}
-.now{font-size:24px;line-height:1;color:var(--beni);font-weight:900}.stamp{position:absolute;top:-10px;right:-6px;width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid var(--beni);color:var(--beni);display:grid;place-items:center;transform:rotate(-11deg);font-weight:900;font-size:17px;line-height:1;box-shadow:inset 0 0 0 1px var(--beni)}.stamp small{display:block;font-size:9px;font-weight:700;letter-spacing:.1em}
-.more{width:100%;height:48px;margin-top:16px;background:var(--card);border:2px dashed var(--ink);font-weight:700;font-size:15px}.empty{padding:28px 12px;text-align:center;color:var(--dim);font-size:14px}
-.note{font-size:11px;color:var(--dim);margin:18px 2px 0;line-height:1.75}.note strong{color:var(--ink)}
-.foot{position:fixed;left:50%;transform:translateX(-50%);width:min(620px,100%);bottom:0;background:var(--ki);border-top:3px solid var(--ink);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px}.foot button{flex:1;height:44px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:14px}
-:focus-visible{outline:3px solid var(--ai);outline-offset:2px}
-@media(max-width:430px){.cap{width:96px}.name{font-size:14px}.now{font-size:21px}}
+.banner{display:flex;align-items:center;gap:10px}.banner h1{margin:0;font-size:29px;font-weight:900;letter-spacing:.06em;line-height:1.1}.banner h1 em{font-style:normal;color:var(--beni)}
+.lead{margin:4px 0 0;font-size:12px;font-weight:700;color:#4a3f14}.sticker{margin-left:auto;flex:none;width:60px;height:60px;border-radius:50%;background:var(--card);border:3px solid var(--beni);display:grid;place-items:center;transform:rotate(-9deg);color:var(--beni);font-weight:900;font-size:12px;line-height:1.05;text-align:center;box-shadow:2px 2px 0 var(--ink)}
+.panel{background:var(--card);border:2px solid var(--ink);margin:16px 0;padding:12px;box-shadow:4px 4px 0 rgba(26,26,26,.15)}.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.row:last-child{margin-bottom:0}.field{flex:1 1 46%;min-width:0}.field.full{flex:1 1 100%}.field label{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--dim);margin-bottom:4px}
+select,input{width:100%;height:44px;padding:0 10px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff;border:2px solid var(--ink);border-radius:2px}select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%);background-position:calc(100% - 16px) 19px,calc(100% - 11px) 19px;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+button{font-family:inherit;cursor:pointer}.go{width:100%;height:52px;border:2px solid var(--ink);background:var(--beni);color:white;font-weight:900;font-size:17px;letter-spacing:.1em;box-shadow:3px 3px 0 var(--ink)}.go:active{transform:translate(3px,3px);box-shadow:none}.go[disabled]{opacity:.55}
+.refresh{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;border:2px solid var(--ink);background:var(--card);color:var(--ink);font-weight:800;text-decoration:none;box-shadow:3px 3px 0 var(--ink)}.refresh:active{transform:translate(3px,3px);box-shadow:none}.refreshbox{margin-top:14px;padding-top:12px;border-top:2px dashed #b9ae96}.refreshbox p{margin:7px 2px 0;font-size:11px;color:var(--dim)}
+.hint{margin:8px 2px 0;font-size:11px;color:var(--dim);line-height:1.65}.status{font-size:12px;color:var(--dim);margin:10px 2px;min-height:1.6em}.status b{color:var(--ink)}.status.err{color:var(--beni);font-weight:700}.status.work{color:var(--ai);font-weight:700}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}.fuda{position:relative;background:var(--card);border:2px solid var(--ink);box-shadow:4px 4px 0 rgba(26,26,26,.18)}.hit{display:flex;gap:10px;padding:10px;text-decoration:none;color:inherit;align-items:flex-start}.cap{flex:none;width:112px;aspect-ratio:231/87;object-fit:cover;border:1px solid var(--ink);background:#e6e0d2}.meta{min-width:0;flex:1}.name{font-weight:700;font-size:15px;line-height:1.35;margin:0 0 4px;word-break:break-word;padding-right:44px}.rev{font-size:11px;color:var(--dim);margin:0 0 6px}.good{color:var(--green);font-weight:700}.mixed{color:#8a6a12;font-weight:700}.bad{color:var(--beni);font-weight:700}.prices{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}.was{position:relative;font-size:12px;color:var(--dim)}.was::after{content:"";position:absolute;left:-2px;right:-2px;top:52%;height:2px;background:var(--beni);transform:rotate(-6deg)}.now{font-size:24px;line-height:1;color:var(--beni);font-weight:900}.stamp{position:absolute;top:-10px;right:-6px;width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid var(--beni);color:var(--beni);display:grid;place-items:center;transform:rotate(-11deg);font-weight:900;font-size:17px;line-height:1;box-shadow:inset 0 0 0 1px var(--beni)}.stamp small{display:block;font-size:9px;font-weight:700;letter-spacing:.1em}.more{width:100%;height:48px;margin-top:16px;background:var(--card);border:2px dashed var(--ink);font-weight:700;font-size:15px}.empty{padding:28px 12px;text-align:center;color:var(--dim);font-size:14px}.note{font-size:11px;color:var(--dim);margin:18px 2px 0;line-height:1.75}.note strong{color:var(--ink)}
+.foot{position:fixed;left:50%;transform:translateX(-50%);width:min(620px,100%);bottom:0;background:var(--ki);border-top:3px solid var(--ink);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px}.foot button{flex:1;height:44px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:14px}:focus-visible{outline:3px solid var(--ai);outline-offset:2px}@media(max-width:430px){.cap{width:96px}.name{font-size:14px}.now{font-size:21px}}
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap banner">
-    <div>
-      <h1>蒸気<em>特売</em>市</h1>
-      <p class="lead">Steamの人気セールを、条件で絞って札に出す。</p>
-    </div>
-    <div class="sticker">SALE<br>棚卸</div>
-  </div>
-</header>
-
+<header><div class="wrap banner"><div><h1>蒸気<em>特売</em>市</h1><p class="lead">Steamの人気セールを、条件で絞って札に出す。</p></div><div class="sticker">SALE<br>棚卸</div></div></header>
 <main class="wrap">
-  <section class="panel" aria-label="絞り込み">
-    <div class="row">
-      <div class="field">
-        <label for="cc">地域・通貨</label>
-        <select id="cc">
-          <option value="jp" selected>日本 (¥)</option>
-          <option value="us">米国 ($)</option>
-          <option value="eu">ユーロ圏 (€)</option>
-          <option value="uk">英国 (£)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="minoff">最低割引率</label>
-        <select id="minoff">
-          <option value="0">指定なし</option>
-          <option value="20">20%以上</option>
-          <option value="50" selected>50%以上</option>
-          <option value="75">75%以上</option>
-          <option value="90">90%以上</option>
-        </select>
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label for="genre">ジャンル</label>
-        <select id="genre">
-          <option value="" selected>指定なし</option>
-          <option value="19">アクション</option>
-          <option value="21">アドベンチャー</option>
-          <option value="122">RPG</option>
-          <option value="9">ストラテジー</option>
-          <option value="599">シミュレーション</option>
-          <option value="701">スポーツ</option>
-          <option value="699">レース</option>
-          <option value="1664">パズル</option>
-          <option value="1667">ホラー</option>
-          <option value="1743">格闘</option>
-          <option value="492">インディー</option>
-          <option value="597">カジュアル</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="kw">タイトル検索</label>
-        <input id="kw" type="search" placeholder="例: ELDEN RING" autocapitalize="off" autocorrect="off">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label for="pop">人気の下限（レビュー数）</label>
-        <select id="pop">
-          <option value="0" selected>指定なし</option>
-          <option value="500">500件以上</option>
-          <option value="2000">2,000件以上</option>
-          <option value="10000">1万件以上</option>
-          <option value="50000">5万件以上</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="score">評価</label>
-        <select id="score">
-          <option value="0" selected>指定なし</option>
-          <option value="70">好評 (70%〜)</option>
-          <option value="85">非常に好評 (85%〜)</option>
-        </select>
-      </div>
-    </div>
-    <div class="row">
-      <div class="field">
-        <label for="sort">並び</label>
-        <select id="sort">
-          <option value="pop" selected>売れ筋順</option>
-          <option value="off">割引率が高い順</option>
-          <option value="cheap">安い順</option>
-          <option value="rich">高い順</option>
-          <option value="reviews">レビュー数順</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="cap">価格上限（任意）</label>
-        <input id="cap" type="number" min="0" step="1" inputmode="decimal" placeholder="例: 2000">
-      </div>
-    </div>
-    <div class="row"><button class="go" id="go">最新の札を出す</button></div>
-    <p class="hint">Steamのセール情報はGitHub Actionsで定期取得済み。公開CORSプロキシや外部AI APIには依存しない。</p>
-  </section>
-
-  <p class="status" id="status">「最新の札を出す」でセール台帳を読み込む。</p>
-  <ul class="list" id="list" aria-live="polite"></ul>
-  <button class="more" id="more" hidden>さらに表示</button>
-
-  <p class="note">
-    <strong>データについて。</strong>
-    Steam Storeの売れ筋セール情報を定期的に取得したキャッシュを表示する。
-    価格・割引率は更新後に変わることがあるため、購入前に各Steamストアページで最終確認して。
-    ユーロ圏はドイツ地域の価格を代表値として使用する。
-  </p>
+<section class="panel" aria-label="絞り込み">
+<div class="row"><div class="field"><label for="cc">地域・通貨</label><select id="cc"><option value="jp" selected>日本 (¥)</option><option value="us">米国 ($)</option><option value="eu">ユーロ圏 (€)</option><option value="uk">英国 (£)</option></select></div><div class="field"><label for="minoff">最低割引率</label><select id="minoff"><option value="0">指定なし</option><option value="20">20%以上</option><option value="50" selected>50%以上</option><option value="75">75%以上</option><option value="90">90%以上</option></select></div></div>
+<div class="row"><div class="field"><label for="genre">ジャンル</label><select id="genre"><option value="" selected>指定なし</option><option value="19">アクション</option><option value="21">アドベンチャー</option><option value="122">RPG</option><option value="9">ストラテジー</option><option value="599">シミュレーション</option><option value="701">スポーツ</option><option value="699">レース</option><option value="1664">パズル</option><option value="1667">ホラー</option><option value="1743">格闘</option><option value="492">インディー</option><option value="597">カジュアル</option></select></div><div class="field"><label for="kw">タイトル検索</label><input id="kw" type="search" placeholder="例: ELDEN RING" autocapitalize="off" autocorrect="off"></div></div>
+<div class="row"><div class="field"><label for="pop">人気の下限（レビュー数）</label><select id="pop"><option value="0" selected>指定なし</option><option value="500">500件以上</option><option value="2000">2,000件以上</option><option value="10000">1万件以上</option><option value="50000">5万件以上</option></select></div><div class="field"><label for="score">評価</label><select id="score"><option value="0" selected>指定なし</option><option value="70">好評 (70%〜)</option><option value="85">非常に好評 (85%〜)</option></select></div></div>
+<div class="row"><div class="field"><label for="sort">並び</label><select id="sort"><option value="pop" selected>売れ筋順</option><option value="off">割引率が高い順</option><option value="cheap">安い順</option><option value="rich">高い順</option><option value="reviews">レビュー数順</option></select></div><div class="field"><label for="cap">価格上限（任意）</label><input id="cap" type="number" min="0" step="1" inputmode="decimal" placeholder="例: 2000"></div></div>
+<div class="row"><button class="go" id="go">札を読み込む</button></div>
+<p class="hint">表示するデータは、最後に手動更新したSteamセール台帳。公開CORSプロキシや外部AI APIには依存しない。</p>
+<div class="refreshbox"><a class="refresh" href="https://github.com/matsu1325/App/actions/workflows/register.yml" target="_blank" rel="noopener">Steam情報を更新する</a><p>GitHubが開いたら「Run workflow」→「Run workflow」を押す。Steam取得はこの手動実行時だけ行う。</p></div>
+</section>
+<p class="status" id="status">セール台帳を読み込んでいる。</p><ul class="list" id="list" aria-live="polite"></ul><button class="more" id="more" hidden>さらに表示</button>
+<p class="note"><strong>データについて。</strong> Steam Storeの売れ筋セール情報を、手動で更新したキャッシュから表示する。価格・割引率は更新後に変わることがあるため、購入前に各Steamストアページで最終確認して。ユーロ圏はドイツ地域の価格を代表値として使用する。</p>
 </main>
-
-<div class="foot">
-  <button id="copy">一覧をコピー</button>
-  <button id="share">共有</button>
-</div>
-
+<div class="foot"><button id="copy">一覧をコピー</button><button id="share">共有</button></div>
 <script>
-(() => {
-'use strict';
-const $ = s => document.querySelector(s);
-const listEl=$('#list'),statusEl=$('#status'),moreBtn=$('#more'),goBtn=$('#go');
-const PAGE=30;
-let items=[],shown=[],visible=PAGE,busy=false,meta=null;
-
+(()=>{'use strict';
+const $=s=>document.querySelector(s);const listEl=$('#list'),statusEl=$('#status'),moreBtn=$('#more'),goBtn=$('#go');const PAGE=30;let items=[],shown=[],visible=PAGE,busy=false,meta=null;
 function esc(s){return String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));}
 function setStatus(html,kind=''){statusEl.innerHTML=html;statusEl.className='status'+(kind?' '+kind:'');}
 function storeUrl(it){return `https://store.steampowered.com/app/${encodeURIComponent(it.appid)}/`;}
-function fmtDate(iso){
-  const d=new Date(iso);if(Number.isNaN(d.getTime()))return '不明';
-  return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);
-}
+function fmtDate(iso){const d=new Date(iso);if(Number.isNaN(d.getTime()))return '不明';return new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);}
 function revTone(it){return it.revTone==='good'?'good':it.revTone==='mixed'?'mixed':it.revTone==='bad'?'bad':'';}
-
-async function loadData(){
-  if(busy)return;
-  busy=true;goBtn.disabled=true;setStatus('Steamセール台帳を読み込んでいる…','work');
-  try{
-    const cc=$('#cc').value;
-    const url=`../data/steam-sales-${cc}.json?v=${Date.now()}`;
-    const res=await fetch(url,{cache:'no-store'});
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    const data=await res.json();
-    if(!Array.isArray(data.items))throw new Error('データ形式が不正');
-    items=data.items.map((it,i)=>({...it,_i:i}));
-    meta=data;visible=PAGE;render();
-  }catch(e){
-    items=[];shown=[];listEl.innerHTML='';moreBtn.hidden=true;
-    setStatus('取得できなかった。台帳の自動更新がまだ完了していない可能性がある。 '+esc(e.message||''),'err');
-  }finally{busy=false;goBtn.disabled=false;}
-}
-
-function filterSort(){
-  const minOff=Number($('#minoff').value||0);
-  const minRev=Number($('#pop').value||0);
-  const minScore=Number($('#score').value||0);
-  const tag=$('#genre').value;
-  const kw=$('#kw').value.trim().toLowerCase();
-  const capRaw=$('#cap').value.trim();
-  const cap=capRaw===''?null:Number(capRaw);
-  const sort=$('#sort').value;
-
-  const r=items.filter(it=>{
-    if(Number(it.off||0)<minOff)return false;
-    if(minRev>0&&(it.revCount==null||Number(it.revCount)<minRev))return false;
-    if(minScore>0&&(it.revPct==null||Number(it.revPct)<minScore))return false;
-    if(tag&&!(Array.isArray(it.tags)&&it.tags.map(String).includes(tag)))return false;
-    if(kw&&!String(it.title||'').toLowerCase().includes(kw))return false;
-    if(cap!=null&&Number.isFinite(cap)&&(it.nowVal==null||Number(it.nowVal)>cap))return false;
-    return true;
-  });
-
-  if(sort==='off')r.sort((a,b)=>Number(b.off)-Number(a.off)||a._i-b._i);
-  else if(sort==='cheap')r.sort((a,b)=>(a.nowVal??Infinity)-(b.nowVal??Infinity)||a._i-b._i);
-  else if(sort==='rich')r.sort((a,b)=>(b.nowVal??-Infinity)-(a.nowVal??-Infinity)||a._i-b._i);
-  else if(sort==='reviews')r.sort((a,b)=>(b.revCount??-1)-(a.revCount??-1)||a._i-b._i);
-  else r.sort((a,b)=>a._i-b._i);
-  return r;
-}
-
-function render(){
-  shown=filterSort();
-  const page=shown.slice(0,visible);
-  if(!items.length){listEl.innerHTML='';return;}
-  if(!shown.length){
-    listEl.innerHTML='<li class="empty">この条件に合う札がない。条件を少し緩めてみて。</li>';
-  }else{
-    listEl.innerHTML=page.map(it=>`
-      <li class="fuda">
-        <div class="stamp">${esc(it.off)}%<small>OFF</small></div>
-        <a class="hit" href="${esc(storeUrl(it))}" target="_blank" rel="noopener">
-          <img class="cap" src="${esc(it.img||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-          <div class="meta">
-            <p class="name">${esc(it.title)}</p>
-            <p class="rev">${it.revSummary?`<span class="${revTone(it)}">${esc(it.revSummary)}</span>${it.revPct?` ・ ${esc(it.revPct)}%`:''}${it.revCount?` ・ ${Number(it.revCount).toLocaleString()}件`:''}`:'レビュー情報なし'}</p>
-            <p class="prices">${it.was?`<span class="was">${esc(it.was)}</span>`:''}<span class="now">${esc(it.now||'—')}</span></p>
-          </div>
-        </a>
-      </li>`).join('');
-  }
-  moreBtn.hidden=visible>=shown.length;
-  const updated=meta?fmtDate(meta.generated):'不明';
-  setStatus(`該当 <b>${shown.length}</b> 件 / 収録 ${items.length} 件　更新 ${esc(updated)}`);
-}
-
-function asText(){
-  const arr=shown.slice(0,visible);if(!arr.length)return '';
-  return `Steam 売れ筋セール（${new Date().toLocaleDateString('ja-JP')}）\n`+arr.map(it=>`・${it.title} -${it.off}% ${it.now||''}${it.was?`（元 ${it.was}）`:''}\n  ${storeUrl(it)}`).join('\n');
-}
-
-goBtn.addEventListener('click',loadData);
-moreBtn.addEventListener('click',()=>{visible+=PAGE;render();});
-$('#cc').addEventListener('change',loadData);
-['minoff','genre','pop','score','sort','cap'].forEach(id=>$('#'+id).addEventListener('change',()=>{visible=PAGE;if(items.length)render();}));
-$('#kw').addEventListener('input',()=>{visible=PAGE;if(items.length)render();});
-$('#copy').addEventListener('click',async()=>{
-  const t=asText();if(!t){setStatus('コピーする札がない。','err');return;}
-  try{await navigator.clipboard.writeText(t);setStatus('一覧をコピーした。');}catch{setStatus('コピーできなかった。','err');}
-});
-$('#share').addEventListener('click',async()=>{
-  const t=asText();if(!t){setStatus('共有する札がない。','err');return;}
-  if(navigator.share){try{await navigator.share({title:'Steam 売れ筋セール',text:t});}catch{}}
-  else{try{await navigator.clipboard.writeText(t);setStatus('共有非対応なので一覧をコピーした。');}catch{setStatus('共有できなかった。','err');}}
-});
-
-loadData();
-})();
+async function loadData(){if(busy)return;busy=true;goBtn.disabled=true;setStatus('Steamセール台帳を読み込んでいる…','work');try{const cc=$('#cc').value;const url=`../data/steam-sales-${cc}.json?v=${Date.now()}`;const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw new Error(`HTTP ${res.status}`);const data=await res.json();if(!Array.isArray(data.items))throw new Error('データ形式が不正');items=data.items.map((it,i)=>({...it,_i:i}));meta=data;visible=PAGE;render();}catch(e){items=[];shown=[];listEl.innerHTML='';moreBtn.hidden=true;setStatus('取得できなかった。Steam情報を手動更新した後、もう一度読み込んで。 '+esc(e.message||''),'err');}finally{busy=false;goBtn.disabled=false;}}
+function filterSort(){const minOff=Number($('#minoff').value||0),minRev=Number($('#pop').value||0),minScore=Number($('#score').value||0),tag=$('#genre').value,kw=$('#kw').value.trim().toLowerCase(),capRaw=$('#cap').value.trim(),cap=capRaw===''?null:Number(capRaw),sort=$('#sort').value;const r=items.filter(it=>{if(Number(it.off||0)<minOff)return false;if(minRev>0&&(it.revCount==null||Number(it.revCount)<minRev))return false;if(minScore>0&&(it.revPct==null||Number(it.revPct)<minScore))return false;if(tag&&!(Array.isArray(it.tags)&&it.tags.map(String).includes(tag)))return false;if(kw&&!String(it.title||'').toLowerCase().includes(kw))return false;if(cap!=null&&Number.isFinite(cap)&&(it.nowVal==null||Number(it.nowVal)>cap))return false;return true;});if(sort==='off')r.sort((a,b)=>Number(b.off)-Number(a.off)||a._i-b._i);else if(sort==='cheap')r.sort((a,b)=>(a.nowVal??Infinity)-(b.nowVal??Infinity)||a._i-b._i);else if(sort==='rich')r.sort((a,b)=>(b.nowVal??-Infinity)-(a.nowVal??-Infinity)||a._i-b._i);else if(sort==='reviews')r.sort((a,b)=>(b.revCount??-1)-(a.revCount??-1)||a._i-b._i);else r.sort((a,b)=>a._i-b._i);return r;}
+function render(){shown=filterSort();const page=shown.slice(0,visible);if(!items.length){listEl.innerHTML='';return;}if(!shown.length){listEl.innerHTML='<li class="empty">この条件に合う札がない。条件を少し緩めてみて。</li>';}else{listEl.innerHTML=page.map(it=>`<li class="fuda"><div class="stamp">${esc(it.off)}%<small>OFF</small></div><a class="hit" href="${esc(storeUrl(it))}" target="_blank" rel="noopener"><img class="cap" src="${esc(it.img||'')}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><div class="meta"><p class="name">${esc(it.title)}</p><p class="rev">${it.revSummary?`<span class="${revTone(it)}">${esc(it.revSummary)}</span>${it.revPct?` ・ ${esc(it.revPct)}%`:''}${it.revCount?` ・ ${Number(it.revCount).toLocaleString()}件`:''}`:'レビュー情報なし'}</p><p class="prices">${it.was?`<span class="was">${esc(it.was)}</span>`:''}<span class="now">${esc(it.now||'—')}</span></p></div></a></li>`).join('');}moreBtn.hidden=visible>=shown.length;const updated=meta?fmtDate(meta.generated):'不明';setStatus(`該当 <b>${shown.length}</b> 件 / 収録 ${items.length} 件　最終更新 ${esc(updated)}`);}
+function asText(){const arr=shown.slice(0,visible);if(!arr.length)return '';return `Steam 売れ筋セール（${new Date().toLocaleDateString('ja-JP')}）\n`+arr.map(it=>`・${it.title} -${it.off}% ${it.now||''}${it.was?`（元 ${it.was}）`:''}\n  ${storeUrl(it)}`).join('\n');}
+goBtn.addEventListener('click',loadData);moreBtn.addEventListener('click',()=>{visible+=PAGE;render();});$('#cc').addEventListener('change',loadData);['minoff','genre','pop','score','sort','cap'].forEach(id=>$('#'+id).addEventListener('change',()=>{visible=PAGE;if(items.length)render();}));$('#kw').addEventListener('input',()=>{visible=PAGE;if(items.length)render();});$('#copy').addEventListener('click',async()=>{const t=asText();if(!t){setStatus('コピーする札がない。','err');return;}try{await navigator.clipboard.writeText(t);setStatus('一覧をコピーした。');}catch{setStatus('コピーできなかった。','err');}});$('#share').addEventListener('click',async()=>{const t=asText();if(!t){setStatus('共有する札がない。','err');return;}if(navigator.share){try{await navigator.share({title:'Steam 売れ筋セール',text:t});}catch{}}else{try{await navigator.clipboard.writeText(t);setStatus('共有非対応なので一覧をコピーした。');}catch{setStatus('共有できなかった。','err');}}});loadData();})();
 </script>
 </body>
 </html>
