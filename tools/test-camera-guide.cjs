@@ -26,6 +26,15 @@ r=scenario('子どもの日常',{motion:'激しい',priority:'背景ボケ'},'gr
 r=scenario('子どもの日常',{motion:'激しい',priority:'背景ボケ'},'x100');currentSettings.ss=2000;fix('ブレる');check(!$('fixText').innerHTML.includes('1/4000'),'X100 aperture shutter cap');
 r=scenario('入園・卒園・入学',{people:'集団'});for(const t of ['ISOが上がりすぎる','背景がうるさい']){fix(t);check($('fixText').innerHTML.includes('維持'),'preserve group depth');}
 for(const body of ['h2s','t30','x100','gfx','a7c','gr']){r=scenario('室内',{light:'暗い舞台・室内'},body);fix('暗い');check(!$('fixText').innerHTML.includes('25600'),'ISO AUTO conservative supported ceiling');}
+// Mobility, framing tolerance and detail are based on properties, not favorite model IDs.
+r=scenario('旅行');check(candidates.some(x=>x.b.id==='x100'),'travel includes capable fixed lens kit');
+r=scenario('街歩き');check(candidates.some(x=>x.b.id==='x100'),'street includes fixed lens alternative');
+r=scenario('旅行',{priority:'画質'});check(candidates.some(x=>x.b.id==='x100'),'travel detail option');
+r=scenario('運動会');check(!candidates.some(x=>x.b.id==='x100'),'do not force fixed lens into distant sports');
+r=scenario('旅行',{},'x100');const nativeScore=r.rawScore;state.gear=[{...r.b,id:'generic-fixed-camera',custom:true}];check(rank()[0].rawScore===nativeScore,'same properties same score regardless of camera ID');
+state.conditions.priority='画質';const highDetail=rank()[0].rawScore;state.gear[0].mp=26.1;check(rank()[0].rawScore<highDetail,'resolution matters when detail is wanted');
+state.conditions.priority='軽さ';const heavier=rank()[0].rawScore;state.gear[0].weight=300;check(rank()[0].rawScore>heavier,'lighter same-spec camera scores higher for mobility');
+state.conditions.distance='遠距離';check(framingTolerance()===1,'no near-range tolerance at distance');
 // All initial scenarios, then cross lighting / support / framing / motion boundaries.
 for(const scene of Object.keys(SCENES))for(const light of FIELDS[7][2])for(const support of FIELDS[8][2])for(const framing of FIELDS[9][2])for(const motion of ['静止','激しい']){
  scenario(scene,{light,support,framing,motion});
