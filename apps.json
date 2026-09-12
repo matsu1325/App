@@ -1,8 +1,9 @@
 {
-  "generated": "2026-09-11T01:48:40.019Z",
-  "count": 13,
-  "totalBytes": 2237917,
+  "generated": "2026-09-12T05:32:12.121Z",
+  "count": 14,
+  "totalBytes": 2275984,
   "categories": [
+    "写真",
     "未分類"
   ],
   "apps": [
@@ -167,7 +168,27 @@
       ],
       "updated": "2026-09-10T20:03:43+09:00",
       "bytes": 2927
+    },
+    {
+      "no": "015",
+      "file": "apps/camera-settings-guide.html",
+      "name": "撮影設定ガイド",
+      "reading": "さつえいせっていがいど",
+      "desc": "撮影シーンから手持ち機材・カメラ設定・撮り方を提案する。",
+      "category": "写真",
+      "icon": "◎",
+      "tags": [
+        "カメラ",
+        "写真",
+        "撮影",
+        "FUJIFILM",
+        "SONY",
+        "RICOH",
+        "Insta360"
+      ],
+      "updated": "2026-09-12T14:31:55+09:00",
+      "bytes": 38067
     }
   ],
-  "nextNo": 15
+  "nextNo": 16
 }
