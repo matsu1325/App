@@ -35,6 +35,30 @@ r=scenario('旅行',{},'x100');const nativeScore=r.rawScore;state.gear=[{...r.b,
 state.conditions.priority='画質';const highDetail=rank()[0].rawScore;state.gear[0].mp=26.1;check(rank()[0].rawScore<highDetail,'resolution matters when detail is wanted');
 state.conditions.priority='軽さ';const heavier=rank()[0].rawScore;state.gear[0].weight=300;check(rank()[0].rawScore>heavier,'lighter same-spec camera scores higher for mobility');
 state.conditions.distance='遠距離';check(framingTolerance()===1,'no near-range tolerance at distance');
+// Research observations change only the relevant conditions; no global popularity bonus.
+check(INITIAL.length===18&&INITIAL.every(g=>g.profile?.sources.length&&g.profile.fact&&g.profile.review&&g.profile.caution),'all 18 devices have research provenance');
+check(INITIAL.every(g=>g.profile.sources.every(s=>/^https:\/\//.test(s.url))),'sources are explicit external HTTPS links');
+function observed(scene,conditions,body,lensID){
+ scenario(scene,conditions,body);if(lensID)state.gear.forEach(g=>{if(g.type==='lens')g.active=g.id===lensID;});
+ return rank()[0];
+}
+function researchPoints(rr,label){return rr.factors.find(f=>f.label==='調査：'+label)?.points||0;}
+r=observed('子どもの日常',{motion:'普通'},'x100');check(researchPoints(r,'レンズの追従特性')<0,'fixed lens motor limits moving AF');
+r=observed('子どもの日常',{motion:'静止'},'x100');check(!researchPoints(r,'レンズの追従特性'),'no moving-AF penalty for still subject');
+r=observed('運動会',{},'h2s','xf50140');check(researchPoints(r,'レンズの追従特性')>0&&researchPoints(r,'高速連写への余裕')>0,'sports drive and burst traits');
+r=observed('風景',{},'h2s','tam18300');check(researchPoints(r,'ズーム端・周辺描写')<0,'edge compromise matters for landscape quality');
+r=observed('旅行',{},'h2s','tam18300');check(!researchPoints(r,'ズーム端・周辺描写'),'no blanket superzoom quality penalty for travel');
+r=observed('ポートレート',{},'a7c','sig90');check(researchPoints(r,'ボケの描写傾向')>0&&researchPoints(r,'レンズ描写の実写評価')>0,'portrait rendering and detail');
+r=observed('ポートレート',{people:'集団'},'a7c','sig90');check(!researchPoints(r,'ボケの描写傾向'),'do not reward shallow rendering for groups');
+r=observed('食事・料理',{},'a7c','fe50');check(researchPoints(r,'近接の扱いやすさ')<0,'table distance limitation');
+r=observed('子どもの日常',{motion:'普通'},'a7c','fe50');check(researchPoints(r,'レンズの追従特性')===-2,'conflicting FE50 reviews receive modest correction');
+r=observed('運動会',{distance:'近距離'},'t30','xc1545');check(researchPoints(r,'電動ズームの構図調整')<0,'PZ operation at fast action');
+r=observed('旅行',{},'t30','xc1545');check(!researchPoints(r,'電動ズームの構図調整'),'no PZ penalty for leisurely travel');
+r=observed('室内',{motion:'静止'},'gfx','gf3570');check(researchPoints(r,'暗所のピント合わせ')<0,'contrast AF needs care in dim static scene');
+r=observed('旅行',{},'x100');state.gear=[{...r.b,id:'custom-no-review',custom:true,profile:undefined}];check(Number.isFinite(rank()[0].rawScore)&&researchHTML(state.gear[0]).includes('未調査'),'unresearched custom equipment remains usable');
+// Rendering and reload migration retain active choices while refreshing built-in research data.
+scenario('旅行');check($('researchSelected').innerHTML.includes('実写評価'),'selected kit provenance visible');gear();check($('gearList').innerHTML.includes('OpticalLimits'),'inventory research visible');
+check(INITIAL.find(g=>g.id==='x6').weight===196,'X6 official weight');
 // All initial scenarios, then cross lighting / support / framing / motion boundaries.
 for(const scene of Object.keys(SCENES))for(const light of FIELDS[7][2])for(const support of FIELDS[8][2])for(const framing of FIELDS[9][2])for(const motion of ['静止','激しい']){
  scenario(scene,{light,support,framing,motion});
