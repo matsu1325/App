@@ -36,7 +36,8 @@ const RESEARCH={
     "review": "DPReview（2022）：追従AFと高速撮影を評価。",
     "caution": "電子シャッターでも照明の縞・動体の歪みは試写で確認。ファームウェアによってAF挙動は変わる。",
     "traits": {
-      "burst": 3
+      "burst": 3,
+      "weather": 2
     },
     "sources": [
       {
@@ -80,7 +81,8 @@ const RESEARCH={
     "review": "DPReview（2021）：精細さ・階調を評価。一方、応答はゆっくりで動体向きではない。",
     "caution": "静止する瞬間と丁寧なピント合わせを優先。大きなセンサーだけで全場面の最高画質は保証しない。",
     "traits": {
-      "darkFocus": -2
+      "darkFocus": -2,
+      "weather": 2
     },
     "sources": [
       {
@@ -93,7 +95,9 @@ const RESEARCH={
     "fact": "33MPフルサイズ・被写体認識・手ブレ補正を小型ボディに搭載。",
     "review": "DPReview（2023）：追従AFと画質を高く評価。電子シャッターの歪みを指摘。",
     "caution": "速い横移動はメカニカルシャッターから開始。レンズが遅ければボディのAFだけでは補えない。",
-    "traits": {},
+    "traits": {
+      "weather": 1
+    },
     "sources": [
       {
         "label": "実写：DPReview",
@@ -175,7 +179,8 @@ const RESEARCH={
     "caution": "持ち歩きより競技・舞台優先。至近のテーブル撮影には向かず、引き写真には後退が必要。",
     "traits": {
       "tracking": 7,
-      "close": -12
+      "close": -12,
+      "weather": 2
     },
     "sources": [
       {
@@ -195,7 +200,8 @@ const RESEARCH={
     "traits": {
       "tracking": 2,
       "edge": -4,
-      "bokeh": -2
+      "bokeh": -2,
+      "weather": 1
     },
     "sources": [
       {
@@ -248,7 +254,8 @@ const RESEARCH={
     "traits": {
       "tracking": -3,
       "bokeh": 2,
-      "close": -6
+      "close": -6,
+      "weather": 2
     },
     "sources": [
       {
@@ -266,7 +273,8 @@ const RESEARCH={
     "review": "Photography Blog（2021、50S II）：静かで比較的速いAFを評価。",
     "caution": "撮影前に沈胴を解除。F4.5–5.6なので、暗所の動体より風景・静物向き。",
     "traits": {
-      "tracking": 1
+      "tracking": 1,
+      "weather": 2
     },
     "sources": [
       {
@@ -320,7 +328,8 @@ const RESEARCH={
       "tracking": 2,
       "detail": 3,
       "bokeh": 2,
-      "close": -6
+      "close": -6,
+      "weather": 1
     },
     "sources": [
       {
@@ -374,6 +383,10 @@ function researchFactors(b,l,{move,target,wide,tele,qualityFirst}){
  if(move===3){add('高速連写への余裕',bt.burst,'速い動きの決定的瞬間を連写で選びやすい');if(l.weight>=600&&l!==b)add('大型レンズ時の操作',bt.heavyHandling,'小型ボディと大型レンズの組み合わせ。左手でレンズを支える');add('電動ズームの構図調整',lt.powerZoom,'急な構図変更では電動ズームの操作に慣れておく');}
  if((move>=2||dark())&&target>=tele*.8)add('望遠端の合焦の迷い',lt.teleHunt,'望遠端・低コントラストでの合焦の迷いを考慮');
  if(dark()&&move<2)add('暗所のピント合わせ',bt.darkFocus,'暗所のコントラストAFは静止の瞬間に丁寧に合わせる');
+ if(c.weather==='雨'){
+   const weatherLevel=b===l?(bt.weather||0):Math.min(bt.weather||0,lt.weather||0);
+   add('ボディ＋レンズの耐候性',weatherLevel*2,'ボディとレンズ双方の防塵防滴設計を小幅に評価。それでも雨カバーを使用');
+ }
  if(qualityFirst&&move<2&&(!dark()||onTripod())){add('レンズ描写の実写評価',lt.detail,'実写レビューの解像評価を小幅に反映（画素数とは別）');if(target<=wide*1.3||target>=tele*.8)add('ズーム端・周辺描写',lt.edge,'画質重視ではズーム端の周辺描写に妥協がある');}
  if(c.priority==='背景ボケ'&&c.people!=='集団')add('ボケの描写傾向',lt.bokeh,'ボケ量とは別に、実写の描写傾向を小幅に反映。好みには個人差');
  if(c.distance==='至近'){add('近接の扱いやすさ',lt.close,lt.close>0?'近接を活かしやすい。機材の最短距離を確認':'至近のテーブル撮影では後退が必要。機材の最短距離を確認');if(lt.closeSoft&&qualityFirst&&baseSetting({b,l,wide,tele,target}).f<2.8)add('近接・開放の解像',-2,'至近で細部を重視するならF2.8〜F4へ絞る');}

@@ -56,6 +56,11 @@ r=observed('運動会',{distance:'近距離'},'t30','xc1545');check(researchPoin
 r=observed('旅行',{},'t30','xc1545');check(!researchPoints(r,'電動ズームの構図調整'),'no PZ penalty for leisurely travel');
 r=observed('室内',{motion:'静止'},'gfx','gf3570');check(researchPoints(r,'暗所のピント合わせ')<0,'contrast AF needs care in dim static scene');
 r=observed('旅行',{},'x100');state.gear=[{...r.b,id:'custom-no-review',custom:true,profile:undefined}];check(Number.isFinite(rank()[0].rawScore)&&researchHTML(state.gear[0]).includes('未調査'),'unresearched custom equipment remains usable');
+// Rain resistance is a system property: both interchangeable body and lens must qualify.
+r=observed('運動会',{weather:'雨'},'h2s','xf50140');check(researchPoints(r,'ボディ＋レンズの耐候性')===4,'weather-sealed body and lens pair');
+r=observed('運動会',{weather:'雨'},'h2s','xf35');check(!researchPoints(r,'ボディ＋レンズの耐候性'),'unsealed lens limits weather-sealed body');
+r=observed('旅行',{weather:'雨',motion:'静止'},'x100');check(!researchPoints(r,'ボディ＋レンズの耐候性'),'X100VI accessory-dependent sealing gets no unconditional bonus');
+r=observed('風景',{weather:'雨'},'gfx','gf3570');check(researchPoints(r,'ボディ＋レンズの耐候性')===4,'GFX weather-resistant kit');
 // Rendering and reload migration retain active choices while refreshing built-in research data.
 scenario('旅行');check($('researchSelected').innerHTML.includes('実写評価'),'selected kit provenance visible');gear();check($('gearList').innerHTML.includes('OpticalLimits'),'inventory research visible');
 check(INITIAL.find(g=>g.id==='x6').weight===196,'X6 official weight');
