@@ -13,7 +13,7 @@
 <title>椿ノ工房 — Tsubaki.3 Prompt Builder</title>
 <meta name="description" content="Tsubaki.3向けの新規生成・画像参照・編集プロンプトを組み立てる。タグ辞書・履歴・他の器械との連携にも対応。">
 <script type="application/json" id="app-manifest">
-{"name":"椿ノ工房","reading":"つばきのこうぼう","desc":"Tsubaki.3向けに新規生成・参照画像・画像編集のプロンプトを組み立てる。","category":"画像制作","icon":"◇","tags":["PixAI","Tsubaki.3","ツバキ3","プロンプト","画像編集"]}
+{"name":"椿ノ工房","reading":"つばきのこうぼう","desc":"ツバキ3専用の生成・参照・局所編集・参照編集。キャラ辞書と保存プロンプトをそのまま活用。","category":"画像制作","icon":"◇","tags":["PixAI","Tsubaki.3","ツバキ3","プロンプト","画像編集"]}
 </script>
 
 <!-- ============================================================
@@ -16619,6 +16619,11 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* リセットボタン共通 */
 .mode-reset { margin: 4px 0 10px; }
+
+/* Tsubaki.3 dedicated workspace */
+.t3-hero{padding:28px 20px 20px;max-width:760px;margin:auto}.t3-eyebrow{font-size:10px;letter-spacing:.2em;color:var(--kin)}.t3-hero h2{font-family:serif;font-weight:500;font-size:32px;line-height:1.4;margin:12px 0}.t3-hero p{color:var(--sub);font-size:13px;line-height:1.9}.t3-resources,.t3-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.t3-tasks{display:grid;grid-template-columns:1fr 1fr;gap:9px}.t3-task{padding:15px 12px;text-align:left;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--kinu);cursor:pointer;font-family:inherit;min-width:0}.t3-task b{display:block;font-size:14px}.t3-task span{display:block;font-size:11px;color:var(--sub);margin-top:5px}.t3-task.on{border-color:var(--tsubaki);background:color-mix(in srgb,var(--tsubaki) 12%,transparent)}.t3-step{color:var(--tsubaki);font-size:12px;font-family:monospace;margin-right:6px}.t3-details{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.t3-details summary{cursor:pointer;color:var(--sub);font-size:13px;line-height:1.6}.t3-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.t3-check{display:flex;align-items:center;gap:9px;margin:16px 0;font-size:12px;color:var(--sub)}.t3-check input{width:18px;height:18px;accent-color:var(--tsubaki)}.t3-output{border-color:var(--tsubaki)}#t3-live{font-family:ui-monospace,monospace;font-size:12px;line-height:1.8;background:var(--sumi);min-height:180px}.t3-source{text-align:center;margin:18px 0}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}#t3-ref2-required{font-size:10px;color:var(--tsubaki)}.t3-output .banner{margin-top:8px}.t3-transfer p{margin-top:0}.t3-task:focus-visible{outline:2px solid var(--kin);outline-offset:3px}
+@media(min-width:700px){.t3-hero h2{font-size:40px}.t3-tasks{grid-template-columns:repeat(4,1fr)}.t3-task{padding:17px 12px}}@media(max-width:360px){.t3-actions{grid-template-columns:1fr}.t3-hero h2{font-size:28px}}
+
 </style>
 </head>
 <body>
@@ -16650,51 +16655,74 @@ input[type="range"]::-webkit-slider-thumb {
   </div>
 </header>
 
-<nav class="modes" role="tablist" aria-label="モード選択">
-  <button class="mode-tab on" id="tab-t3" data-mode="t3" role="tab" aria-selected="true" aria-controls="pane-t3" tabindex="0">ツバキ3<span class="m-sub">生成・参照・編集</span></button>
-  <button class="mode-tab" id="tab-basic" data-mode="basic" role="tab" aria-selected="false" aria-controls="pane-basic" tabindex="-1">かんたん<span class="m-sub">迷ったらこれ</span></button>
-  <button class="mode-tab" id="tab-adv" data-mode="adv" role="tab" aria-selected="false" aria-controls="pane-adv" tabindex="-1">詳細<span class="m-sub">6ブロック構築</span></button>
-  <button class="mode-tab" id="tab-tag" data-mode="tag" role="tab" aria-selected="false" aria-controls="pane-tag" tabindex="-1">タグ編集<span class="m-sub">タグ資産流用</span></button>
-  <button class="mode-tab" id="tab-tpl" data-mode="tpl" role="tab" aria-selected="false" aria-controls="pane-tpl" tabindex="-1">型紙<span class="m-sub">商品・漫画</span></button>
+<div class="t3-hero">
+  <span class="t3-eyebrow">TSUBAKI.3 / DEDICATED WORKSPACE</span>
+  <h2>描きたいものを、<br>伝わる指示に。</h2>
+  <p>キャラクターも、画風も、変えたいところも。<br>ツバキ3のためのプロンプトを、ひとつの作業台で。</p>
+  <div class="t3-resources"><button class="btn small" id="t3-library">キャラライブラリ</button><button class="btn small" id="t3-history">保存プロンプト</button><button class="btn small" id="t3-projects">プロジェクト</button></div>
+</div>
+<nav class="modes" role="tablist" aria-label="作業台と素材">
+  <button class="mode-tab on" id="tab-t3" data-mode="t3" role="tab" aria-selected="true" aria-controls="pane-t3" tabindex="0">専用作業台<span class="m-sub">生成・参照・編集</span></button>
+  <button class="mode-tab" id="tab-basic" data-mode="basic" role="tab" aria-selected="false" aria-controls="pane-basic" tabindex="-1">下書き<span class="m-sub">主体・動作・場面</span></button>
+  <button class="mode-tab" id="tab-adv" data-mode="adv" role="tab" aria-selected="false" aria-controls="pane-adv" tabindex="-1">素材構築<span class="m-sub">収録辞書を使う</span></button>
+  <button class="mode-tab" id="tab-tag" data-mode="tag" role="tab" aria-selected="false" aria-controls="pane-tag" tabindex="-1">タグ資産<span class="m-sub">登録内容を再利用</span></button>
+  <button class="mode-tab" id="tab-tpl" data-mode="tpl" role="tab" aria-selected="false" aria-controls="pane-tpl" tabindex="-1">型紙<span class="m-sub">漫画・設定資料</span></button>
 </nav>
-
 <main>
+<div class="card t3-transfer" id="t3-transfer-card" hidden><p class="hint">ここで組んだ素材を専用作業台に移して、参照・維持条件・画風を仕上げられます。元の登録内容は残ります。</p><button class="btn primary wide" id="t3-transfer">この内容を専用作業台へ</button></div>
 <section class="pane on" id="pane-t3" role="tabpanel" aria-labelledby="tab-t3">
-  <div class="banner info"><span><b>Tsubaki.3 用の文章プロンプト</b><br>何を描くか、何を変えるかを具体的に指定します。英語での出力を推奨。日本語の草案はAI連携用ボタンで英語への整形指示をコピーできます。</span></div>
   <div class="card">
-    <label class="lbl" for="t3-task">作業</label>
-    <select id="t3-task"><option value="generate">新規生成（テキストのみ）</option><option value="reference">参照画像から生成</option><option value="edit">元画像を編集</option></select>
-    <label class="lbl" for="t3-example">作例を選ぶ（入力内容を置き換えます）</label>
-    <div class="row"><select id="t3-example" class="grow"><option value="portrait">新規イラスト</option><option value="turnaround">参照キャラの三面図</option><option value="recolor">髪色だけ変更</option><option value="outfit">参照衣装に変更</option><option value="manga">参照キャラの4コマ</option><option value="poster">文字入りポスター</option></select><button class="btn small gold" id="t3-load">適用</button></div>
-    <p class="hint" id="t3-guide"></p>
+    <h3><span class="t3-step">01</span> 何をする？</h3>
+    <div class="t3-tasks" role="group" aria-label="生成タスク">
+      <button class="t3-task on" data-task="generate" aria-pressed="true"><b>新規生成</b><span>文章から新しい画像</span></button>
+      <button class="t3-task" data-task="reference" aria-pressed="false"><b>参照から生成</b><span>特徴を借りて別の場面へ</span></button>
+      <button class="t3-task" data-task="edit" aria-pressed="false"><b>局所編集</b><span>元画像の一部を変更</span></button>
+      <button class="t3-task" data-task="referenceEdit" aria-pressed="false"><b>参照して編集</b><span>元画像＋別の参考画像</span></button>
+    </div>
+    <label class="lbl sr-only" for="t3-task">作業</label><select id="t3-task" hidden><option value="generate">新規生成</option><option value="reference">参照生成</option><option value="edit">局所編集</option><option value="referenceEdit">参照編集</option></select>
+    <p class="hint" id="t3-guide" aria-live="polite"></p>
+    <details class="t3-details"><summary>作例から始める</summary><label class="lbl" for="t3-example">現在の入力を置き換える作例</label><div class="row"><select id="t3-example" class="grow"><option value="portrait">新規イラスト</option><option value="turnaround">キャラ三面図</option><option value="recolor">髪色だけ変更</option><option value="outfit">参考衣装に着替える</option><option value="manga">キャラの4コマ</option><option value="poster">文字入りポスター</option><option value="newpose">同じキャラ・別ポーズ</option><option value="expression">表情だけ変更</option><option value="styleTransfer">線画の彩色を参照</option></select><button class="btn small gold" id="t3-load">適用</button></div></details>
   </div>
   <div class="card" id="t3-ref-card" hidden>
-    <h3>参照画像の役割</h3>
-    <p class="hint">画像はPixAI側で添付してください。このアプリは指示文を作ります。画像1・画像2の順序をPixAIの @image1・@image2 に合わせてください。</p>
-    <label class="lbl" for="t3-ref1">@image1 の役割（編集時は元画像）</label>
-    <input id="t3-ref1" placeholder="例: character identity and outfit">
-    <label class="lbl" for="t3-ref2">@image2 の役割（任意）</label>
-    <input id="t3-ref2" placeholder="例: clothing design only; not the face or pose">
+    <h3>参照画像の割り当て</h3><p class="hint">PixAIで画像を添付する順番と合わせます。この作業台では指示文を作成します。</p>
+    <label class="lbl" for="t3-ref1">@image1 の役割</label><input id="t3-ref1" placeholder="例: character identity and facial features">
+    <div class="t3-chips"><button class="btn small" data-ref="ref1" data-value="character identity, face, hairstyle and proportions only">顔・人物</button><button class="btn small" data-ref="ref1" data-value="pose and composition only">ポーズ・構図</button><button class="btn small" data-ref="ref1" data-value="drawing style and color treatment only">画風・色</button></div>
+    <label class="lbl" for="t3-ref2">@image2 の役割 <span id="t3-ref2-required">任意</span></label><input id="t3-ref2" placeholder="例: outfit design only, without copying the face or pose">
+    <div class="t3-chips"><button class="btn small" data-ref="ref2" data-value="outfit design only, without copying the face or pose">衣装だけ</button><button class="btn small" data-ref="ref2" data-value="pose only, without copying the face or outfit">ポーズだけ</button><button class="btn small" data-ref="ref2" data-value="drawing style and color treatment only">画風だけ</button></div>
   </div>
   <div class="card">
-    <label class="lbl" for="t3-request">描きたい内容・変更したい箇所</label>
-    <textarea id="t3-request" rows="4" placeholder="例: An adult violinist is performing on a small concert stage."></textarea>
-    <label class="lbl" for="t3-keep">維持する要素（参照・編集時、任意）</label>
-    <textarea id="t3-keep" rows="2" placeholder="例: the character's face, pose, outfit and background"></textarea>
-    <label class="lbl" for="t3-layout">構図・コマ割り（任意）</label>
-    <textarea id="t3-layout" rows="2" placeholder="例: Three full-body views, front, side and back, arranged left to right."></textarea>
-    <label class="lbl" for="t3-style">画風</label>
-    <select id="t3-style"><option value="">指定しない</option><option value="anime">アニメイラスト</option><option value="manga">モノクロ漫画</option><option value="watercolor">水彩</option><option value="photo">写真風</option><option value="lineart">線画</option><option value="flat">ベタ塗り</option></select>
-    <label class="lbl" for="t3-light">光・色の指示（任意）</label>
-    <textarea id="t3-light" rows="2" placeholder="例: Warm light from the upper left; a blue and gold color scheme."></textarea>
-    <label class="lbl" for="t3-text">画像に入れる文字（任意・原文を保持）</label>
-    <input id="t3-text" placeholder="例: 夜の演奏会">
-    <label class="lbl" for="t3-textPlace">文字の位置（任意）</label>
-    <input id="t3-textPlace" placeholder="例: top center">
-    <p class="hint">画面比率・生成サイズ・カラーパレットはPixAI側でも指定してください。文字の再現や編集結果は生成後に確認してください。</p>
-    <div class="row" style="gap:8px"><button class="btn gold grow" id="t3-ai">英語整形用の指示をコピー</button><button class="btn small danger" id="t3-reset">入力をリセット</button></div>
+    <h3><span class="t3-step">02</span> 描きたい内容</h3>
+    <label class="lbl" for="t3-request" id="t3-request-label">場面の概要・人物の関係</label><textarea id="t3-request" rows="4" placeholder="例: A violinist performs on a quiet night-time stage."></textarea>
+    <div class="row" style="margin-top:10px"><button class="btn small gold grow" id="t3-add-character">登録済みキャラを追加</button><button class="btn small" data-t3-dict="subject" data-target="t3-request">主体辞書</button></div>
+    <div class="chips" id="t3-charaChips"></div>
+    <details class="t3-details" open><summary>人物・動作・背景を具体的にする</summary>
+      <label class="lbl" for="t3-appearance">外見・人物の配置</label><textarea id="t3-appearance" rows="2" placeholder="例: On the left, she has short black hair and brown eyes."></textarea><button class="btn small" data-t3-dict="appearance" data-target="t3-appearance">外見辞書</button>
+      <label class="lbl" for="t3-outfit">衣装・小物</label><textarea id="t3-outfit" rows="2" placeholder="例: She wears a green coat and carries a small leather bag."></textarea>
+      <label class="lbl" for="t3-pose">ポーズ・表情・動作</label><textarea id="t3-pose" rows="2" placeholder="例: She sits sideways, looks over her shoulder and gives a surprised smile."></textarea><button class="btn small" data-t3-dict="action" data-target="t3-pose">動作辞書</button>
+      <label class="lbl" for="t3-scene">背景・場所・時間</label><textarea id="t3-scene" rows="2" placeholder="例: A quiet station platform at dusk, with wet pavement."></textarea><button class="btn small" data-t3-dict="scene" data-target="t3-scene">場面辞書</button>
+    </details>
+    <div id="t3-keep-card" hidden><label class="lbl" for="t3-keep">変えずに維持する要素</label><textarea id="t3-keep" rows="2" placeholder="例: the face, hairstyle and body proportions"></textarea><div class="t3-chips"><button class="btn small" data-keep="the character's facial structure, eye shape, hairstyle, apparent age and body proportions">人物の特徴</button><button class="btn small" data-keep="the original composition, camera angle, background and lighting">構図・背景</button></div><p class="hint">変更対象と維持対象を重ねないように指定します。</p></div>
   </div>
-  <p class="hint"><a href="https://docs.pixai.art/ja/docs/models/tsubaki3-prompts" target="_blank" rel="noopener noreferrer">PixAI公式：Tsubaki.3 プロンプトテンプレート</a></p>
+  <div class="card">
+    <h3><span class="t3-step">03</span> 絵づくり</h3>
+    <label class="lbl" for="t3-style">画風の方向性</label><select id="t3-style"><option value="">指定しない</option><option value="anime">アニメイラスト</option><option value="manga">モノクロ漫画</option><option value="watercolor">水彩</option><option value="photo">写真風</option><option value="lineart">線画</option><option value="flat">ベタ塗り</option></select>
+    <label class="lbl" for="t3-styleDetail">線・塗り・質感の具体的な指定</label><textarea id="t3-styleDetail" rows="2" placeholder="例: Expressive ink contours, restrained textured shading, a manga color-page finish."></textarea>
+    <label class="lbl" for="t3-light">光・色・雰囲気</label><textarea id="t3-light" rows="2" placeholder="例: Soft window light from the left; a muted teal and warm orange palette."></textarea>
+    <label class="lbl" for="t3-camera">カメラ・フレーミング</label><input id="t3-camera" placeholder="例: Full-body view, low camera angle, three-quarter perspective.">
+    <label class="lbl" for="t3-layout">構図・コマ割り</label><textarea id="t3-layout" rows="2" placeholder="例: Four panels in a 2×2 grid, read left to right, top to bottom."></textarea>
+    <details class="t3-details"><summary>画像内の文字・LoRA</summary><label class="lbl" for="t3-text">画像に入れる文字（原文を保持）</label><input id="t3-text" placeholder="例: 夜の演奏会"><label class="lbl" for="t3-textPlace">文字の位置・種類</label><input id="t3-textPlace" placeholder="例: a title at the top center">
+      <label class="t3-check"><input type="checkbox" id="t3-characterLora">人物LoRAをPixAIで使用（外見欄の補足を省く）</label><label class="t3-check"><input type="checkbox" id="t3-styleLora">画風LoRAをPixAIで使用（画風欄の補足を省く）</label><p class="hint">欄の内容は消さずに保存します。省く対象は上の外見欄と画風欄だけです。本文の明示指定・衣装・動作はそのまま残します。</p></details>
+  </div>
+  <div class="card t3-output">
+    <div class="row" style="justify-content:space-between"><h3><span class="t3-step">04</span> 完成プロンプト</h3><span class="status-pill" id="t3-count">0 文字</span></div>
+    <p class="hint">入力内容をそのまま組み立てます。日本語の翻訳や文章の拡張は「英語整形用指示」をAIへ渡すか、PixAIのプロンプトヘルパーを使ってください。</p>
+    <textarea id="t3-live" rows="7" readonly aria-label="ツバキ3用完成プロンプト"></textarea>
+    <div id="t3-warnings" aria-live="polite"></div>
+    <div class="t3-actions"><button class="btn primary" id="t3-copy">Positiveをコピー</button><button class="btn gold" id="t3-save">★ プロンプト保存</button><button class="btn" id="t3-ai">英語整形用指示</button><button class="btn" id="t3-preview">手動編集・構成確認</button></div>
+    <details class="t3-details"><summary>Negativeを別管理</summary><label class="lbl" for="t3-negative">ネガティブプロンプト</label><textarea id="t3-negative" rows="2" placeholder="避けたい要素を記録"></textarea><div class="row"><button class="btn small gold grow" id="t3-negative-dict">収録プリセット</button><button class="btn small" id="t3-negative-copy">Negativeをコピー</button></div></details>
+    <div class="row" style="justify-content:space-between;margin-top:16px"><a class="hint" href="https://pixai.art" target="_blank" rel="noopener noreferrer">PixAIを開く ↗</a><button class="btn small danger" id="t3-reset">入力をリセット</button></div>
+  </div>
+  <p class="hint t3-source">Tsubaki.3 専用 / v4.0 · <a href="https://docs.pixai.art/ja/docs/models/tsubaki3-prompts" target="_blank" rel="noopener noreferrer">公式テンプレート</a> · <a href="https://pixai.art/ja/tsubaki-3/report" target="_blank" rel="noopener noreferrer">技術レポート</a></p>
 </section>
 
 <!-- ============ 基本公式 (F-02) ============ -->
@@ -16807,7 +16835,7 @@ input[type="range"]::-webkit-slider-thumb {
   <div class="acc" id="acc6">
     <button class="acc-head" data-acc="acc6" aria-expanded="false" aria-controls="acc6-body"><span class="dot" style="color:var(--c-style)"></span>スタイルプリセット <span class="step">STEP 6・省略可</span><span class="state" id="st-style"></span><span class="chev">▶</span></button>
     <div class="acc-body" id="acc6-body">
-      <p class="hint">旧版から引き継いだ画風名の一覧です。Tsubaki.3の内蔵プリセット一覧ではありません。画風は具体的な特徴を文章で指定できます。</p>
+      <p class="hint">画風の特徴を文章で指定します。保存済みの画風名があれば引き続き使えます。</p>
       <button class="btn gold wide" id="btnStylePicker">🎨 プリセット一覧から選ぶ</button>
       <div class="chips" id="styleChips"></div>
       <label class="lbl" style="margin-top:12px">画風・クオリティ・画質タグ（任意）</label>
@@ -16826,7 +16854,7 @@ input[type="range"]::-webkit-slider-thumb {
   <div class="row mode-reset" style="justify-content:flex-end; gap:8px">
     <button class="btn small gold" id="btnGachaTag">🎲 ランダム構成</button>
   </div>
-  <div class="banner warn" id="tagWarn"><span class="b-ico">⚠️</span><span><b>既存タグを再利用できます。</b>人物同士の関係・動作・位置は文章で補うと意図を伝えやすくなります。ツバキ3タブでは参照画像の役割も指定できます。</span></div>
+  <div class="banner warn" id="tagWarn"><span class="b-ico">⚠️</span><span><b>既存タグを再利用できます。</b>人物同士の関係・動作・位置は文章で補うと意図を伝えやすくなります。専用作業台では参照画像の役割も指定できます。</span></div>
 
   <div class="card">
     <h3><span class="dot" style="color:var(--c-pose)"></span>タグ入力</h3>
@@ -17029,7 +17057,7 @@ input[type="range"]::-webkit-slider-thumb {
 <div class="sheet" id="sheetCharaLib" role="dialog" aria-label="キャラクターライブラリ">
   <div class="sheet-head"><h3 class="serif">キャラクターライブラリ</h3><button class="icon-btn" data-close aria-label="閉じる">✕</button></div>
   <div class="sheet-body">
-    <div class="banner info"><span class="b-ico">💡</span><span>PixAIの<b>character:</b>タグはユーザー投稿のLoRAに紐づくため、実在の版権キャラ一覧を本アプリで断定的に提供することは避けています。ここは<b>あなたがPixAI上で確認したタグ</b>を自分で登録・蓄積していく個人辞典です。</span></div>
+    <div class="banner info"><span>登録したキャラ・外見メモを検索して作業台に追加できます。名前やタグの認識はPixAI側で確認し、必要に応じて画像参照やLoRAを組み合わせてください。</span></div>
     <input id="charaLibSearch" placeholder="🔍 登録済みキャラを検索" style="margin-bottom:10px" enterkeyhint="search" type="search" autocapitalize="off" autocorrect="off">
     <div id="charaLibList"></div>
     <button class="btn gold wide" id="btnOpenBulkChara" style="margin-top:12px">📋 まとめて登録</button>
@@ -17044,7 +17072,7 @@ input[type="range"]::-webkit-slider-thumb {
       <input id="cl-tag" placeholder="例: mio_(pixai)" autocapitalize="off" autocorrect="off">
       <label class="lbl" for="cl-note">メモ（衣装バリアント・確認日など任意）</label>
       <input id="cl-note" placeholder="例: 地雷系バリアントは mio(jiraikei)_(pixai)">
-      <label class="lbl" for="cl-appearance">外見メモ（任意・高度公式の主体外観欄に挿入できます）</label>
+      <label class="lbl" for="cl-appearance">外見メモ（任意・専用作業台にも追加できます）</label>
       <textarea id="cl-appearance" rows="2" placeholder="例: long silver hair, blue eyes, wearing a maid dress"></textarea>
       <button class="btn primary wide" id="clSave" style="margin-top:10px">登録する</button>
     </div>
@@ -17193,7 +17221,7 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="card">
       <button class="btn danger wide" id="btnClearAll">保存データを全消去</button>
     </div>
-    <p class="hint" style="text-align:center">椿ノ工房 v3.0 ・ Tsubaki.3 対応<br>辞書は本ファイル内 &lt;script id="tsubaki-dict"&gt; を編集して更新できます</p>
+    <p class="hint" style="text-align:center">椿ノ工房 v4.0 ・ Tsubaki.3 専用<br>辞書は本ファイル内 &lt;script id="tsubaki-dict"&gt; を編集して更新できます</p>
   </div>
 </div>
 
@@ -17296,12 +17324,14 @@ const ADV_BLOCK_DEFAULTS = {
   weight: { chara:1, look:1, scene:1, pose:1, aes:1, style:1, quality:1 }
 };
 function freshBlockConfig() { return JSON.parse(JSON.stringify(ADV_BLOCK_DEFAULTS)); }
-function freshT3() { return {task:"generate",request:"",ref1:"",ref2:"",keep:"",layout:"",style:"",light:"",text:"",textPlace:""}; }
+function freshT3() { return {task:"generate",request:"",ref1:"",ref2:"",keep:"",layout:"",style:"",light:"",text:"",textPlace:"",appearance:"",outfit:"",pose:"",scene:"",camera:"",styleDetail:"",characterLora:false,styleLora:false,charas:[]}; }
 function normalizeT3(value) {
   const out = freshT3();
   if (!value || typeof value !== "object") return out;
   Object.keys(out).forEach(k => { if(typeof value[k] === "string") out[k] = value[k].slice(0,10000); });
-  if (!["generate","reference","edit"].includes(out.task)) out.task="generate";
+  ["characterLora","styleLora"].forEach(k => out[k] = value[k] === true);
+  out.charas = Array.isArray(value.charas) ? value.charas.filter(x => typeof x === "string").map(x => x.slice(0,4000)) : [];
+  if (!["generate","reference","edit","referenceEdit"].includes(out.task)) out.task="generate";
   if (!["","anime","manga","watercolor","photo","lineart","flat"].includes(out.style)) out.style="";
   return out;
 }
@@ -17592,7 +17622,9 @@ $("#charaLibList").addEventListener("click", e => {
     const { listRef, chipsId } = charaLibCtx;
     let done = [];
     if (listRef && !listRef.includes(item.tag)) { listRef.push(item.tag); done.push("タグ"); }
-    if (item.appearance) {
+    if (item.appearance && state.mode === "t3") {
+      if (!state.t3.appearance.includes(item.appearance)) {state.t3.appearance=[state.t3.appearance,item.appearance].filter(Boolean).join("\n");done.push("外見");syncT3UI();}
+    } else if (item.appearance) {
       const cur = state.adv.lookMain.trim();
       if (!cur.includes(item.appearance)) {
         state.adv.lookMain = cur ? cur + ", " + item.appearance : item.appearance;
@@ -17608,6 +17640,7 @@ $("#charaLibList").addEventListener("click", e => {
   }
   if (act === "useapp") {
     if (!item.appearance) return;
+    if (state.mode === "t3") {state.t3.appearance=[state.t3.appearance,item.appearance].filter(Boolean).join("\n");syncT3UI();state.manualEdit=false;render();toast("外見を作業台に追加しました");return;}
     const cur = state.adv.lookMain.trim();
     state.adv.lookMain = cur ? cur + ", " + item.appearance : item.appearance;
     $("#a-lookMain").value = state.adv.lookMain;
@@ -18247,7 +18280,7 @@ $("#advBlockControls").addEventListener("change", e => {
 function getStyleNames() {
   const ov = store.get(K.styles, null);
   if (Array.isArray(ov) && ov.length) return ov;
-  return DICT.style_presets.map(p => p.name);
+  return ["Anime illustration: clean contours and restrained cel shading", "Manga color page: expressive ink and textured shading", "Monochrome manga: black ink and screentones", "Watercolor: translucent washes and paper texture", "Flat colors: uniform colors and clear silhouettes", "Line art: precise contours and sparse hatching"];
 }
 
 function buildSegments() {
@@ -18256,27 +18289,26 @@ function buildSegments() {
 
   if (state.mode === "t3") {
     const t = state.t3;
-    if (!t.request.trim()) return seg;
-    if (t.task === "reference") {
-      push("chara", `Use @image1 as the reference for ${t.ref1.trim() || "the character's identity"}.`);
-    } else if (t.task === "edit") {
-      push("chara", "Edit @image1.");
-      if(t.ref1.trim()) push("chara", `In @image1, use ${t.ref1.trim()} as the base to edit.`);
-    }
-    if (t.task !== "generate" && t.ref2.trim()) push("chara", `Use @image2 as the reference for ${t.ref2.trim()}.`);
-    push("subject", t.request);
-    if (t.task !== "generate" && t.keep.trim()) push("look", `Keep ${t.keep.trim()} unchanged.`);
-    if (t.layout.trim()) push("aes", t.layout);
-    const styles = {anime:"Render in an anime illustration style with crisp contours and readable shapes.",manga:"Render as a black-and-white manga with ink lines and screentones.",watercolor:"Render as a watercolor illustration with soft pigment transitions.",photo:"Render with photographic textures and natural perspective.",lineart:"Render as uncolored line art on a plain white background.",flat:"Use uniform flat colors without shading, gradients or lighting effects."};
-    if (styles[t.style]) push("style", styles[t.style]);
-    if (t.light.trim() && !["flat","lineart"].includes(t.style)) push("aes", t.light);
-    if (t.text.trim()) push("tpl", `title:「${t.text.trim()}」. Place this exact text${t.textPlace.trim() ? " at " + t.textPlace.trim() : " in a readable area of the image"}.`);
-    if (t.task !== "edit") {
-      const order = {chara:0,style:1,aes:2,subject:3,look:4,tpl:5};
-      // 新規生成は画風・効果→内容→文字→レイアウト。参照画像の役割は先頭。
-      const layout = seg.find(s => s.block === "aes" && s.text === t.layout.trim());
-      seg.sort((a,b) => (a===layout ? 6 : order[a.block]) - (b===layout ? 6 : order[b.block]));
-    }
+    if (![t.request,t.appearance,t.outfit,t.pose,t.scene,t.text,...t.charas].some(x => x.trim())) return seg;
+    const editing = ["edit","referenceEdit"].includes(t.task);
+    if (editing) {
+      push("chara", "Edit @image1 as the source image.");
+      if (t.ref1.trim()) push("chara", `Source image context: ${t.ref1.trim()}.`);
+    } else if (t.task === "reference") push("chara", `Create a new image using @image1 as the reference for ${t.ref1.trim() || "the character's identity"}.`);
+    if (t.task !== "generate" && t.ref2.trim()) push("chara", `Use @image2 only as the reference for ${t.ref2.trim()}.`);
+    const styles = {anime:"Render as an anime illustration with clear contours and readable shapes.",manga:"Render as a monochrome manga with expressive ink lines and screentones.",watercolor:"Render as a watercolor illustration with soft pigment transitions and paper texture.",photo:"Use photographic textures and natural perspective.",lineart:"Render as uncolored line art.",flat:"Use uniform flat colors without shading or gradients."};
+    const style = () => { if(!t.styleLora) {push("style",styles[t.style] || "");push("style",t.styleDetail);} push("aes",t.light); };
+    if (!editing) style();
+    push("subject",t.request);
+    t.charas.forEach(c => push("chara",c));
+    if (!t.characterLora) push("look",t.appearance);
+    push("look",t.outfit); push("pose",t.pose); push("scene",t.scene);
+    if (editing) style();
+    if (t.task !== "generate" && t.keep.trim()) push("look",`Preserve ${t.keep.trim()}.`);
+    if (editing) push("look","Keep all elements outside the explicitly requested changes unchanged.");
+    push("aes",t.camera);
+    if (t.text.trim()) push("tpl",`Include the exact text ${JSON.stringify(t.text)}${t.textPlace.trim() ? " as " + t.textPlace.trim() : " in a readable area"}. Preserve the original spelling and language.`);
+    push("aes",t.layout);
   } else if (state.mode === "basic") {
     push("subject", state.basic.subject);
     push("action",  state.basic.action);
@@ -18297,7 +18329,7 @@ function buildSegments() {
       });
     });
     if (aesParts.length) apush("aes", aesParts.join(", "));
-    if (state.adv.style) apush("style", state.adv.style);
+    if (state.adv.style && !/^プリセット/.test(state.adv.style)) apush("style", state.adv.style);
     if (state.adv.quality.length) apush("quality", state.adv.quality.join(", "));
     const cfg = state.adv.blockConfig = normalizeBlockConfig(state.adv.blockConfig);
     const order = new Map(cfg.order.map((k, i) => [k, i]));
@@ -18362,11 +18394,13 @@ const CONFLICT_PAIRS = [
 ];
 function validate(text) {
   const warns = [];
-  const prose = state.mode === "t3" && !state.manualEdit ? [state.t3.request,state.t3.ref1,state.t3.ref2,state.t3.keep,state.t3.layout,state.t3.light,state.t3.textPlace].join(" ") : text;
+  const prose = state.mode === "t3" && !state.manualEdit ? Object.entries(state.t3).filter(([k,v])=>k!=="text" && typeof v === "string").map(([,v])=>v).join(" ") : text;
   if (hasJa(prose)) warns.push({ type: "info", msg: "日本語の草案です。公式ガイドは英語の出力を推奨しています。PixAIのプロンプトヘルパーをオンにするか、英語整形用の指示をAIへ渡してください。画像に入れる文字は原文を保持します。" });
-  if (state.mode === "t3" && !state.t3.request.trim() && !state.manualEdit) warns.push({type:"warn",msg:"描きたい内容・変更したい箇所を入力してください。"});
+  if (state.mode === "t3" && ![state.t3.request,state.t3.appearance,state.t3.outfit,state.t3.pose,state.t3.scene,state.t3.text,...state.t3.charas].some(x=>x.trim()) && !state.manualEdit) warns.push({type:"warn",msg:"描きたい内容・変更したい箇所を入力してください。"});
   if (state.mode === "t3" && state.t3.task !== "generate") warns.push({type:"info",msg:`PixAIに @image1${state.t3.ref2.trim() ? " と @image2" : ""} をこの順序で添付してください。`});
-  if (state.mode === "t3" && ["flat","lineart"].includes(state.t3.style) && state.t3.light.trim()) warns.push({type:"info",msg:"線画・ベタ塗りと光の指定が衝突するため、光・色の指示欄は今回の出力から省いています。"});
+  if (state.mode === "t3" && ["flat","lineart"].includes(state.t3.style) && state.t3.light.trim() && !state.t3.styleLora) warns.push({type:"info",msg:"線画・ベタ塗りと光の指定が両方あります。指定は保持しています。意図に合うか確認してください。"});
+  if (state.mode === "t3" && state.t3.task === "referenceEdit" && !state.t3.ref2.trim()) warns.push({type:"warn",msg:"参照編集では @image2 の役割を指定してください。"});
+  if (state.mode === "t3" && (state.t3.characterLora || state.t3.styleLora)) warns.push({type:"info",msg:"LoRA担当欄の補足を省いています。PixAI側で対応するLoRAを設定してください。"});
   if (state.mode === "tag" && state.tag.tags.length) warns.push({ type: "info", msg: "人物同士の関係・位置・動作は、タグだけでなく具体的な文章で補ってください。" });
   if (state.mode === "basic") {
     if (!state.basic.subject.trim()) warns.push({ type: "warn", msg: "「主体」が未入力です。" });
@@ -18434,6 +18468,11 @@ function render() {
     `<div class="banner ${w.type}"><span class="b-ico">${w.type === "warn" ? "⚠️" : "💡"}</span><span>${esc(w.msg)}</span></div>`).join("");
   $("#editBadge").hidden = !state.manualEdit;
   $("#btnRebuild").hidden = !state.manualEdit;
+  $("#t3-live").value = text;
+  $("#t3-count").textContent = text.length + " 文字";
+  $("#t3-warnings").innerHTML = $("#pvWarns").innerHTML;
+  $("#t3-negative").value = state.negative;
+  $("#t3-transfer-card").hidden = state.mode === "t3";
   scheduleDraftSave();
 }
 /* ---------- 下書きの自動保存 ---------- */
@@ -18519,7 +18558,7 @@ $("#setSingleLine").addEventListener("change", e => store.set(K.singleLine, e.ta
 /* ---------- フォーム状態のスナップショット（履歴の複製編集・下書き自動保存で共用） ---------- */
 function captureSnapshot() {
   return JSON.parse(JSON.stringify({
-    mode: state.mode, t3: state.t3, basic: state.basic, adv: state.adv, tag: state.tag, tpl: state.tpl, negative: state.negative
+    mode: state.mode, t3: state.t3, basic: state.basic, adv: state.adv, tag: state.tag, tpl: state.tpl, negative: state.negative, manualEdit:state.manualEdit, manualText:state.manualEdit ? $("#pvArea").value : ""
   }));
 }
 function forceSwitchModeUI(mode) {
@@ -18549,6 +18588,7 @@ function applySnapshot(snap) {
   renderTplGrid(); renderTplForm();
   state.manualEdit = false;
   forceSwitchModeUI(["t3","basic","adv","tag","tpl"].includes(snap.mode) ? snap.mode : "t3");
+  if (snap.manualEdit && typeof snap.manualText === "string") {state.manualEdit=true;$("#pvArea").value=snap.manualText;}
   updateAccStates();
   render();
 }
@@ -18781,24 +18821,50 @@ $("nav.modes").addEventListener("keydown", e => {
 
 /* ---------- Tsubaki.3 の文章・参照・編集 ---------- */
 function syncT3UI() {
-  Object.entries(state.t3).forEach(([k,v]) => { const el=$("#t3-"+k); if(el) el.value=v; });
-  $("#t3-ref-card").hidden=state.t3.task === "generate";
-  $("#t3-guide").textContent=state.t3.task === "edit" ? "元画像を @image1 に添付し、変える箇所と維持する要素を分けて指定します。" : state.t3.task === "reference" ? "各画像から借りる特徴を指定します。顔・衣装・構図などの役割を分けて書いてください。" : "主体、動作、場面の関係を文章で指定します。画風や構図は必要な分だけ追加してください。";
+  Object.entries(state.t3).forEach(([k,v]) => { const el=$("#t3-"+k); if(el) {if(el.type === "checkbox") el.checked=v; else el.value=v;} });
+  const task=state.t3.task, editing=["edit","referenceEdit"].includes(task);
+  $("#t3-ref-card").hidden=task === "generate";
+  $("#t3-keep-card").hidden=task === "generate";
+  $("#t3-ref2-required").textContent=task === "referenceEdit" ? "必須" : "任意";
+  $("#t3-ref2").required=task === "referenceEdit";
+  $("#t3-request-label").textContent=editing ? "どこを、どう変える？" : "場面の概要・人物の関係";
+  $("#t3-guide").textContent={generate:"文章で主体・動作・場面を指定します。未入力の欄には何も追加しません。",reference:"参照から借りる特徴だけを指定します。新しいポーズや場面は内容欄で自由に変更できます。",edit:"元画像を @image1 に添付。変更箇所以外は維持する指示を付けます。",referenceEdit:"元画像を @image1、参考画像を @image2 に添付。参考から借りる要素を明確に指定します。"}[task];
+  $$("[data-task]").forEach(el=>{const on=el.dataset.task===task;el.classList.toggle("on",on);el.setAttribute("aria-pressed",on);});
+  renderCharaChips(state.t3.charas,"t3-charaChips");
 }
 Object.keys(freshT3()).forEach(k => {
-  const el=$("#t3-"+k);
-  el.addEventListener(el.tagName === "SELECT" ? "change" : "input", e => {
-    state.t3[k]=e.target.value;
+  const el=$("#t3-"+k); if(!el) return;
+  el.addEventListener(el.tagName === "SELECT" || el.type === "checkbox" ? "change" : "input", e => {
+    state.t3[k]=el.type === "checkbox" ? e.target.checked : e.target.value;
     if(k === "task") syncT3UI();
     state.manualEdit=false; render();
   });
+});
+$$("[data-task]").forEach(el=>el.addEventListener("click",()=>{state.t3.task=el.dataset.task;syncT3UI();state.manualEdit=false;render();}));
+$$("[data-ref]").forEach(el=>el.addEventListener("click",()=>{state.t3[el.dataset.ref]=el.dataset.value;syncT3UI();state.manualEdit=false;render();}));
+$$("[data-keep]").forEach(el=>el.addEventListener("click",()=>{const v=el.dataset.keep; if(!state.t3.keep.includes(v))state.t3.keep=[state.t3.keep,v].filter(Boolean).join("; ");syncT3UI();state.manualEdit=false;render();}));
+$$("[data-t3-dict]").forEach(el=>el.addEventListener("click",()=>openTagDict(el.dataset.t3Dict,"textarea",el.dataset.target,el.textContent)));
+$("#t3-add-character").addEventListener("click",()=>openCharaLib(state.t3.charas,"t3-charaChips"));
+$("#t3-library").addEventListener("click",()=>{if(state.mode!=="t3")switchMode("t3");openCharaLib(state.t3.charas,"t3-charaChips");});
+[["t3-history","btnHist"],["t3-projects","btnProjects"],["t3-copy","btnCopy2"],["t3-save","btnFav"],["t3-preview","btnPreview"],["t3-negative-copy","btnCopyNeg"],["t3-negative-dict","btnNegPicker"]].forEach(([from,to])=>$("#"+from).addEventListener("click",()=>{if(to === "btnPreview")openSheet("sheetPreview");else $("#"+to).click();}));
+$("#t3-negative").addEventListener("input",e=>{syncNegativeUI(e.target.value);render();});
+$("#t3-transfer").addEventListener("click",()=>{
+  const text=$("#pvArea").value.trim();if(!text){toast("移す素材が空です");return;}
+  askConfirm("専用作業台の内容欄をこの素材で置き換えます。元の素材と保存データは残ります。",()=>{
+    const before=captureSnapshot();
+    state.t3={...freshT3(),request:text};state.manualEdit=false;syncT3UI();forceSwitchModeUI("t3");render();
+    toastUndo("専用作業台へ移しました",()=>applySnapshot(before));
+  },"作業台へ移す");
 });
 const T3_EXAMPLES = {
   portrait:{request:"An adult violinist performs on a small concert stage, holding the violin under her chin and drawing the bow across its strings.",layout:"Vertical composition, waist-up view, with the performer slightly right of center.",style:"anime",light:"Warm spotlights from the upper left and a dark blue backdrop."},
   turnaround:{task:"reference",ref1:"character identity, hairstyle and outfit",request:"Create a character turnaround sheet.",keep:"the same face, hairstyle, outfit and proportions across all views",layout:"Arrange three full-body views from left to right: front, side, back. Use a plain white background.",style:"anime"},
   recolor:{task:"edit",request:"Change only the character's hair color to dark blue.",keep:"the face, hairstyle shape, outfit, pose, composition, background, lighting and art style"},
-  outfit:{task:"edit",ref2:"outfit design only, without copying the face, hairstyle or pose",request:"Replace the character's outfit in @image1 with the outfit shown in @image2.",keep:"the character's face, hairstyle, pose, composition, background and lighting in @image1"},
+  outfit:{task:"referenceEdit",ref2:"outfit design only, without copying the face, hairstyle or pose",request:"Replace the character's outfit in @image1 with the outfit shown in @image2.",keep:"the character's face, hairstyle, pose, composition, background and lighting in @image1"},
   manga:{task:"reference",ref1:"the main character's identity and outfit",request:"Create a four-panel comic. Panel 1: the character arrives at a cafe. Panel 2: she orders tea. Panel 3: a cat jumps onto the empty chair. Panel 4: she smiles and shares the table with the cat.",keep:"the same character design throughout",layout:"Four vertically stacked panels, read from top to bottom. Separate panels with clear borders. No dialogue or lettering.",style:"manga"},
+  newpose:{task:"reference",ref1:"character identity, facial features, hairstyle and body proportions only",request:"Create a new illustration of the referenced character in a different scene.",pose:"Walking forward while looking back over one shoulder, with a lively surprised expression.",scene:"A quiet tree-lined street at sunset.",keep:"the character's identity and body proportions",camera:"Full-body three-quarter view.",style:"anime"},
+  expression:{task:"edit",request:"Change only the facial expression to a cheerful smile with open eyes.",keep:"the facial identity, hairstyle, body, outfit, pose, composition, background and art style"},
+  styleTransfer:{task:"referenceEdit",ref2:"color treatment and shading style only",request:"Color the line drawing in @image1 using the coloring style shown in @image2.",keep:"the original line art, character design and composition of @image1"},
   poster:{request:"Create a concert poster showing an adult violinist on a night-time stage.",layout:"Vertical poster, performer in the lower half, clear space for a title in the upper half.",style:"anime",light:"A restrained navy and gold palette with warm stage lighting.",text:"夜の演奏会",textPlace:"top center"}
 };
 $("#t3-load").addEventListener("click", () => {
@@ -19268,6 +19334,7 @@ function syncNegativeUI(value, source) {
   state.negative = value;
   if (source !== "sheet") $("#negArea").value = value;
   if (source !== "quick") $("#negQuickArea").value = value;
+  $("#t3-negative").value = value;
   const count=value.split(",").map(x=>x.trim()).filter(Boolean).length;
   $("#negQuickCount").textContent=count+"件";
   scheduleDraftSave();
@@ -19596,7 +19663,7 @@ $("#setFontLarge").addEventListener("change", e => { store.set(K.fontLarge, e.ta
 $("#btnReplayOnboarding").addEventListener("click", () => { closeSheet("sheetSettings"); startOnboarding(); });
 /* ---------- オンボーディング ---------- */
 const ONB_SLIDES = [
-  { emoji: "🌺", title: "椿ノ工房へようこそ", body: "Tsubaki.3向けの新規生成・画像参照・編集の指示文を組み立てられます。「ツバキ3」タブから始めてください。基本・詳細・タグ編集・型紙も引き続き利用できます。" },
+  { emoji: "🌺", title: "椿ノ工房へようこそ", body: "Tsubaki.3向けの新規生成・画像参照・編集の指示文を組み立てられます。「専用作業台」から始めてください。収録済みのキャラ・タグ・型紙・保存プロンプトを専用作業台へ再利用できます。" },
   { emoji: "📖", title: "辞書からタグを選ぶ", body: "各入力欄の下にあるボタンから、主体・形容・動作・場面・撮影美学・画風など3000件超の辞書をタップで選択できます。検索やお気に入り★、最近使ったタグもここから。" },
   { emoji: "📇", title: "自分の辞書・キャラを育てる", body: "「まとめて辞書登録」で自分だけのタグをジャンル分けして蓄積、「キャラクターライブラリ」でPixAI上で見つけたキャラタグを保存できます。設定からいつでも見返せます。" }
 ];
@@ -19666,12 +19733,7 @@ $("#setStylesSave").addEventListener("click", () => {
 
 /* エクスポート/インポート */
 $("#btnExport").addEventListener("click", () => {
-  const data = { app: "tsubaki-koubou", ver: 3, exported: new Date().toISOString(),
-    history: store.get(K.hist, []), styleNames: store.get(K.styles, null), aiAssist: store.get(K.ai, false),
-    charaLibrary: store.get(K.charaLib, null), userDict: store.get(K.userDict, null),
-    myPresets: store.get(K.myPresets, null), favTags: store.get(K.favTags, null), recentTags: store.get(K.recentTags, null),
-    theme: store.get(K.theme, null), engFirst: store.get(K.engFirst, null), twoLine: store.get(K.twoLine, null), singleLine: store.get(K.singleLine, null),
-    fontLarge: store.get(K.fontLarge, null), projects: store.get(K.projects, null) };
+  const data = {...currentBackupObject(),exported:new Date().toISOString()};
   const json = JSON.stringify(data, null, 2);
   const area = $("#exportArea");
   area.hidden = false; area.value = json;
@@ -19692,6 +19754,8 @@ function validateImportData(data){
   if(Array.isArray(data.history))out.history=data.history.slice(0,500).filter(h=>h&&typeof h.text==="string").map(h=>({id:cleanString(h.id||("h"+Math.random()),80),text:cleanString(h.text,50000),sourceText:cleanString(h.sourceText||h.text,50000),mode:["t3","basic","adv","tag","tpl"].includes(h.mode)?h.mode:"basic",ts:Number(h.ts)||Date.now(),fav:!!h.fav,state:h.state&&typeof h.state==="object"?h.state:null}));
   if(Array.isArray(data.charaLibrary))out.charaLibrary=data.charaLibrary.slice(0,2000).filter(c=>c&&typeof c.tag==="string").map(c=>({id:cleanString(c.id||("c"+Math.random()),80),work:cleanString(c.work||"未分類",120),name:cleanString(c.name,200),tag:cleanString(c.tag,1000),note:cleanString(c.note,1000),appearance:cleanString(c.appearance,4000),fav:!!c.fav,ts:Number(c.ts)||0}));
   if(data.userDict&&typeof data.userDict==="object"&&!Array.isArray(data.userDict)){out.userDict={};Object.entries(data.userDict).slice(0,300).forEach(([g,items])=>{if(Array.isArray(items))out.userDict[cleanString(g,100)]=items.slice(0,3000).filter(x=>x&&typeof x.en==="string").map(x=>({ja:cleanString(x.ja||x.en,500),en:cleanString(x.en,1000)}));});}
+  if(data.draft && typeof data.draft === "object") out.draft=data.draft;
+  if(typeof data.activeProject === "string") out.activeProject=cleanString(data.activeProject,100);
   const arrayKeys=["styleNames","myPresets","favTags","recentTags","projects"];
   arrayKeys.forEach(k=>{if(Array.isArray(data[k]))out[k]=data[k].slice(0,k==="projects"?500:1000);});
   ["aiAssist","engFirst","twoLine","singleLine","fontLarge"].forEach(k=>{if(typeof data[k]==="boolean")out[k]=data[k];});
@@ -19699,11 +19763,14 @@ function validateImportData(data){
   return out;
 }
 function mergeUnique(current,incoming,keyFn,limit=1000){const map=new Map();[...incoming,...current].forEach(x=>{const k=keyFn(x);if(k&&!map.has(k))map.set(k,x);});return [...map.values()].slice(0,limit);}
-function currentBackupObject(){return {app:"tsubaki-koubou",ver:3,history:store.get(K.hist,[]),styleNames:store.get(K.styles,null),aiAssist:store.get(K.ai,false),charaLibrary:store.get(K.charaLib,null),userDict:store.get(K.userDict,null),myPresets:store.get(K.myPresets,null),favTags:store.get(K.favTags,null),recentTags:store.get(K.recentTags,null),projects:store.get(K.projects,null),theme:store.get(K.theme,null),engFirst:store.get(K.engFirst,null),twoLine:store.get(K.twoLine,null),singleLine:store.get(K.singleLine,null),fontLarge:store.get(K.fontLarge,null)};}
+function currentBackupObject(){return {app:"tsubaki-koubou",ver:4,draft:captureSnapshot(),activeProject:state.activeProjectId,history:store.get(K.hist,[]),styleNames:store.get(K.styles,null),aiAssist:store.get(K.ai,false),charaLibrary:store.get(K.charaLib,null),userDict:store.get(K.userDict,null),myPresets:store.get(K.myPresets,null),favTags:store.get(K.favTags,null),recentTags:store.get(K.recentTags,null),projects:store.get(K.projects,null),theme:store.get(K.theme,null),engFirst:store.get(K.engFirst,null),twoLine:store.get(K.twoLine,null),singleLine:store.get(K.singleLine,null),fontLarge:store.get(K.fontLarge,null)};}
 function applyImportedData(data,mode){
+  clearTimeout(draftSaveTimer);
   const backup=currentBackupObject();
   if(mode==="replace")Object.values(K).forEach(k=>store.del(k));
   store.set(K.importBackup,backup);
+  if(data.draft && (mode === "replace" || !store.get(K.draft,null))) {store.set(K.draft,data.draft);applySnapshot(data.draft);}
+  if(data.activeProject && mode === "replace") {state.activeProjectId=data.activeProject;store.set(K.activeProject,data.activeProject);}
   if(data.history)store.set(K.hist,mode==="merge"?mergeUnique(store.get(K.hist,[]),data.history,x=>x.id||x.text,100):data.history.slice(0,100));
   if(data.charaLibrary)store.set(K.charaLib,mode==="merge"?mergeUnique(getCharaLib(),data.charaLibrary,x=>(x.work+"|"+x.tag).toLowerCase(),2000):data.charaLibrary);
   if(data.userDict){const ud=mode==="merge"?getUserDict():{};Object.entries(data.userDict).forEach(([g,items])=>{const key=resolveGenreKey(ud,g);ud[key]=mergeUnique(ud[key]||[],items,x=>x.en.toLowerCase(),3000);});store.set(K.userDict,ud);}
@@ -19760,7 +19827,7 @@ $("#btnAi").addEventListener("click", async () => {
   if (!draft) { toast("プロンプトが空です"); return; }
   const btn = $("#btnAi");
   btn.disabled = true;
-  const instruction = `PixAIのTsubaki.3向けプロンプトエンジニアとして、下記の草案を自然で明確な英語プロンプト1本に整形してください。@image1・@image2の参照順序と役割、画像内の指定文字の原文、維持する要素、コマ順と配置を保持してください。タグや重みがあれば意味を保持し、参照・編集の指示を新規生成に変えないでください。Negative草案は避ける条件として確認し、Positive本文へそのまま結合しないでください。新規生成は画風・光などの効果、内容概要、人物描写、文字、レイアウトの順に整理し、複数人物は名前と位置を対応させてください。画像編集では変更指示と維持条件を明確にしてください。矛盾を点検し、説明やMarkdownコードブロックを付けず完成プロンプトだけを出力してください。\n\n【Positive草案】\n${draft}\n\n【Negative草案】\n${state.negative.trim() || "なし"}`;
+  const instruction = `PixAIのTsubaki.3向けプロンプトエンジニアとして、下記の草案を自然で明確な英語プロンプト1本に整形してください。明示された内容を勝手に削除・変更しないでください。キャラクター名、衣装、ポーズ、表情、画風のユーザー指定を資料より優先してください。LoRA担当の外見・画風欄を省いた場合は、その補足を再追加しないでください。@image1・@image2の参照順序と役割、画像内の指定文字の原文、維持する要素、コマ順と配置を保持してください。タグや重みがあれば意味を保持し、参照・編集の指示を新規生成に変えないでください。Negative草案は避ける条件として確認し、Positive本文へそのまま結合しないでください。新規生成は画風・光などの効果、内容概要、人物描写、文字、レイアウトの順に整理し、複数人物は名前と位置を対応させてください。画像編集では変更指示と維持条件を明確にしてください。矛盾を点検し、説明やMarkdownコードブロックを付けず完成プロンプトだけを出力してください。\n\n【Positive草案】\n${draft}\n\n【Negative草案】\n${state.negative.trim() || "なし"}`;
   const done=await writeClipboard(instruction);
   btn.disabled=false;
   toast(done?"AI用の指示文をコピーしました":"コピーできませんでした");
@@ -19781,7 +19848,7 @@ updateAccStates();
 (function restoreDraftIfAny() {
   const draft = store.get(K.draft, null);
   if (draft && (
-    (draft.t3 && (draft.t3.request || draft.t3.text || draft.t3.ref1 || draft.t3.ref2 || draft.t3.layout || draft.t3.keep || draft.t3.light || draft.t3.style || draft.t3.textPlace || draft.t3.task !== "generate")) ||
+    (draft.manualEdit && draft.manualText) || (draft.t3 && Object.entries(draft.t3).some(([k,v])=>k === "task" ? v !== "generate" : Array.isArray(v) ? v.length > 0 : !!v)) ||
     (draft.basic && (draft.basic.subject || draft.basic.action || draft.basic.scene)) ||
     (draft.adv && (draft.adv.lookMain || draft.adv.lookDetail || draft.adv.scene || draft.adv.pose || (draft.adv.charas && draft.adv.charas.length))) ||
     (draft.tag && draft.tag.tags && draft.tag.tags.length)
@@ -19792,6 +19859,8 @@ updateAccStates();
     render();
   }
 })();
+
+window.addEventListener("pagehide",()=>store.set(K.draft,captureSnapshot()));
 
 // 初回のみオンボーディングを表示
 if (!store.get(K.onboarded, false)) startOnboarding();
