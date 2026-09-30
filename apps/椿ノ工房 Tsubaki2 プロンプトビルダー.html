@@ -17058,7 +17058,17 @@ input[type="range"]::-webkit-slider-thumb {
   <div class="sheet-head"><h3 class="serif">キャラクターライブラリ</h3><button class="icon-btn" data-close aria-label="閉じる">✕</button></div>
   <div class="sheet-body">
     <div class="banner info"><span>登録したキャラ・外見メモを検索して作業台に追加できます。名前やタグの認識はPixAI側で確認し、必要に応じて画像参照やLoRAを組み合わせてください。</span></div>
-    <input id="charaLibSearch" placeholder="🔍 登録済みキャラを検索" style="margin-bottom:10px" enterkeyhint="search" type="search" autocapitalize="off" autocorrect="off">
+    <input id="charaLibSearch" placeholder="🔍 登録済みキャラを検索" style="margin-bottom:8px" enterkeyhint="search" type="search" autocapitalize="off" autocorrect="off">
+    <div class="row" style="margin-bottom:10px">
+      <label class="sr-only" for="charaLibSort">並び順</label>
+      <select id="charaLibSort" class="grow" aria-label="キャラクターの並び順">
+        <option value="work">作品名順</option>
+        <option value="recent">最近登録した作品順</option>
+        <option value="name">キャラ名順</option>
+      </select>
+      <button class="btn small gold" id="charaAutoSort">タグから作品を再判定</button>
+    </div>
+    <p class="hint" id="charaAutoSortResult" style="margin:-2px 0 10px"></p>
     <div id="charaLibList"></div>
     <button class="btn gold wide" id="btnOpenBulkChara" style="margin-top:12px">📋 まとめて登録</button>
     <div class="card" style="margin-top:14px">
@@ -17310,7 +17320,7 @@ const store = (() => {
 })();
 const K = {
   hist: "tsubaki.history", styles: "tsubaki.styleNames", ai: "tsubaki.aiAssist",
-  charaLib: "tsubaki.charaLibrary", userDict: "tsubaki.userDict",
+  charaLib: "tsubaki.charaLibrary", charaSort: "tsubaki.charaSort", userDict: "tsubaki.userDict",
   recentTags: "tsubaki.recentTags", favTags: "tsubaki.favTags", myPresets: "tsubaki.myPresets",
   theme: "tsubaki.theme", engFirst: "tsubaki.engFirst", twoLine: "tsubaki.twoLinePreview",
   singleLine: "tsubaki.singleLineCopy", onboarded: "tsubaki.onboarded", draft: "tsubaki.draft",
@@ -17553,6 +17563,64 @@ function seedCharaLib() {
 }
 /* 人物仕立所から受け取った人物か。控えの出し入れで消えない work 欄で見分ける。 */
 function isOcEntry(c) { return (c && c.work) === "人物仕立所"; }
+const UNCLASSIFIED_WORKS = new Set(["", "未分類", "その他", "unknown", "uncategorized"]);
+const NON_WORK_TAG_QUALIFIERS = new Set([
+  "pixai", "official", "default", "original", "oc", "cosplay", "costume", "outfit",
+  "school_uniform", "swimsuit", "bikini", "maid", "young", "adult", "child", "jiraikei"
+]);
+const WORK_LABELS = {
+  bleach: "BLEACH", chainsaw_man: "Chainsaw Man", nier_automata: "NieR:Automata",
+  persona_5: "Persona 5", dungeon_meshi: "ダンジョン飯", pokemon: "ポケモン"
+};
+function isUnclassifiedWork(work) {
+  return UNCLASSIFIED_WORKS.has((work || "").trim().toLowerCase());
+}
+/* Danbooru系の character_name_(work_name) から作品識別子を得る。
+   衣装・年齢・PixAI等の括弧は作品ではないため除外する。 */
+function workKeyFromCharacterTag(tag) {
+  const body = (tag || "").replace(/^\s*character\s*:\s*/i, "").toLowerCase();
+  const keys = [];
+  const re = /_\(([^()]+)\)/g;
+  let match;
+  while ((match = re.exec(body))) {
+    const key = match[1].trim().replace(/\s+/g, "_");
+    if (key && !NON_WORK_TAG_QUALIFIERS.has(key)) keys.push(key);
+  }
+  return keys.at(-1) || "";
+}
+function workLabelFromKey(key) {
+  if (!key) return "未分類";
+  if (WORK_LABELS[key]) return WORK_LABELS[key];
+  return key.split("_").filter(Boolean).map(word =>
+    /^(ii|iii|iv|v|vi|vii|viii|ix|x)$/.test(word) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1)
+  ).join(" ");
+}
+/* 手入力された作品名を正解データとして、同じ作品キーの未分類キャラへ伝播する。 */
+function classifyCharacterLibrary(lib, recheckAuto = false) {
+  const keyToWork = new Map();
+  lib.forEach(c => {
+    const key = workKeyFromCharacterTag(c.tag);
+    if (key && !isUnclassifiedWork(c.work) && !c.workAuto) keyToWork.set(key, c.work.trim());
+  });
+  let changed = 0, unresolved = 0;
+  const next = lib.map(c => {
+    if (!isUnclassifiedWork(c.work) && !(recheckAuto && c.workAuto)) return c;
+    const key = workKeyFromCharacterTag(c.tag);
+    if (!key) { unresolved++; return c; }
+    const work = keyToWork.get(key) || workLabelFromKey(key);
+    if (work === c.work && c.workAuto) return c;
+    changed++;
+    return { ...c, work, workAuto: true, workKey: key };
+  });
+  return { lib: next, changed, unresolved };
+}
+function autoClassifyStoredCharacters(recheckAuto = false) {
+  const stored = store.get(K.charaLib, null);
+  const source = (Array.isArray(stored) ? stored : seedCharaLib()).map(c => ({ ...c, work: (c.work || "未分類").trim() || "未分類" }));
+  const result = classifyCharacterLibrary(source, recheckAuto);
+  if (result.changed) store.set(K.charaLib, result.lib);
+  return result;
+}
 function getCharaLib() {
   const lib = store.get(K.charaLib, null);
   return (Array.isArray(lib) ? lib : seedCharaLib()).map(c => ({ ...c, work: (c.work || "未分類").trim() || "未分類" }));
@@ -17560,15 +17628,28 @@ function getCharaLib() {
 let charaLibCtx = { listRef: null, chipsId: null };
 function renderCharaLibList() {
   const q = $("#charaLibSearch").value.trim().toLowerCase();
-  const lib = getCharaLib()
+  const sortMode = $("#charaLibSort").value;
+  const all = getCharaLib();
+  const entrySort = sortMode === "name"
+    ? (a,b) => (b.fav-a.fav) || (a.name || a.tag).localeCompare(b.name || b.tag,"ja")
+    : (a,b) => (b.fav-a.fav) || ((b.ts||0)-(a.ts||0)) || (a.name || a.tag).localeCompare(b.name || b.tag,"ja");
+  const lib = all
     .filter(c => !q || (c.work||"").toLowerCase().includes(q) || (c.name||"").toLowerCase().includes(q) || c.tag.toLowerCase().includes(q) || (c.note || "").toLowerCase().includes(q))
-    .sort((a, b) => (b.fav - a.fav) || (b.ts - a.ts));
-  const works=[...new Set(getCharaLib().map(c=>c.work))].sort((a,b)=>a.localeCompare(b,"ja"));
+    .sort(entrySort);
+  const works=[...new Set(all.map(c=>c.work))].sort((a,b)=>{
+    if(sortMode === "recent") {
+      const at=Math.max(0,...all.filter(c=>c.work===a).map(c=>c.ts||0));
+      const bt=Math.max(0,...all.filter(c=>c.work===b).map(c=>c.ts||0));
+      if(bt!==at)return bt-at;
+    }
+    return a.localeCompare(b,"ja");
+  });
   $("#charaWorkList").innerHTML=works.map(w=>`<option value="${esc(w)}">`).join("");
   const card = c => `
     <div class="hist-item" data-id="${c.id}">
       <div class="h-meta">
         <span class="h-mode" style="color:var(--kin)">${esc(c.name || "（無題）")}</span>
+        ${c.workAuto ? '<span class="status-pill" title="キャラクタータグから作品名を判定">タグ判定</span>' : ""}
         <button class="star ${c.fav ? "on" : ""}" data-act="fav" style="margin-left:auto" aria-label="お気に入り">★</button>
       </div>
       <div class="h-body">${esc(c.tag)}</div>
@@ -17584,6 +17665,7 @@ function renderCharaLibList() {
                  <button class="btn small" data-act="use">タグのみ</button>
                  <button class="btn small gold" data-act="useapp">外見のみ</button>`)
           : `<button class="btn small primary grow" data-act="use">この欄に追加</button>`}
+        <button class="btn small" data-act="editwork">作品を変更</button>
         <button class="btn small danger" data-act="del">削除</button>
       </div>
     </div>`;
@@ -17595,6 +17677,15 @@ function renderCharaLibList() {
     </div>`).join("") : '<div class="empty">登録済みキャラはまだありません<br>下のフォームから作品名とタグを登録してください</div>';
 }
 $("#charaLibSearch").addEventListener("input", renderCharaLibList);
+$("#charaLibSort").addEventListener("change", e => { store.set(K.charaSort, e.target.value); renderCharaLibList(); });
+$("#charaAutoSort").addEventListener("click", () => {
+  const result = autoClassifyStoredCharacters(true);
+  $("#charaAutoSortResult").textContent = result.changed
+    ? `${result.changed}人をタグから作品別に整理しました。`
+    : result.unresolved ? `変更はありません。${result.unresolved}人はタグだけでは作品を判定できませんでした。` : "すべて作品別に整理済みです。";
+  renderCharaLibList();
+  toast(result.changed ? `${result.changed}人を作品別に整理しました` : "作品分類は最新です");
+});
 $("#charaLibList").addEventListener("click", e => {
   const workHead=e.target.closest(".dcat-head[data-work]");
   if(workHead){const body=workHead.nextElementSibling; body.hidden=!body.hidden; workHead.classList.toggle("open",!body.hidden); workHead.setAttribute("aria-expanded",!body.hidden); return;}
@@ -17604,6 +17695,14 @@ $("#charaLibList").addEventListener("click", e => {
   const item = lib.find(c => c.id === id); if (!item) return;
   const act = btn.dataset.act;
   if (act === "fav") { item.fav = !item.fav; store.set(K.charaLib, lib); renderCharaLibList(); }
+  if (act === "editwork") {
+    const entered = window.prompt("作品名を入力してください", item.work || "");
+    if (entered === null) return;
+    item.work = entered.trim() || "未分類";
+    item.workAuto = false; item.workKey = "";
+    store.set(K.charaLib, lib); renderCharaLibList();
+    toast("作品名を更新しました");
+  }
   if (act === "del") {
     const idx = lib.findIndex(c => c.id === id);
     store.set(K.charaLib, lib.filter(c => c.id !== id)); renderCharaLibList();
@@ -17654,9 +17753,13 @@ $("#clSave").addEventListener("click", () => {
   const formatted = formatCharaTag(rawTag);
   if (!formatted) { toast("タグを入力してください"); return; }
   const lib = getCharaLib();
+  const enteredWork = $("#cl-work").value.trim();
+  const inferredKey = enteredWork ? "" : workKeyFromCharacterTag(formatted);
   lib.unshift({
     id: "c" + Date.now(),
-    work: $("#cl-work").value.trim() || "未分類",
+    work: enteredWork || workLabelFromKey(inferredKey),
+    workAuto: !!inferredKey,
+    workKey: inferredKey,
     name: $("#cl-name").value.trim(),
     tag: formatted,
     note: $("#cl-note").value.trim(),
@@ -17671,6 +17774,9 @@ $("#clSave").addEventListener("click", () => {
 function openCharaLib(listRef, chipsId) {
   charaLibCtx = { listRef, chipsId };
   $("#charaLibSearch").value = "";
+  $("#charaLibSort").value = ["work","recent","name"].includes(store.get(K.charaSort,"work")) ? store.get(K.charaSort,"work") : "work";
+  const classified = autoClassifyStoredCharacters();
+  $("#charaAutoSortResult").textContent = classified.changed ? `${classified.changed}人をタグから作品別に整理しました。` : "";
   renderCharaLibList();
   openSheet("sheetCharaLib");
 }
@@ -18182,7 +18288,10 @@ function parseBulkCharaText(text) {
     else if (parts.length >= 2) { [name, rawTag, note = ""] = parts; }
     else { rawTag = parts[0]; }
     const tag = formatCharaTag(rawTag);
-    return tag ? { work: work || "未分類", name, tag, note } : null;
+    if (!tag) return null;
+    const explicitWork = work && work !== "未分類";
+    const workKey = explicitWork ? "" : workKeyFromCharacterTag(tag);
+    return { work: explicitWork ? work : workLabelFromKey(workKey), workAuto: !!workKey, workKey, name, tag, note };
   }).filter(Boolean);
 }
 function renderBulkCharaPreview() {
@@ -18207,7 +18316,7 @@ $("#bulkCharaConfirm").addEventListener("click", () => {
   let added = 0, skipped = 0;
   parsed.forEach(x => {
     if (lib.some(c => c.tag.toLowerCase() === x.tag.toLowerCase())) { skipped++; return; }
-    lib.unshift({ id: "c" + Date.now() + Math.floor(Math.random() * 999), work: x.work, name: x.name, tag: x.tag, note: x.note, fav: false, ts: Date.now() });
+    lib.unshift({ id: "c" + Date.now() + Math.floor(Math.random() * 999), work: x.work, workAuto:x.workAuto, workKey:x.workKey, name: x.name, tag: x.tag, note: x.note, fav: false, ts: Date.now() });
     added++;
   });
   store.set(K.charaLib, lib);
@@ -19752,7 +19861,7 @@ function validateImportData(data){
   if(!data||data.app!=="tsubaki-koubou"||typeof data!=="object")throw new Error("椿ノ工房のバックアップ形式ではありません");
   const out={app:data.app,ver:Number(data.ver)||1};
   if(Array.isArray(data.history))out.history=data.history.slice(0,500).filter(h=>h&&typeof h.text==="string").map(h=>({id:cleanString(h.id||("h"+Math.random()),80),text:cleanString(h.text,50000),sourceText:cleanString(h.sourceText||h.text,50000),mode:["t3","basic","adv","tag","tpl"].includes(h.mode)?h.mode:"basic",ts:Number(h.ts)||Date.now(),fav:!!h.fav,state:h.state&&typeof h.state==="object"?h.state:null}));
-  if(Array.isArray(data.charaLibrary))out.charaLibrary=data.charaLibrary.slice(0,2000).filter(c=>c&&typeof c.tag==="string").map(c=>({id:cleanString(c.id||("c"+Math.random()),80),work:cleanString(c.work||"未分類",120),name:cleanString(c.name,200),tag:cleanString(c.tag,1000),note:cleanString(c.note,1000),appearance:cleanString(c.appearance,4000),fav:!!c.fav,ts:Number(c.ts)||0}));
+  if(Array.isArray(data.charaLibrary))out.charaLibrary=data.charaLibrary.slice(0,2000).filter(c=>c&&typeof c.tag==="string").map(c=>({id:cleanString(c.id||("c"+Math.random()),80),work:cleanString(c.work||"未分類",120),workAuto:!!c.workAuto,workKey:cleanString(c.workKey||"",160),name:cleanString(c.name,200),tag:cleanString(c.tag,1000),note:cleanString(c.note,1000),appearance:cleanString(c.appearance,4000),fav:!!c.fav,ts:Number(c.ts)||0}));
   if(data.userDict&&typeof data.userDict==="object"&&!Array.isArray(data.userDict)){out.userDict={};Object.entries(data.userDict).slice(0,300).forEach(([g,items])=>{if(Array.isArray(items))out.userDict[cleanString(g,100)]=items.slice(0,3000).filter(x=>x&&typeof x.en==="string").map(x=>({ja:cleanString(x.ja||x.en,500),en:cleanString(x.en,1000)}));});}
   if(data.draft && typeof data.draft === "object") out.draft=data.draft;
   if(typeof data.activeProject === "string") out.activeProject=cleanString(data.activeProject,100);
@@ -19760,10 +19869,11 @@ function validateImportData(data){
   arrayKeys.forEach(k=>{if(Array.isArray(data[k]))out[k]=data[k].slice(0,k==="projects"?500:1000);});
   ["aiAssist","engFirst","twoLine","singleLine","fontLarge"].forEach(k=>{if(typeof data[k]==="boolean")out[k]=data[k];});
   if(data.theme==="light"||data.theme==="dark")out.theme=data.theme;
+  if(["work","recent","name"].includes(data.charaSort))out.charaSort=data.charaSort;
   return out;
 }
 function mergeUnique(current,incoming,keyFn,limit=1000){const map=new Map();[...incoming,...current].forEach(x=>{const k=keyFn(x);if(k&&!map.has(k))map.set(k,x);});return [...map.values()].slice(0,limit);}
-function currentBackupObject(){return {app:"tsubaki-koubou",ver:4,draft:captureSnapshot(),activeProject:state.activeProjectId,history:store.get(K.hist,[]),styleNames:store.get(K.styles,null),aiAssist:store.get(K.ai,false),charaLibrary:store.get(K.charaLib,null),userDict:store.get(K.userDict,null),myPresets:store.get(K.myPresets,null),favTags:store.get(K.favTags,null),recentTags:store.get(K.recentTags,null),projects:store.get(K.projects,null),theme:store.get(K.theme,null),engFirst:store.get(K.engFirst,null),twoLine:store.get(K.twoLine,null),singleLine:store.get(K.singleLine,null),fontLarge:store.get(K.fontLarge,null)};}
+function currentBackupObject(){return {app:"tsubaki-koubou",ver:4,draft:captureSnapshot(),activeProject:state.activeProjectId,history:store.get(K.hist,[]),styleNames:store.get(K.styles,null),aiAssist:store.get(K.ai,false),charaLibrary:store.get(K.charaLib,null),charaSort:store.get(K.charaSort,"work"),userDict:store.get(K.userDict,null),myPresets:store.get(K.myPresets,null),favTags:store.get(K.favTags,null),recentTags:store.get(K.recentTags,null),projects:store.get(K.projects,null),theme:store.get(K.theme,null),engFirst:store.get(K.engFirst,null),twoLine:store.get(K.twoLine,null),singleLine:store.get(K.singleLine,null),fontLarge:store.get(K.fontLarge,null)};}
 function applyImportedData(data,mode){
   clearTimeout(draftSaveTimer);
   const backup=currentBackupObject();
@@ -19773,6 +19883,7 @@ function applyImportedData(data,mode){
   if(data.activeProject && mode === "replace") {state.activeProjectId=data.activeProject;store.set(K.activeProject,data.activeProject);}
   if(data.history)store.set(K.hist,mode==="merge"?mergeUnique(store.get(K.hist,[]),data.history,x=>x.id||x.text,100):data.history.slice(0,100));
   if(data.charaLibrary)store.set(K.charaLib,mode==="merge"?mergeUnique(getCharaLib(),data.charaLibrary,x=>(x.work+"|"+x.tag).toLowerCase(),2000):data.charaLibrary);
+  if(data.charaSort)store.set(K.charaSort,data.charaSort);
   if(data.userDict){const ud=mode==="merge"?getUserDict():{};Object.entries(data.userDict).forEach(([g,items])=>{const key=resolveGenreKey(ud,g);ud[key]=mergeUnique(ud[key]||[],items,x=>x.en.toLowerCase(),3000);});store.set(K.userDict,ud);}
   const simple=[["styleNames",K.styles],["myPresets",K.myPresets],["favTags",K.favTags],["recentTags",K.recentTags],["projects",K.projects]];
   simple.forEach(([src,key])=>{if(!data[src])return;if(mode==="merge"&&src!=="styleNames")store.set(key,mergeUnique(store.get(key,[]),data[src],x=>typeof x==="string"?x:(x.id||x.en||x.name||JSON.stringify(x)),1000));else store.set(key,data[src]);});

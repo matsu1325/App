@@ -22,6 +22,7 @@ const dom = new JSDOM(html, {
     w.localStorage.setItem('tsubaki.projects',JSON.stringify([oldProject]));
     w.scrollTo=()=>{}; w.HTMLElement.prototype.scrollIntoView=()=>{};
     w.matchMedia=()=>({matches:false,addEventListener(){}});
+    w.prompt=()=> '変更作品';
     w.navigator.clipboard={writeText:async text => clipboard.push(text)};
     w.URL.createObjectURL=()=> 'blob:test'; w.URL.revokeObjectURL=()=>{};
   }
@@ -75,8 +76,35 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   check(d.getElementById('t3-appearance').value==='Short black hair.','suppressed content stays editable');
   d.getElementById('t3-characterLora').click();d.getElementById('t3-styleLora').click();
   check(output().includes('Short black hair.'),'LoRA switch is reversible');
+  const legacyCharacters=[
+    ...oldLibrary,
+    {id:'makima',work:'チェンソーマン',name:'Makima',tag:'character: makima_(chainsaw_man)',fav:false,ts:2},
+    {id:'reze',work:'未分類',name:'Reze',tag:'character: reze_(chainsaw_man)',fav:false,ts:4},
+    {id:'denji',work:'',name:'Denji',tag:'character: denji_(chainsaw_man)',fav:false,ts:3},
+    {id:'2b',work:'未分類',name:'2B',tag:'character: 2b_(nier_automata)',fav:false,ts:5},
+    {id:'variant',work:'未分類',name:'Mio variant',tag:'character: mio(jiraikei)_(pixai)',fav:false,ts:6}
+  ];
+  w.localStorage.setItem('tsubaki.charaLibrary',JSON.stringify(legacyCharacters));
   click('t3-add-character');check(d.getElementById('charaLibList').textContent.includes('Saved character'),'old character in library');
-  d.querySelector('#charaLibList [data-act="useboth"]').click();
+  const classifiedLibrary=stored('charaLibrary');
+  check(classifiedLibrary.find(x=>x.id==='reze').work==='チェンソーマン','existing work label propagates to same tag suffix');
+  check(classifiedLibrary.find(x=>x.id==='denji').work==='チェンソーマン','blank existing work auto classified');
+  check(classifiedLibrary.find(x=>x.id==='2b').work==='NieR:Automata','known tag suffix gets readable work label');
+  check(classifiedLibrary.find(x=>x.id==='variant').work==='未分類','non-work PixAI and costume qualifiers ignored');
+  check(classifiedLibrary.find(x=>x.id==='reze').workAuto===true,'auto classification is marked');
+  check(d.getElementById('charaLibList').textContent.includes('タグ判定'),'auto classification visible in library');
+  select('charaLibSort','name');
+  const chainsawGroup=[...d.querySelectorAll('#charaLibList .dict-cat')].find(x=>x.textContent.includes('チェンソーマン'));
+  const sortedNames=[...chainsawGroup.querySelectorAll('.h-mode')].map(x=>x.textContent.trim());
+  assert.deepEqual(sortedNames,['Denji','Makima','Reze']);checks++;
+  const twoBCard=[...d.querySelectorAll('#charaLibList .hist-item')].find(x=>x.textContent.includes('character: 2b_'));
+  twoBCard.querySelector('[data-act="editwork"]').click();
+  check(stored('charaLibrary').find(x=>x.id==='2b').work==='変更作品','manual work correction is saved');
+  check(stored('charaLibrary').find(x=>x.id==='2b').workAuto===false,'manual correction overrides auto classification');
+  click('charaAutoSort');
+  check(stored('charaLibrary').find(x=>x.id==='2b').work==='変更作品','manual correction survives reclassification');
+  const savedCard=[...d.querySelectorAll('#charaLibList .hist-item')].find(x=>x.textContent.includes('Saved character'));
+  savedCard.querySelector('[data-act="useboth"]').click();
   check(output().includes('character: saved_character'),'character inserted into dedicated workspace');
   check(output().includes('Short black hair and brown eyes.'),'appearance inserted into dedicated workspace');
   d.querySelector('#t3-charaChips .x').click();check(!output().includes('character: saved_character'),'character removable without deleting library entry');
@@ -92,7 +120,9 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   evaluate('applySnapshot('+JSON.stringify(snap)+')');check(output()==='Manually edited final prompt.','manual output restores');
   closeSheets();
   const backup=plain(evaluate('currentBackupObject()'));check(backup.ver===4&&backup.draft.manualText==='Manually edited final prompt.','v4 backup includes draft');
+  check(backup.charaSort==='name','character sort preference included in backup');
   const normalized=plain(evaluate('validateImportData('+JSON.stringify(backup)+')'));check(normalized.draft.manualText===backup.draft.manualText,'import accepts v4 draft');
+  check(normalized.charaLibrary.find(x=>x.id==='reze').workAuto===true,'import preserves automatic work metadata');
   evaluate('applySnapshot('+JSON.stringify(oldProject.state)+')');check(d.getElementById('b-subject').value==='An adult musician','legacy project restores');
   click('t3-transfer');d.getElementById('confirmOk').click();
   check(output().includes('An adult musician')&&output().includes('plays a violin'),'legacy materials transferred to dedicated workspace');
