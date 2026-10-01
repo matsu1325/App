@@ -35,7 +35,7 @@ function click(id){d.getElementById(id).click();}
 function output(){return d.getElementById('t3-live').value;}
 function task(value){d.querySelector(`[data-task="${value}"]`).click();}
 function select(id,value){d.getElementById(id).value=value;d.getElementById(id).dispatchEvent(new w.Event('change',{bubbles:true}));}
-function closeSheets(){d.querySelectorAll('.sheet.open [data-close]').forEach(x=>x.click());}
+function closeSheets(){evaluate('closeAllSheets()');}
 function stored(key){return JSON.parse(w.localStorage.getItem('tsubaki.'+key));}
 function evaluate(script){return w.eval(script);}
 function plain(x){return JSON.parse(JSON.stringify(x));}
@@ -84,8 +84,12 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
     {id:'2b',work:'未分類',name:'2B',tag:'character: 2b_(nier_automata)',fav:false,ts:5},
     {id:'variant',work:'未分類',name:'Mio variant',tag:'character: mio(jiraikei)_(pixai)',fav:false,ts:6}
   ];
-  w.localStorage.setItem('tsubaki.charaLibrary',JSON.stringify(legacyCharacters));
+  evaluate('store.set(K.charaLib,'+JSON.stringify(legacyCharacters)+')');
   click('t3-add-character');check(d.getElementById('charaLibList').textContent.includes('Saved character'),'old character in library');
+  assert.deepEqual(stored('charaLibrary'),legacyCharacters);checks++;
+  click('charaAutoSort');
+  assert.deepEqual(stored('charaLibrary'),legacyCharacters);checks++;
+  click('ux-classification-apply');
   const classifiedLibrary=stored('charaLibrary');
   check(classifiedLibrary.find(x=>x.id==='reze').work==='チェンソーマン','existing work label propagates to same tag suffix');
   check(classifiedLibrary.find(x=>x.id==='denji').work==='チェンソーマン','blank existing work auto classified');
@@ -93,18 +97,25 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   check(classifiedLibrary.find(x=>x.id==='variant').work==='未分類','non-work PixAI and costume qualifiers ignored');
   check(classifiedLibrary.find(x=>x.id==='reze').workAuto===true,'auto classification is marked');
   check(d.getElementById('charaLibList').textContent.includes('タグ判定'),'auto classification visible in library');
+  select('ux-library-view','list');
   select('charaLibSort','name');
+  check(d.querySelectorAll('#charaLibList .dict-cat').length===0,'global name sort is flat');
+  select('ux-library-view','work');
   const chainsawGroup=[...d.querySelectorAll('#charaLibList .dict-cat')].find(x=>x.textContent.includes('チェンソーマン'));
-  const sortedNames=[...chainsawGroup.querySelectorAll('.h-mode')].map(x=>x.textContent.trim());
+  if(chainsawGroup.querySelector('[data-ux-work]').getAttribute('aria-expanded')!=='true')chainsawGroup.querySelector('[data-ux-work]').click();
+  const sortedNames=[...d.querySelector('[data-ux-work="チェンソーマン"]').parentElement.querySelectorAll('.h-mode')].map(x=>x.textContent.trim());
   assert.deepEqual(sortedNames,['Denji','Makima','Reze']);checks++;
+  select('ux-library-view','list');
   const twoBCard=[...d.querySelectorAll('#charaLibList .hist-item')].find(x=>x.textContent.includes('character: 2b_'));
   twoBCard.querySelector('[data-act="editwork"]').click();
+  input('cl-work','変更作品');click('clSave');
   check(stored('charaLibrary').find(x=>x.id==='2b').work==='変更作品','manual work correction is saved');
   check(stored('charaLibrary').find(x=>x.id==='2b').workAuto===false,'manual correction overrides auto classification');
   click('charaAutoSort');
   check(stored('charaLibrary').find(x=>x.id==='2b').work==='変更作品','manual correction survives reclassification');
+  evaluate("closeSheet('uxClassification')");
   const savedCard=[...d.querySelectorAll('#charaLibList .hist-item')].find(x=>x.textContent.includes('Saved character'));
-  savedCard.querySelector('[data-act="useboth"]').click();
+  savedCard.querySelector('[data-act="quickadd"]').click();
   check(output().includes('character: saved_character'),'character inserted into dedicated workspace');
   check(output().includes('Short black hair and brown eyes.'),'appearance inserted into dedicated workspace');
   d.querySelector('#t3-charaChips .x').click();check(!output().includes('character: saved_character'),'character removable without deleting library entry');
@@ -113,18 +124,18 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   click('t3-copy');await Promise.resolve();check(clipboard.at(-1)===output(),'positive copy');
   click('t3-negative-copy');await Promise.resolve();check(clipboard.at(-1)==='blurry, unwanted text','negative copy');
   click('t3-ai');await Promise.resolve();check(clipboard.at(-1).includes('【Positive草案】')&&clipboard.at(-1).includes('【Negative草案】'),'English handoff carries separate drafts');
-  click('t3-save');check(stored('history').some(h=>h.text===output()&&h.fav),'save prompt with snapshot');
+  click('t3-save');input('ux-prompt-name','Test prompt');click('ux-prompt-save');check(stored('history').some(h=>h.text===output()&&h.fav),'save prompt with snapshot');
   check(stored('history').some(h=>h.id==='old-prompt'),'old saved prompt survives new saves');
   click('t3-preview');input('pvArea','Manually edited final prompt.');
   const snap=plain(evaluate('captureSnapshot()'));check(snap.manualEdit&&snap.manualText==='Manually edited final prompt.','manual output in snapshot');
   evaluate('applySnapshot('+JSON.stringify(snap)+')');check(output()==='Manually edited final prompt.','manual output restores');
   closeSheets();
-  const backup=plain(evaluate('currentBackupObject()'));check(backup.ver===4&&backup.draft.manualText==='Manually edited final prompt.','v4 backup includes draft');
-  check(backup.charaSort==='name','character sort preference included in backup');
-  const normalized=plain(evaluate('validateImportData('+JSON.stringify(backup)+')'));check(normalized.draft.manualText===backup.draft.manualText,'import accepts v4 draft');
+  const backup=plain(evaluate('currentBackupObject()'));check(backup.ver===5&&backup.draft.manualText==='Manually edited final prompt.','v5 backup includes draft');
+  check(backup.uxPrefs.view==='list','character view preference included in backup');
+  const normalized=plain(evaluate('validateImportData('+JSON.stringify(backup)+')'));check(normalized.draft.manualText===backup.draft.manualText,'import accepts v5 draft');
   check(normalized.charaLibrary.find(x=>x.id==='reze').workAuto===true,'import preserves automatic work metadata');
   evaluate('applySnapshot('+JSON.stringify(oldProject.state)+')');check(d.getElementById('b-subject').value==='An adult musician','legacy project restores');
-  click('t3-transfer');d.getElementById('confirmOk').click();
+  click('t3-transfer');click('ux-transfer-replace');d.getElementById('confirmOk').click();
   check(output().includes('An adult musician')&&output().includes('plays a violin'),'legacy materials transferred to dedicated workspace');
   check(d.getElementById('b-subject').value==='An adult musician','legacy form left intact');
   input('t3-appearance','Appearance-only draft.');input('t3-request','');
