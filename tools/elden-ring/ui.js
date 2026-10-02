@@ -23,8 +23,8 @@
     const buffer=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
     if(buffer.byteLength!==payload.raw_bytes)throw new Error('内蔵データのサイズが一致しません');
     if(globalThis.crypto?.subtle){const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',buffer)),b=>b.toString(16).padStart(2,'0')).join('');if(hash!==payload.sha256)throw new Error('内蔵データの検証に失敗しました');}
-    const data=JSON.parse(new TextDecoder().decode(buffer)), engine=EREngine.create(data), C=engine.catalogs;
-    const defaultState={schema:1,name:'',stats:{vig:40,mnd:20,end:25,str:30,dex:25,int:30,fai:25,arc:34},className:'Vagabond',settings:{upgradeMode:'max',normal:25,somber:10,twoHand:false,scadu:0,inShadow:false,manualMultiplier:1,memory:10},weapons:Array(6).fill(''),armor:Array(4).fill(''),talismans:Array(4).fill(''),memorized:[],compare:[],catalyst:'',enemy:''};
+    const data=JSON.parse(new TextDecoder().decode(buffer)), engine=EREngine.create(data,JSON.parse($('er-dps-data').textContent)), C=engine.catalogs;
+    const defaultState={schema:1,name:'',stats:{vig:40,mnd:20,end:25,str:30,dex:25,int:30,fai:25,arc:34},className:'Vagabond',settings:{upgradeMode:'max',normal:25,somber:10,twoHand:false,scadu:0,inShadow:false,manualMultiplier:1,memory:10,weaponSort:'total'},weapons:Array(6).fill(''),armor:Array(4).fill(''),talismans:Array(4).fill(''),memorized:[],compare:[],catalyst:'',enemy:''};
     const defaultEnemy=data.enemies.find(e=>e.journey==='NG'&&e.name.includes('Margit, the Fell Omen'))||data.enemies[0];
     defaultState.enemy=defaultEnemy.id;
     let state=structuredClone(defaultState), activeTab='weapons', derived, weaponRows=[],spellRows=[],weaponLimit=40,spellLimit=40,saveError='',saved=[],lastWeaponDetail='',restoring=false,storageConflict=false;
@@ -75,7 +75,7 @@
       for(const a of EREngine.STATS)$('stat-'+a).value=state.stats[a];
       $('class-select').value=state.className;
       $('upgrade-mode').value=state.settings.upgradeMode;$('upgrade-fields').hidden=state.settings.upgradeMode!=='custom';
-      $('normal-upgrade').value=state.settings.normal;$('somber-upgrade').value=state.settings.somber;$('two-hand').checked=state.settings.twoHand;
+      $('weapon-sort').value=state.settings.weaponSort||'total';$('normal-upgrade').value=state.settings.normal;$('somber-upgrade').value=state.settings.somber;$('two-hand').checked=state.settings.twoHand;
       $('scadu-level').value=state.settings.scadu;$('in-shadow').checked=state.settings.inShadow;$('manual-multiplier').value=state.settings.manualMultiplier;$('memory-slots').value=state.settings.memory;
       $('build-name').value=state.name;$('catalyst-select').value=state.catalyst;
       fillWeaponOptions();
@@ -122,8 +122,14 @@
     function typed(attack){return DAMAGE.map((n,i)=>attack[i]>0?`<span>${n} ${number(attack[i],1)}</span>`:'').join('');}
     function badges(v,r){const w=C.weapons.get(v.weapon_id),d=engine.decoded[v.source_regulation_index];return `<div class="badges"><span class="badge ${r.usable?'ok':'bad'}">${r.usable?'装備可能':esc(missingText(r.missing))}</span><span class="badge">${esc(CATEGORY[d.weaponType])}</span><span class="badge">${AFFINITY[v.affinity_id]}</span>${w.dlc?'<span class="badge">DLCフラグ</span>':''}</div>`;}
     function selectedEnemy(){return C.enemies.get(state.enemy);}
-    function weaponScore(r){const sort=$('weapon-sort').value;if(sort==='total')return r.total;if(sort==='scaling')return Math.max(0,...Object.values(r.spellScaling));if(sort==='enemy')return engine.hitDamage(r.attack,selectedEnemy(),$('physical-type').value,multiplier())?.total??null;return r.attack[sort]||0;}
-    function weaponMetric(){const s=$('weapon-sort').value;return s==='total'?'計算AR':s==='scaling'?'触媒補正':s==='enemy'?'推定ダメージ':+s<5?DAMAGE[+s]+'AR':(STATUS[s]||'')+'蓄積';}
+    const dpsMode=()=>['dps','dpsEnemy'].includes($('weapon-sort').value);
+    function dpsReason(result){
+      const labels={requirements:'要求能力不足',no_model:'通常攻撃モデルなし',category_not_in_initial_model:'この武器種は未対応',special_weapon_category_requires_individual_review:'固有モーションの検証待ち',speed_gradient_model_not_verified:'攻撃速度変化の検証待ち',requires_single_melee_window:'多段・攻撃判定の検証待ち',paired_weapon_requires_individual_review:'対武器の検証待ち',final_damage_multiplier_requires_individual_review:'固有倍率の検証待ち',enemy_data:'対象敵の防御データ不足'};
+      return labels[result?.reasons?.[0]]||'攻撃周期の検証待ち';
+    }
+    function getWeaponDps(v,r){return engine.weaponDps(v,derived.stats,{result:r,twoHand:state.settings.twoHand,upgrade:r.upgrade,multiplier:multiplier(),scope:$('weapon-sort').value==='dpsEnemy'?'enemy':'raw',enemy:selectedEnemy()});}
+    function weaponScore(r){const sort=$('weapon-sort').value;if(dpsMode())return r.dpsResult?.dps??null;if(sort==='total')return r.total;if(sort==='scaling')return Math.max(0,...Object.values(r.spellScaling));if(sort==='enemy')return engine.hitDamage(r.attack,selectedEnemy(),$('physical-type').value,multiplier())?.total??null;return r.attack[sort]||0;}
+    function weaponMetric(){const s=$('weapon-sort').value;return s==='dps'?'理論DPS・未実測':s==='dpsEnemy'?'対敵理論DPS・未実測':s==='total'?'計算AR':s==='scaling'?'触媒補正':s==='enemy'?'推定ダメージ':+s<5?DAMAGE[+s]+'AR':(STATUS[s]||'')+'蓄積';}
     function calculateWeapons(){
       const q=lower($('weapon-search').value),category=$('weapon-category').value,affinity=$('weapon-affinity').value,content=$('weapon-content').value,usable=$('weapon-usable').checked;
       let rows=[];
@@ -131,6 +137,7 @@
         if(q&&!lower(name(w)+' '+w.name_en+' '+v.name_en).includes(q))continue;
         if(category&&d.weaponType!==+category)continue;if(affinity&&v.affinity_id!==+affinity)continue;if(content==='dlc'&&!w.dlc||content==='base'&&w.dlc)continue;
         const r=engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)});if(usable&&!r.usable)continue;
+        if(dpsMode())r.dpsResult=getWeaponDps(v,r);
         rows.push({v,w,r,score:weaponScore(r)});
       }
       rows.sort((a,b)=>(b.score??-Infinity)-(a.score??-Infinity)||a.v.id.localeCompare(b.v.id));
@@ -138,9 +145,12 @@
       weaponRows=rows;renderWeapons();
     }
     function renderWeapons(){
-      const metric=weaponMetric();
-      $('weapon-count').textContent=`${number(weaponRows.length)}件 · ${statsLabel(derived.stats)} · ${state.settings.twoHand?'両手':'片手'}指定 · ${state.settings.upgradeMode==='max'?'最大強化':`通常+${state.settings.normal} / 喪色+${state.settings.somber}`}${$('weapon-sort').value==='enemy'?' · '+jpEnemy(selectedEnemy()):''}`;
-      $('weapon-results').innerHTML=weaponRows.slice(0,weaponLimit).map(({v,w,r,score},i)=>`<article class="item${state.compare.includes(v.id)?' selected':''}"><div class="rank">${String(i+1).padStart(2,'0')} / ${esc(metric)}</div><div class="item-head"><div><h3 class="name">${esc(name(w))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${number(score)}</strong><small>+${r.upgrade}</small></div></div>${badges(v,r)}<div class="typed">${typed(r.attack)}</div><div class="typed">${Object.entries(STATUS).filter(([t])=>r.attack[t]>0).map(([t,n])=>`<span>${n} ${number(r.attack[t])}</span>`).join('')}</div><div class="actions"><button class="small" data-weapon-detail="${esc(v.id)}">詳細</button><button class="small" data-compare="${esc(v.id)}">${state.compare.includes(v.id)?'比較から外す':'比較に追加'}</button><button class="small" data-equip-weapon="${esc(v.id)}">右手1へ</button></div></article>`).join('')||'<p class="empty">一致する装備がありません。検索や「装備可能のみ」の条件を変えてください。</p>';
+      const metric=weaponMetric(),isDps=dpsMode();
+      $('dps-note').hidden=!isDps;
+      $('dps-note').textContent='通常攻撃を連続で当てる場合の理論モデルです（未実測）。FP・スタミナは十分にある前提。出血・冷気の発症、条件付きバフ、回避時間は含みません。未対応は末尾に表示します。';
+      $('weapon-count').textContent=`${number(weaponRows.length)}件 · ${statsLabel(derived.stats)} · ${state.settings.twoHand?'両手':'片手'}指定 · ${state.settings.upgradeMode==='max'?'最大強化':`通常+${state.settings.normal} / 喪色+${state.settings.somber}`}${['enemy','dpsEnemy'].includes($('weapon-sort').value)?' · '+jpEnemy(selectedEnemy()):''}`;
+      if(isDps)$('weapon-count').textContent+=` · モデル対応 ${weaponRows.filter(x=>x.score!==null).length}/${weaponRows.length}件`;
+      $('weapon-results').innerHTML=weaponRows.slice(0,weaponLimit).map(({v,w,r,score},i)=>`<article class="item${state.compare.includes(v.id)?' selected':''}"><div class="rank">${isDps&&score===null?'—':String(i+1).padStart(2,'0')} / ${esc(metric)}</div><div class="item-head"><div><h3 class="name">${esc(name(w))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${isDps&&score===null?'—':number(score,isDps?1:0)}</strong><small>${isDps?'ダメージ / 秒 · ':''}+${r.upgrade}</small></div></div>${badges(v,r)}${isDps?`<p class="english">${score===null?esc(dpsReason(r.dpsResult)):`${state.settings.twoHand?'両手':'片手'}通常攻撃 ${r.dpsResult.hits.length}段 · 1周 ${number(r.dpsResult.cycleSeconds,2)}秒 · 未実測`}</p>`:''}<div class="typed">${typed(r.attack)}</div><div class="typed">${Object.entries(STATUS).filter(([t])=>r.attack[t]>0).map(([t,n])=>`<span>${n} ${number(r.attack[t])}</span>`).join('')}</div><div class="actions"><button class="small" data-weapon-detail="${esc(v.id)}">詳細</button><button class="small" data-compare="${esc(v.id)}">${state.compare.includes(v.id)?'比較から外す':'比較に追加'}</button><button class="small" data-equip-weapon="${esc(v.id)}">右手1へ</button></div></article>`).join('')||'<p class="empty">一致する装備がありません。検索や「装備可能のみ」の条件を変えてください。</p>';
       $('weapon-more').hidden=weaponLimit>=weaponRows.length;$('compare-count').textContent=state.compare.length;
     }
     function calculateSpells(){
@@ -199,7 +209,7 @@
       $('saved-builds').innerHTML=saved===null?'<p class="notice">保存一覧の形式を確認できません。既存データを保護するため、この一覧への書込みを停止しています。</p>':saved.map(s=>`<div class="save-card"><div><strong>${esc(s.state.name||'無名のビルド')}</strong><p class="english">${statsLabel(s.state.stats)}<br>${esc(new Date(s.updated).toLocaleString('ja-JP'))}</p></div><div class="actions"><button class="small" data-load-save="${esc(s.key)}">読み込む</button><button class="small" data-delete-save="${esc(s.key)}">削除</button></div></div>`).join('')||'<p class="empty">まだ保存したビルドはありません。</p>';
     }
     function fillAbout(){
-      $('about-content').innerHTML=`<div class="notice">現在の版：${esc(data.version)}。全パラメータの1.17.1差分と実機ダメージは未検証です。取得日：${esc(data.collected)}。</div><details open><summary>反映する計算</summary><ul><li>武器の派生・強化・属性補正・要求能力不足と両手の筋力補正。</li><li>杖・聖印の属性別補正、魔法の攻撃係数、限定知力／信仰補正。</li><li>選択した防具・タリスマンの常時能力値、HP・FP・スタミナ・重量、基本カット率。</li><li>敵の防御力とカット率を用いた、選んだ成分のPvE推定。</li><li>影樹の加護と指定した攻撃力倍率。基礎AR順位はこれらを除いて比較。</li></ul></details><details><summary>未反映・未検証</summary><ul><li>系統強化、連撃、HP条件、武器固有の攻撃効果、バフの競合、PvP、カウンター、部位。</li><li>多段・継続の総威力、DPS、攻撃・詠唱速度、追加弾、全段命中、状態異常の発症ダメージ。</li><li>敵の追加人数補正・特殊フェーズ・発症後耐性、遺灰の性能ランキング。</li><li>防具の打撃・斬撃・刺突個別カット率は装備合成表示では省略。</li><li>武器8件・防具18件の日本語名が欠落。英語名で表示します。</li><li>DLCフラグは元資料の分類です。現行の入手条件や所有コンテンツを保証しません。</li></ul><p>手動倍率は攻撃力に掛けます。最終ダメージに掛かる効果を代用すると誤差が生じます。未対応効果を自動で反映したとは扱いません。</p></details><details><summary>照合結果</summary><p>武器3,296派生の基礎値・要求能力値、触媒33件の特定能力値セット、魔法派生495行の係数を資料間で照合。元資料が同じ抽出データに由来する可能性があり、独立した実機検証ではありません。</p><p>防御式は収集したBuild Planner「Damage Calc」N19を参照。各属性・各ヒットに個別適用する推定です。</p></details><details><summary>データ出典・利用表記</summary><div class="source-list">${data.sources.filter(s=>s.id==='weapon-source:public/regulation-vanilla-v1.17.js'||s.id.startsWith('frame:')||s.id.startsWith('localization')||['build-planner','misc-effects','motion-values','pve-enemies','player-stats'].includes(s.id)).map(s=>`<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.id)}</a><p class="english">版：${esc(s.version)}<br>SHA-256：${esc(s.sha256)}</p></div>`).join('')}</div><p>公開資料から計算に必要な数値・名称を抽出。元のワークブック一式はこのアプリには含めません。ゲームや公式作品の権利は各権利者に帰属します。</p><pre>${esc(data.mit)}</pre></details><details><summary>保存・共有・オフライン</summary><p>HTML内に計算データを内蔵し、計算時に外部APIへ入力を送りません。Appsの台帳経由で一度開いたアプリは台帳のオフライン保持を利用できます。HTMLをダウンロードして単体でも動作します。データ展開には対応ブラウザが必要です。</p><p>共有リンクはURLの#部分にビルド情報を含みます。保存はこの端末のブラウザ内だけです。JSONの書出しを使うと端末を移れます。別タブの変更を検出した場合は知らせます。</p></details>`;
+      $('about-content').innerHTML=`<div class="notice">現在の版：${esc(data.version)}。全パラメータの1.17.1差分と実機ダメージは未検証です。取得日：${esc(data.collected)}。</div><details open><summary>反映する計算</summary><ul><li>武器の派生・強化・属性補正・要求能力不足と両手の筋力補正。</li><li>杖・聖印の属性別補正、魔法の攻撃係数、限定知力／信仰補正。</li><li>選択した防具・タリスマンの常時能力値、HP・FP・スタミナ・重量、基本カット率。</li><li>敵の防御力とカット率を用いた、選んだ成分のPvE推定。</li><li>限定した通常攻撃モデルの連続DPS（理論値・未実測）。1段ずつ防御計算し、最終段から初段への時間も含む。</li><li>影樹の加護と指定した攻撃力倍率。基礎AR順位はこれらを除いて比較。</li></ul></details><details><summary>未反映・未検証</summary><ul><li>系統強化、連撃、HP条件、武器固有の攻撃効果、バフの競合、PvP、カウンター、部位。</li><li>多段・継続の総威力、魔法・戦技DPS、速度変化を含む攻撃・詠唱速度、追加弾、全段命中、状態異常の発症ダメージ。</li><li>敵の追加人数補正・特殊フェーズ・発症後耐性、遺灰の性能ランキング。</li><li>防具の打撃・斬撃・刺突個別カット率は装備合成表示では省略。</li><li>武器8件・防具18件の日本語名が欠落。英語名で表示します。</li><li>DLCフラグは元資料の分類です。現行の入手条件や所有コンテンツを保証しません。</li></ul><p>手動倍率は攻撃力に掛けます。最終ダメージに掛かる効果を代用すると誤差が生じます。未対応効果を自動で反映したとは扱いません。</p></details><details><summary>DPSモデルの範囲</summary><p>通常攻撃86プロファイルに対応。資料の30フレームを1秒として換算したモデルです。実機の入力受付・ヒットストップ・命中回数は未検証。速度変化、固有モーション、多段などは未対応として表示します。魔法・戦技のDPSはまだ計算しません。</p></details><details><summary>照合結果</summary><p>武器3,296派生の基礎値・要求能力値、触媒33件の特定能力値セット、魔法派生495行の係数を資料間で照合。元資料が同じ抽出データに由来する可能性があり、独立した実機検証ではありません。</p><p>防御式は収集したBuild Planner「Damage Calc」N19を参照。各属性・各ヒットに個別適用する推定です。</p></details><details><summary>データ出典・利用表記</summary><div class="source-list">${data.sources.filter(s=>s.id==='weapon-source:public/regulation-vanilla-v1.17.js'||s.id.startsWith('frame:')||s.id.startsWith('localization')||['build-planner','misc-effects','motion-values','pve-enemies','player-stats'].includes(s.id)).map(s=>`<div><a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.id)}</a><p class="english">版：${esc(s.version)}<br>SHA-256：${esc(s.sha256)}</p></div>`).join('')}</div><p>公開資料から計算に必要な数値・名称を抽出。元のワークブック一式はこのアプリには含めません。ゲームや公式作品の権利は各権利者に帰属します。</p><pre>${esc(data.mit)}</pre></details><details><summary>保存・共有・オフライン</summary><p>HTML内に計算データを内蔵し、計算時に外部APIへ入力を送りません。Appsの台帳経由で一度開いたアプリは台帳のオフライン保持を利用できます。HTMLをダウンロードして単体でも動作します。データ展開には対応ブラウザが必要です。</p><p>共有リンクはURLの#部分にビルド情報を含みます。保存はこの端末のブラウザ内だけです。JSONの書出しを使うと端末を移れます。別タブの変更を検出した場合は知らせます。</p></details>`;
     }
     function activate(tab){
       activeTab=tab;
@@ -218,7 +228,13 @@
       const gains=EREngine.ATTRS.map(a=>{if(derived.stats[a]>=99)return {a,n:null};const stats={...derived.stats,[a]:derived.stats[a]+1};return {a,n:engine.weapon(v,stats,{upgrade:r.upgrade,twoHand:state.settings.twoHand}).total-r.total};});
       showDialog(`<h2>${esc(name(w))}</h2><p class="english">${esc(v.name_en)}</p>`,`${badges(v,r)}<div class="dialog-grid"><div class="panel"><small>計算AR / +${r.upgrade}</small><h2 style="color:var(--gold)">${number(r.total,1)}</h2><div class="typed">${typed(r.attack)}</div><p class="muted">重量 ${w.weight} / ${state.settings.twoHand?'両手':'片手'}指定</p><p class="english">要求：${Object.entries(v.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')||'なし'}</p></div><div class="panel"><h3>能力値 +1 のAR増分</h3>${gains.map(g=>`<div class="row"><span>${LABEL[g.a]}</span><strong class="increment">${g.n===null?'上限':(g.n>=0?'+':'')+number(g.n,2)}</strong></div>`).join('')}<small>装備補正後の能力値を1増やした比較。</small></div></div><div class="table-wrap"><table><thead><tr><th>攻撃属性</th><th>AR / 蓄積</th><th>触媒補正</th></tr></thead><tbody>${Array.from({length:12},(_,t)=>r.attack[t]||r.spellScaling[t]?`<tr><td>${DAMAGE[t]||STATUS[t]}</td><td>${number(r.attack[t]||0,2)}</td><td>${r.spellScaling[t]?number(r.spellScaling[t],2):'—'}</td></tr>`:'').join('')}</tbody></table></div><h3 style="margin-top:16px">対象敵と攻撃パターン</h3><p class="english">${esc(jpEnemy(selectedEnemy()))} / ${esc(selectedEnemy().journey)}</p><label>攻撃成分<select id="detail-move">${option('standard','標準比較：MV100%・選択中の物理属性')}${moves.map(m=>option(m.id,`${m.name} · MV ${m.raw}`)).join('')}</select></label><div id="detail-damage" style="margin-top:12px"></div><div class="notice">各ヒットを別々に防御計算します。条件付きMV、複合する物理属性、追加弾・固有効果は未計算です。</div>${data.effects[w.name_en]?`<p class="english">装備の効果説明：${esc(data.effects[w.name_en].text)}（攻撃効果は未反映）</p>`:''}<div class="actions"><button data-equip-weapon="${esc(id)}" class="primary">右手1に装備</button><button data-compare="${esc(id)}">比較候補を切り替える</button></div>`);
       renderDetailDamage();
+      renderDpsDetail(v,r);
       $('dialog-content').insertAdjacentHTML('afterbegin',`<p class="muted" style="margin-bottom:10px">既定戦技：${esc(skill?name(skill):'資料なし')} · 戦灰変更 ${w.allow_ash_of_war===true?'可能':w.allow_ash_of_war===false?'不可':'未確認'} · 武器付与 ${w.is_buffable===true?'可能（派生条件は別）':w.is_buffable===false?'不可':'未確認'}</p>`);
+    }
+    function renderDpsDetail(v,r){
+      const result=getWeaponDps(v,r),scope=$('weapon-sort').value==='dpsEnemy'?'対敵':'防御前';
+      const content=result.dps===null?`<p class="notice">${esc(dpsReason(result))}。この条件のDPSは未計算です。</p>`:`<div class="notice">${scope}の理論モデル・未実測。通常攻撃 ${result.hits.length}段を1周 ${number(result.cycleSeconds,2)}秒で繰り返す仮定。FP・スタミナ、状態異常の発症・条件付きバフ・ヒットストップは含みません。</div><span class="chip">${number(result.dps,1)} ダメージ / 秒</span><p class="english">1周合計 ${number(result.cycleDamage,1)}ダメージ · 攻撃力倍率 ${number(multiplier(),2)}倍</p><div class="table-wrap"><table><thead><tr><th>段</th><th>発生（秒）</th><th>${scope}ダメージ</th></tr></thead><tbody>${result.hits.map(h=>`<tr><td>${h.index}</td><td>${number(h.time,3)}</td><td>${number(h.damage,1)}</td></tr>`).join('')}</tbody></table></div>`;
+      $('dialog-content').insertAdjacentHTML('beforeend',`<section id="detail-dps"><h3 style="margin-top:16px">連続DPS（理論・未実測）</h3>${content}</section>`);
     }
     function renderDetailDamage(){
       const v=C.variants.get(lastWeaponDetail),r=engine.weapon(v,derived.stats,{upgrade:engine.getUpgrade(v,state.settings),twoHand:state.settings.twoHand}),id=$('detail-move').value,m=(movesByWeapon.get(v.weapon_id)||[]).find(x=>x.id===id);
@@ -268,6 +284,7 @@
     });
     document.addEventListener('change',event=>{
       const el=event.target;if(restoring)return;
+      if(el.id==='weapon-sort'){state.settings.weaponSort=el.value;update();return;}
       if(el.dataset.stat){const n=Number(el.value);if(!el.value||!Number.isInteger(n)||n<1||n>99){el.value=state.stats[el.dataset.stat];el.setCustomValidity('');toast('能力値は1〜99の整数で入力してください');}else if(state.stats[el.dataset.stat]!==n){state.stats[el.dataset.stat]=n;update();}return;}
       const settings={'normal-upgrade':['normal',0,25],'somber-upgrade':['somber',0,10],'scadu-level':['scadu',0,20],'memory-slots':['memory',2,12],'manual-multiplier':['manualMultiplier',.1,5]};
       if(settings[el.id]){const [key,min,max]=settings[el.id];const n=Number(el.value);if(!el.value||!Number.isFinite(n)||(key!=='manualMultiplier'&&!Number.isInteger(n))||n<min||n>max){el.value=state.settings[key];toast(`値は${min}〜${max}で入力してください`);return;}state.settings[key]=n;update();return;}
@@ -303,7 +320,7 @@
         case 'show-compare':showCompare();break;
         case 'close-dialog':$('detail-dialog').close();lastWeaponDetail='';break;
         case 'scope-link':event.preventDefault();activate('about');break;
-        case 'rank-for-enemy':$('weapon-sort').value='enemy';activate('weapons');break;
+        case 'rank-for-enemy':state.settings.weaponSort='enemy';$('weapon-sort').value='enemy';activate('weapons');persist();break;
         case 'save-build':saveBuild();break;
         case 'share-build':share();break;
         case 'export-build':download();break;

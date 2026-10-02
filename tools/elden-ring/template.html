@@ -44,9 +44,10 @@
 <div class="section-head"><div><h2>武器ランキング</h2><small>488装備・3,296派生を、現在の能力値で再計算</small></div><button id="show-compare" class="small">比較 <span id="compare-count">0</span>/6</button></div>
 <label style="margin-bottom:10px">名前で検索<input id="weapon-search" type="search" placeholder="例：打刀 / Moonveil" autocomplete="off"></label>
 <details id="weapon-advanced" open><summary style="cursor:pointer;color:var(--gold);min-height:40px">絞り込み・並び順</summary><div class="grid2" style="margin-bottom:8px"><label>武器種<select id="weapon-category"><option value="">すべて</option></select></label><label>派生<select id="weapon-affinity"><option value="">すべて</option></select></label></div>
-<div class="filter-extra"><label class="check"><input id="weapon-usable" type="checkbox" checked>装備可能のみ</label><label class="check"><input id="weapon-best" type="checkbox" checked>各武器の最良派生</label><label>並び順<select id="weapon-sort"><option value="total">計算AR</option><option value="0">物理AR</option><option value="1">魔力AR</option><option value="2">炎AR</option><option value="3">雷AR</option><option value="4">聖AR</option><option value="7">出血蓄積</option><option value="5">毒蓄積</option><option value="8">冷気蓄積</option><option value="scaling">触媒補正</option><option value="enemy">対象敵への推定</option></select></label><label>収録範囲<select id="weapon-content"><option value="">本編＋DLC</option><option value="base">本編フラグ</option><option value="dlc">DLCフラグ</option></select></label></div>
+<div class="filter-extra"><label class="check"><input id="weapon-usable" type="checkbox" checked>装備可能のみ</label><label class="check"><input id="weapon-best" type="checkbox" checked>各武器の最良派生</label><label>並び順<select id="weapon-sort"><option value="total">計算AR</option><option value="dps">連続DPS（理論・未実測）</option><option value="dpsEnemy">連続DPS・対象敵（理論・未実測）</option><option value="0">物理AR</option><option value="1">魔力AR</option><option value="2">炎AR</option><option value="3">雷AR</option><option value="4">聖AR</option><option value="7">出血蓄積</option><option value="5">毒蓄積</option><option value="8">冷気蓄積</option><option value="scaling">触媒補正</option><option value="enemy">対象敵への推定</option></select></label><label>収録範囲<select id="weapon-content"><option value="">本編＋DLC</option><option value="base">本編フラグ</option><option value="dlc">DLCフラグ</option></select></label></div>
 </details>
 <details id="weapon-assumptions" open style="margin:8px 0 12px"><summary style="cursor:pointer;color:var(--muted);font-size:12px;min-height:30px">比較の前提：ARとダメージの違い</summary><div class="notice" id="weapon-note">計算ARは属性別攻撃力の合計。敵の防御力・カット率を適用した値は「対象敵への推定」で比較できます。装備の条件付き攻撃効果・PvP補正は未反映。</div></details>
+<div class="notice" id="dps-note" hidden></div>
 <div class="count" id="weapon-count" aria-live="polite"></div><div id="weapon-results" class="cards"></div><button id="weapon-more" class="more" hidden>さらに40件</button>
 </section>
 <section id="panel-spells" role="tabpanel" aria-labelledby="tab-spells" hidden>
@@ -91,6 +92,7 @@
 </div>
 <dialog id="detail-dialog"><div class="dialog-head"><div id="dialog-title"></div><button id="close-dialog" class="close" aria-label="詳細を閉じる">閉じる</button></div><div id="dialog-content"></div></dialog>
 <div id="toast" role="status" hidden></div>
+<script type="application/json" id="er-dps-data">__ER_DPS_DATA__</script>
 <script type="application/json" id="er-payload">__ER_PAYLOAD__</script>
 <script>
 __ER_ENGINE__

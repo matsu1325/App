@@ -20,7 +20,7 @@
     }
     throw new Error('Invalid scaling graph');
   }
-  function create(data) {
+  function create(data,dpsData={models:{},blocked:{}}) {
     const reg=data.regulation;
     const byId=(rows)=>new Map(rows.map(x=>[x.id,x]));
     const catalogs={weapons:byId(data.weapons),variants:byId(data.variants),spells:byId(data.spells),spellVariants:byId(data.spellVariants),armor:byId(data.armor),talismans:byId(data.talismans),enemies:byId(data.enemies)};
@@ -88,6 +88,30 @@
       }
       return out.some(x=>x===null)?null:{typed:out,total:out.reduce((s,v)=>s+v,0)};
     }
+    function weaponDps(vOrId,stats,options={}) {
+      const v=typeof vOrId==='string'?catalogs.variants.get(vOrId):vOrId;
+      if(!v)throw new Error('Unknown weapon variant');
+      const r=options.result||weapon(v,stats,options);
+      const base={status:'unsupported',dps:null,cycleSeconds:null,cycleDamage:null,hits:[],reasons:[],verification:'model-only',rankingEligible:false};
+      if(!r.usable)return {...base,status:'unusable',reasons:['requirements']};
+      const id=v.weapon_id+':'+(options.twoHand?'2h-r1':'1h-r1'),model=dpsData.models[id];
+      if(!model)return {...base,reasons:dpsData.blocked[id]||['no_model']};
+      const multiplier=options.multiplier??1;
+      if(!finite(multiplier)||multiplier<=0)return {...base,status:'error',reasons:['invalid_multiplier']};
+      const hits=model.hits.map((hit,i)=>{
+        const attack=hit.mv.map((mv,t)=>(r.attack[t]||0)*mv/100);
+        let damage;
+        if(options.scope==='enemy') {
+          const e=options.enemy;
+          if(!e?.physical?.[hit.physical])return null;
+          damage=hitDamage(attack,e,hit.physical,multiplier)?.total;
+        }else damage=attack.reduce((s,n)=>s+n,0)*multiplier;
+        return finite(damage)&&damage>=0?{index:i+1,time:hit.time,damage,physical:hit.physical,mv:hit.mv}:null;
+      });
+      if(hits.some(x=>!x))return {...base,reasons:['enemy_data']};
+      const cycleDamage=hits.reduce((s,h)=>s+h.damage,0);
+      return {...base,status:'model_only',dps:cycleDamage/model.seconds,cycleSeconds:model.seconds,cycleDamage,hits,reasons:[]};
+    }
     function spell(variant,catalystId,stats,settings) {
       const sp=catalogs.spells.get(variant.spell_id),cat=catalogs.variants.get(catalystId);
       const required=Object.entries(sp.requirements).filter(([a,n])=>stats[a]<n).map(([a,n])=>({stat:a,short:n-stats[a],need:n,have:stats[a]}));
@@ -134,7 +158,7 @@
       const array=(name,map,max)=>{const ar=input[name];if(!Array.isArray(ar)||ar.length>max||ar.some(x=>x!==''&&!map.has(x)))throw new Error('装備データに不明な項目があります');return [...ar];};
       const settings=input.settings||{};
       const number=(name,low,high,def)=>finite(settings[name])?clamp(Math.round(settings[name]),low,high):def;
-      const out={schema:1,name:typeof input.name==='string'?input.name.slice(0,80):'無名のビルド',stats,className:data.classes.some(c=>c.name_en===input.className)?input.className:'Vagabond',settings:{upgradeMode:settings.upgradeMode==='custom'?'custom':'max',normal:number('normal',0,25,25),somber:number('somber',0,10,10),twoHand:settings.twoHand===true,scadu:number('scadu',0,20,0),inShadow:settings.inShadow===true,manualMultiplier:finite(settings.manualMultiplier)?clamp(settings.manualMultiplier,0.1,5):1,memory:number('memory',2,12,10)},weapons:array('weapons',catalogs.variants,6),armor:array('armor',catalogs.armor,4),talismans:array('talismans',catalogs.talismans,4),memorized:array('memorized',catalogs.spells,12),compare:array('compare',catalogs.variants,6),catalyst:catalogs.variants.has(input.catalyst)?input.catalyst:'',enemy:catalogs.enemies.has(input.enemy)?input.enemy:''};
+      const out={schema:1,name:typeof input.name==='string'?input.name.slice(0,80):'無名のビルド',stats,className:data.classes.some(c=>c.name_en===input.className)?input.className:'Vagabond',settings:{upgradeMode:settings.upgradeMode==='custom'?'custom':'max',normal:number('normal',0,25,25),somber:number('somber',0,10,10),twoHand:settings.twoHand===true,scadu:number('scadu',0,20,0),inShadow:settings.inShadow===true,manualMultiplier:finite(settings.manualMultiplier)?clamp(settings.manualMultiplier,0.1,5):1,memory:number('memory',2,12,10),weaponSort:['total','0','1','2','3','4','7','5','8','scaling','enemy','dps','dpsEnemy'].includes(settings.weaponSort)?settings.weaponSort:'total'},weapons:array('weapons',catalogs.variants,6),armor:array('armor',catalogs.armor,4),talismans:array('talismans',catalogs.talismans,4),memorized:array('memorized',catalogs.spells,12),compare:array('compare',catalogs.variants,6),catalyst:catalogs.variants.has(input.catalyst)?input.catalyst:'',enemy:catalogs.enemies.has(input.enemy)?input.enemy:''};
       while(out.weapons.length<6)out.weapons.push('');while(out.armor.length<4)out.armor.push('');while(out.talismans.length<4)out.talismans.push('');
       const armorSlots=['Head','Body','Arms','Legs'];for(let i=0;i<4;i++){const a=catalogs.armor.get(out.armor[i]);if(a&&a.slot!==armorSlots[i])throw new Error('防具の部位が一致しません');}
       const groups=out.talismans.filter(Boolean).map(id=>catalogs.talismans.get(id).group);if(new Set(groups).size!==groups.length)throw new Error('同じ系統のタリスマンは重複装備できません');
@@ -143,7 +167,7 @@
       out.enemy=out.enemy||data.enemies[0].id;
       out.compare=[...new Set(out.compare.filter(Boolean))];return out;
     }
-    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,getUpgrade,defenseDamage,hitDamage,validateState};
+    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState};
   }
   const api={create,graph,ATTRS,STATS,TYPES,clamp};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
