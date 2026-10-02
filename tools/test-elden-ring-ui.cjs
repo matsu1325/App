@@ -30,6 +30,14 @@ async function main(){
   assert.equal(await page.locator('#detail-dps tbody tr').count(),5);
   assert.ok((await page.locator('#detail-dps').textContent()).includes('未実測'));
   assert.equal(await page.locator('[data-curve]').count(),5);
+  assert.equal(await page.locator('#curve-charts svg').count(),1);
+  assert.equal(await page.locator('[data-curve-series]').count(),5);
+  assert.equal(await page.locator('[data-curve-visible]').count(),5);
+  assert.equal(await page.locator('[aria-label="能力値の凡例"]').innerText(),'筋力\n技量\n知力\n信仰\n神秘');
+  await page.locator('[data-curve-visible="str"]').uncheck();
+  assert.equal(await page.locator('[data-curve-series="str"]').evaluate(el=>el.style.display),'none');
+  await page.locator('[data-curve-visible="str"]').check();
+  assert.equal(await page.locator('[data-curve-series="str"]').evaluate(el=>el.style.display),'');
   const curveCheck=await page.evaluate(()=>{
     const app=window.ERApp,s=app.getState(),v=app.engine.data.variants.find(v=>v.name_en==='Longsword'),stats=app.engine.equipment(s).stats;
     const r=app.engine.weapon(v,stats,{upgrade:app.engine.getUpgrade(v,s.settings),twoHand:s.settings.twoHand});
