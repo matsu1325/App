@@ -1,0 +1,461 @@
+{
+  "schema_version": 1,
+  "status": "source-coverage-only",
+  "note": "Candidate coverage is NOT verified DPS coverage. Timing units, transitions, hit selection, version and in-game cycles require validation.",
+  "sources": {
+    "raw/frame-data/animations.json": {
+      "sha256": "02d6fe03f9530989db61b585197c009aa492d4c53685a2898b7fca89850111b6",
+      "bytes": 18916111
+    },
+    "raw/frame-data/attacks.json": {
+      "sha256": "e05d77d060ba68da2718d302b03c58a9860ec90a6e7a0368c5433353955d2db6",
+      "bytes": 12828676
+    },
+    "raw/frame-data/armaments.json": {
+      "sha256": "93a747177e5a9aa4df7e1c4b8e28f1c699cfd4a3915e84bd92e138d13c2a7542",
+      "bytes": 7103566
+    },
+    "normalized/weapons.json": {
+      "sha256": "8a7e6780e8b1294cd6bd0db0067b07130c29a3dc55ffc1e5b1f1a2b9ae334243",
+      "bytes": 209434
+    },
+    "normalized/spells.json": {
+      "sha256": "ad512a2921557613b0574381a522b0bdb95bab8b3c06e70efe78fdccde03b53f",
+      "bytes": 65953
+    }
+  },
+  "counts": {
+    "animations": 15078,
+    "attack_records": 13700,
+    "frame_armaments": 487,
+    "app_weapons": 488,
+    "app_spells": 213
+  },
+  "animation_versions": {
+    "1.17": 15078
+  },
+  "weapon_candidates": {
+    "1h": {
+      "weapons_with_named_r1_candidates": 456,
+      "dlc_flagged": 96,
+      "unique_animation_sets": 56,
+      "with_active_and_cancel_on_every_candidate": 320,
+      "categories": {
+        "Axe": 17,
+        "Backhand Blade": 4,
+        "Beast Claw": 2,
+        "Claw": 5,
+        "Colossal Sword": 16,
+        "Colossal Weapon": 20,
+        "Curved Greatsword": 12,
+        "Curved Sword": 19,
+        "Dagger": 18,
+        "Fist": 14,
+        "Flail": 7,
+        "Glintstone Staff": 20,
+        "Great Hammer": 16,
+        "Great Katana": 4,
+        "Great Spear": 10,
+        "Greataxe": 14,
+        "Greatshield": 27,
+        "Greatsword": 25,
+        "Halberd": 18,
+        "Hammer": 16,
+        "Hand-to-Hand": 2,
+        "Heavy Thrusting Sword": 6,
+        "Katana": 10,
+        "Light Greatsword": 4,
+        "Medium Shield": 32,
+        "Perfume Bottle": 5,
+        "Reaper": 5,
+        "Sacred Seal": 12,
+        "Small Shield": 19,
+        "Spear": 19,
+        "Straight Sword": 23,
+        "Throwing Blade": 1,
+        "Thrusting Shield": 3,
+        "Thrusting Sword": 8,
+        "Torch": 8,
+        "Twinblade": 8,
+        "Whip": 7
+      },
+      "without_named_r1": [
+        "Unarmed",
+        "Shortbow",
+        "Misbegotten Shortbow",
+        "Red Branch Shortbow",
+        "Harp Bow",
+        "Composite Bow",
+        "Bone Bow",
+        "Longbow",
+        "Albinauric Bow",
+        "Horn Bow",
+        "Erdtree Bow",
+        "Serpent Bow",
+        "Pulley Bow",
+        "Black Bow",
+        "Ansbach's Longbow",
+        "Lion Greatbow",
+        "Golem Greatbow",
+        "Erdtree Greatbow",
+        "Greatbow",
+        "Igon's Greatbow",
+        "Soldier's Crossbow",
+        "Light Crossbow",
+        "Heavy Crossbow",
+        "Pulley Crossbow",
+        "Full Moon Crossbow",
+        "Arbalest",
+        "Crepus's Black-Key Crossbow",
+        "Repeating Crossbow",
+        "Spread Crossbow",
+        "Hand Ballista",
+        "Jar Cannon",
+        "Rabbath's Cannon"
+      ]
+    },
+    "2h": {
+      "weapons_with_named_r1_candidates": 456,
+      "dlc_flagged": 96,
+      "unique_animation_sets": 63,
+      "with_active_and_cancel_on_every_candidate": 377,
+      "categories": {
+        "Axe": 17,
+        "Backhand Blade": 4,
+        "Beast Claw": 2,
+        "Claw": 5,
+        "Colossal Sword": 16,
+        "Colossal Weapon": 20,
+        "Curved Greatsword": 12,
+        "Curved Sword": 19,
+        "Dagger": 18,
+        "Fist": 14,
+        "Flail": 7,
+        "Glintstone Staff": 20,
+        "Great Hammer": 16,
+        "Great Katana": 4,
+        "Great Spear": 10,
+        "Greataxe": 14,
+        "Greatshield": 27,
+        "Greatsword": 25,
+        "Halberd": 18,
+        "Hammer": 16,
+        "Hand-to-Hand": 2,
+        "Heavy Thrusting Sword": 6,
+        "Katana": 10,
+        "Light Greatsword": 4,
+        "Medium Shield": 32,
+        "Perfume Bottle": 5,
+        "Reaper": 5,
+        "Sacred Seal": 12,
+        "Small Shield": 19,
+        "Spear": 19,
+        "Straight Sword": 23,
+        "Throwing Blade": 1,
+        "Thrusting Shield": 3,
+        "Thrusting Sword": 8,
+        "Torch": 8,
+        "Twinblade": 8,
+        "Whip": 7
+      },
+      "without_named_r1": [
+        "Unarmed",
+        "Shortbow",
+        "Misbegotten Shortbow",
+        "Red Branch Shortbow",
+        "Harp Bow",
+        "Composite Bow",
+        "Bone Bow",
+        "Longbow",
+        "Albinauric Bow",
+        "Horn Bow",
+        "Erdtree Bow",
+        "Serpent Bow",
+        "Pulley Bow",
+        "Black Bow",
+        "Ansbach's Longbow",
+        "Lion Greatbow",
+        "Golem Greatbow",
+        "Erdtree Greatbow",
+        "Greatbow",
+        "Igon's Greatbow",
+        "Soldier's Crossbow",
+        "Light Crossbow",
+        "Heavy Crossbow",
+        "Pulley Crossbow",
+        "Full Moon Crossbow",
+        "Arbalest",
+        "Crepus's Black-Key Crossbow",
+        "Repeating Crossbow",
+        "Spread Crossbow",
+        "Hand Ballista",
+        "Jar Cannon",
+        "Rabbath's Cannon"
+      ]
+    }
+  },
+  "r1_reference_audit": {
+    "animation_count": 537,
+    "distinct_attack_keys": 1253,
+    "missing_attack_keys": [],
+    "multi_reference_windows": 277,
+    "animations_with_speed_gradients": 153
+  },
+  "spell_candidates": {
+    "mapped_ground_animations": 213,
+    "with_cast_and_magic_cancel": 202,
+    "without_ground_mapping": []
+  },
+  "verified_dps_profiles": 0,
+  "examples": {
+    "a023_030000": {
+      "name": "1h R1 1",
+      "active_windows": [
+        {
+          "range": [
+            13,
+            16
+          ],
+          "type": "Attack",
+          "params": {
+            "AttackIndex": 0,
+            "AttackType": 0,
+            "BehaviorJudgeID": 0,
+            "AtkParamID": [
+              "100200000:768",
+              "100200000:876"
+            ]
+          }
+        }
+      ],
+      "attack_cancels": [
+        {
+          "type": "LightAttackOnly",
+          "range": {
+            "Regular": [
+              17,
+              21
+            ]
+          }
+        },
+        {
+          "type": "RightAttack",
+          "range": {
+            "Regular": [
+              21,
+              83
+            ]
+          }
+        },
+        {
+          "type": "Magic",
+          "range": {
+            "Regular": [
+              27,
+              83
+            ]
+          }
+        }
+      ],
+      "cancel_from": [
+        "LightAttackOnly",
+        "RightAttack"
+      ],
+      "cycle_seconds": null,
+      "ranking_eligible": false
+    },
+    "a401_045000": {
+      "name": "Startup",
+      "active_windows": [
+        {
+          "range": [
+            10,
+            11
+          ],
+          "type": "Cast",
+          "params": {
+            "RefType": 1
+          }
+        }
+      ],
+      "attack_cancels": [
+        {
+          "range": {
+            "Regular": [
+              10,
+              15
+            ]
+          },
+          "type": "DexterityCastingSpeed"
+        }
+      ],
+      "cancel_from": [
+        "Magic"
+      ],
+      "cycle_seconds": null,
+      "ranking_eligible": false
+    },
+    "a401_045010": {
+      "name": "Cast 1",
+      "active_windows": [
+        {
+          "range": [
+            12,
+            13
+          ],
+          "type": "Cast",
+          "params": {
+            "RefType": 0,
+            "AtkParamID": [
+              "40000:2904",
+              "40010:2905",
+              "44000:2906"
+            ]
+          }
+        }
+      ],
+      "attack_cancels": [
+        {
+          "type": "Magic",
+          "range": {
+            "Regular": [
+              22,
+              65
+            ],
+            "DexterityCastingSpeed": [
+              17,
+              22
+            ]
+          }
+        },
+        {
+          "type": "RightAttack",
+          "range": {
+            "Regular": [
+              22,
+              50
+            ],
+            "LightEquipLoad": [
+              20,
+              50
+            ]
+          }
+        }
+      ],
+      "cancel_from": [
+        "Magic",
+        "DexterityCastingSpeed"
+      ],
+      "cycle_seconds": null,
+      "ranking_eligible": false
+    },
+    "a401_045020": {
+      "name": "Cast 2",
+      "active_windows": [
+        {
+          "range": [
+            17,
+            18
+          ],
+          "type": "Cast",
+          "params": {
+            "RefType": 0,
+            "AtkParamID": [
+              "40000:2904",
+              "40010:2905",
+              "44000:2906"
+            ]
+          }
+        }
+      ],
+      "attack_cancels": [
+        {
+          "type": "Magic",
+          "range": {
+            "Regular": [
+              27,
+              70
+            ],
+            "DexterityCastingSpeed": [
+              22,
+              27
+            ]
+          }
+        },
+        {
+          "type": "RightAttack",
+          "range": {
+            "Regular": [
+              27,
+              55
+            ],
+            "LightEquipLoad": [
+              25,
+              55
+            ]
+          }
+        }
+      ],
+      "cancel_from": [
+        "Magic",
+        "DexterityCastingSpeed"
+      ],
+      "cycle_seconds": null,
+      "ranking_eligible": false
+    },
+    "a401_045030": {
+      "name": "Cast 3",
+      "active_windows": [
+        {
+          "range": [
+            17,
+            18
+          ],
+          "type": "Cast",
+          "params": {
+            "RefType": 0,
+            "AtkParamID": [
+              "40000:2904",
+              "40010:2905",
+              "44000:2906"
+            ]
+          }
+        }
+      ],
+      "attack_cancels": [
+        {
+          "type": "Magic",
+          "range": {
+            "Regular": [
+              27,
+              70
+            ],
+            "DexterityCastingSpeed": [
+              22,
+              27
+            ]
+          }
+        },
+        {
+          "type": "RightAttack",
+          "range": {
+            "Regular": [
+              27,
+              55
+            ],
+            "LightEquipLoad": [
+              25,
+              55
+            ]
+          }
+        }
+      ],
+      "cancel_from": [
+        "Magic",
+        "DexterityCastingSpeed"
+      ],
+      "cycle_seconds": null,
+      "ranking_eligible": false
+    }
+  }
+}

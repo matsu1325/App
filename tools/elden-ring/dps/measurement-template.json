@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "unmeasured",
+  "profile_id": null,
+  "payload_sha256": null,
+  "game_app_version": null,
+  "regulation_version": null,
+  "platform": null,
+  "recording_fps": null,
+  "conditions": {
+    "weapon_variant_id": null,
+    "upgrade": null,
+    "hand_mode": null,
+    "stats": null,
+    "catalyst_variant_id": null,
+    "virtual_dexterity": null,
+    "enemy_id": null,
+    "ng": null,
+    "equipment_buffs": [],
+    "stamina_fp_sufficient": null,
+    "same_action_continuously": null
+  },
+  "evidence": {"url": null, "file_sha256": null, "timecode_range": null},
+  "trials": [],
+  "trial_fields": ["condition_hit_or_whiff", "start_recording_frame", "end_recording_frame", "completed_cycles", "hits_per_cycle", "observed_damage_per_hit", "boundary_uncertainty_frames"],
+  "requirement": "Warm up, then measure at least 10 full steady cycles in each of 3 trials; include last-to-first transition; record both hit and whiff cases.",
+  "result": {"mean_cycle_seconds": null, "uncertainty_seconds": null, "model_delta_seconds": null, "accepted": false}
+}

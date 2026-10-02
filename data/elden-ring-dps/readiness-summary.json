@@ -1,0 +1,256 @@
+{
+  "model_candidates": 86,
+  "verified_ranking_profiles": 0,
+  "blocker_counts": {
+    "spell_stage_graph_requires_individual_review": 213,
+    "category_not_in_initial_model": 388,
+    "special_weapon_category_requires_individual_review": 366,
+    "speed_gradient_model_not_verified": 208,
+    "requires_single_melee_window": 47,
+    "paired_weapon_requires_individual_review": 84,
+    "final_damage_multiplier_requires_individual_review": 6
+  },
+  "examples": {
+    "weapon:2000000:1h-r1": {
+      "profile_id": "weapon:2000000:1h-r1",
+      "status": "model_candidate",
+      "ranking_eligible": false,
+      "hypothesis_set": "standard-melee-v1",
+      "steps": [
+        {
+          "animation_id": "a023_030000",
+          "next_animation_id": "a023_030010",
+          "window_index": 0,
+          "attack_key": "100200000:768",
+          "transition_source_frame": 17,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 13,
+          "cycle_hit_source_frame": 13,
+          "duration_seconds": 0.5666666666666667
+        },
+        {
+          "animation_id": "a023_030010",
+          "next_animation_id": "a023_030020",
+          "window_index": 0,
+          "attack_key": "100200010:283",
+          "transition_source_frame": 18,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 13,
+          "cycle_hit_source_frame": 30,
+          "duration_seconds": 0.6
+        },
+        {
+          "animation_id": "a023_030020",
+          "next_animation_id": "a023_030030",
+          "window_index": 0,
+          "attack_key": "100200020:284",
+          "transition_source_frame": 19,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 13,
+          "cycle_hit_source_frame": 48,
+          "duration_seconds": 0.6333333333333333
+        },
+        {
+          "animation_id": "a023_030030",
+          "next_animation_id": "a023_030040",
+          "window_index": 0,
+          "attack_key": "100200030:285",
+          "transition_source_frame": 16,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 11,
+          "cycle_hit_source_frame": 65,
+          "duration_seconds": 0.5333333333333333
+        },
+        {
+          "animation_id": "a023_030040",
+          "next_animation_id": "a023_030000",
+          "window_index": 0,
+          "attack_key": "100200040:292",
+          "transition_source_frame": 44,
+          "cancel_type": "RightAttack",
+          "hit_source_frame": 18,
+          "cycle_hit_source_frame": 88,
+          "duration_seconds": 1.4666666666666666
+        }
+      ],
+      "cycle_seconds": 3.8,
+      "cycle_source_frames": 114,
+      "blockers": [],
+      "evidence_ids": [
+        "explorer-time-base",
+        "hks-r1-state-branches",
+        "hks-combo-length"
+      ]
+    },
+    "weapon:1000000:1h-r1": {
+      "profile_id": "weapon:1000000:1h-r1",
+      "status": "model_candidate",
+      "ranking_eligible": false,
+      "hypothesis_set": "standard-melee-v1",
+      "steps": [
+        {
+          "animation_id": "a020_030000",
+          "next_animation_id": "a020_030010",
+          "window_index": 0,
+          "attack_key": "100100000:377",
+          "transition_source_frame": 14,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 10,
+          "cycle_hit_source_frame": 10,
+          "duration_seconds": 0.4666666666666667
+        },
+        {
+          "animation_id": "a020_030010",
+          "next_animation_id": "a020_030020",
+          "window_index": 0,
+          "attack_key": "100100010:378",
+          "transition_source_frame": 12,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 8,
+          "cycle_hit_source_frame": 22,
+          "duration_seconds": 0.4
+        },
+        {
+          "animation_id": "a020_030020",
+          "next_animation_id": "a020_030030",
+          "window_index": 0,
+          "attack_key": "100100020:379",
+          "transition_source_frame": 13,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 9,
+          "cycle_hit_source_frame": 35,
+          "duration_seconds": 0.43333333333333335
+        },
+        {
+          "animation_id": "a020_030030",
+          "next_animation_id": "a020_030040",
+          "window_index": 0,
+          "attack_key": "100100030:380",
+          "transition_source_frame": 12,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 8,
+          "cycle_hit_source_frame": 47,
+          "duration_seconds": 0.4
+        },
+        {
+          "animation_id": "a020_030040",
+          "next_animation_id": "a020_030050",
+          "window_index": 0,
+          "attack_key": "100100040:381",
+          "transition_source_frame": 13,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 9,
+          "cycle_hit_source_frame": 60,
+          "duration_seconds": 0.43333333333333335
+        },
+        {
+          "animation_id": "a020_030050",
+          "next_animation_id": "a020_030000",
+          "window_index": 0,
+          "attack_key": "100100050:382",
+          "transition_source_frame": 32,
+          "cancel_type": "RightAttack",
+          "hit_source_frame": 14,
+          "cycle_hit_source_frame": 78,
+          "duration_seconds": 1.0666666666666667
+        }
+      ],
+      "cycle_seconds": 3.2,
+      "cycle_source_frames": 96,
+      "blockers": [],
+      "evidence_ids": [
+        "explorer-time-base",
+        "hks-r1-state-branches",
+        "hks-combo-length"
+      ]
+    },
+    "weapon:9000000:1h-r1": {
+      "profile_id": "weapon:9000000:1h-r1",
+      "status": "model_candidate",
+      "ranking_eligible": false,
+      "hypothesis_set": "standard-melee-v1",
+      "steps": [
+        {
+          "animation_id": "a029_030000",
+          "next_animation_id": "a029_030010",
+          "window_index": 0,
+          "attack_key": "100900000:218",
+          "transition_source_frame": 16,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 13,
+          "cycle_hit_source_frame": 13,
+          "duration_seconds": 0.5333333333333333
+        },
+        {
+          "animation_id": "a029_030010",
+          "next_animation_id": "a029_030020",
+          "window_index": 0,
+          "attack_key": "100900010:219",
+          "transition_source_frame": 17,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 14,
+          "cycle_hit_source_frame": 30,
+          "duration_seconds": 0.5666666666666667
+        },
+        {
+          "animation_id": "a029_030020",
+          "next_animation_id": "a029_030030",
+          "window_index": 0,
+          "attack_key": "100900020:220",
+          "transition_source_frame": 16,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 13,
+          "cycle_hit_source_frame": 46,
+          "duration_seconds": 0.5333333333333333
+        },
+        {
+          "animation_id": "a029_030030",
+          "next_animation_id": "a029_030040",
+          "window_index": 0,
+          "attack_key": "100900030:221",
+          "transition_source_frame": 19,
+          "cancel_type": "LightAttackOnly",
+          "hit_source_frame": 13,
+          "cycle_hit_source_frame": 62,
+          "duration_seconds": 0.6333333333333333
+        },
+        {
+          "animation_id": "a029_030040",
+          "next_animation_id": "a029_030000",
+          "window_index": 0,
+          "attack_key": "100900040:223",
+          "transition_source_frame": 44,
+          "cancel_type": "RightAttack",
+          "hit_source_frame": 17,
+          "cycle_hit_source_frame": 85,
+          "duration_seconds": 1.4666666666666666
+        }
+      ],
+      "cycle_seconds": 3.7333333333333334,
+      "cycle_source_frames": 112,
+      "blockers": [],
+      "evidence_ids": [
+        "explorer-time-base",
+        "hks-r1-state-branches",
+        "hks-combo-length"
+      ]
+    },
+    "weapon:2000000:2h-r1": {
+      "profile_id": "weapon:2000000:2h-r1",
+      "status": "blocked",
+      "ranking_eligible": false,
+      "hypothesis_set": "standard-melee-v1",
+      "steps": [],
+      "cycle_seconds": null,
+      "cycle_source_frames": null,
+      "blockers": [
+        "speed_gradient_model_not_verified"
+      ],
+      "evidence_ids": [
+        "explorer-time-base",
+        "hks-r1-state-branches",
+        "hks-combo-length"
+      ]
+    }
+  }
+}
