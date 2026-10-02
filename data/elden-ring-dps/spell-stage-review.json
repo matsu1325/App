@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "entity_id": "spell:4000",
+  "name_ja": "輝石のつぶて",
+  "status": "transition_hypothesis",
+  "ranking_eligible": false,
+  "evidence_ids": [
+    "explorer-vdex-boundary",
+    "hks-combo-magic"
+  ],
+  "hand": "right",
+  "startup": [
+    "a401_045000",
+    "a401_045010"
+  ],
+  "proposed_steady_cycle": [
+    "a401_045020",
+    "a401_045030"
+  ],
+  "assumptions": [
+    "same spell repeatedly, adequate FP/stamina",
+    "effect windows active at transition",
+    "no blending/input/hitstop overhead",
+    "one projectile hit per cast",
+    "event to animation correspondence requires in-game check"
+  ],
+  "stages": [
+    {
+      "animation_id": "a401_045010",
+      "magic_cancel_ranges_source_frames": {
+        "DexterityCastingSpeed": [
+          17,
+          22
+        ],
+        "Regular": [
+          22,
+          65
+        ]
+      },
+      "combo_effect_windows": [
+        {
+          "id": 100600,
+          "mp": true,
+          "range": [
+            17,
+            32
+          ]
+        }
+      ],
+      "projectile_attack_key": "40000:2904"
+    },
+    {
+      "animation_id": "a401_045020",
+      "magic_cancel_ranges_source_frames": {
+        "DexterityCastingSpeed": [
+          22,
+          27
+        ],
+        "Regular": [
+          27,
+          70
+        ]
+      },
+      "combo_effect_windows": [
+        {
+          "id": 100601,
+          "mp": true,
+          "range": [
+            22,
+            37
+          ]
+        }
+      ],
+      "projectile_attack_key": "40000:2904"
+    },
+    {
+      "animation_id": "a401_045030",
+      "magic_cancel_ranges_source_frames": {
+        "DexterityCastingSpeed": [
+          22,
+          27
+        ],
+        "Regular": [
+          27,
+          70
+        ]
+      },
+      "combo_effect_windows": [
+        {
+          "id": 100600,
+          "mp": true,
+          "range": [
+            22,
+            37
+          ]
+        }
+      ],
+      "projectile_attack_key": "40000:2904"
+    }
+  ]
+}

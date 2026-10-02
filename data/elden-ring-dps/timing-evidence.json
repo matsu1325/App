@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-02",
+  "sources": {
+    "explorer-js": {
+      "url": "https://er-frame-data.nyasu.business/assets/index-D-GRXV7h.js",
+      "sha256": "e3a5300b0f7c6d8b11c1d10fe8c7a468a503570e71fd28299823cb8c375d0994",
+      "bytes": 1661797
+    },
+    "hks-1.17-community": {
+      "url": "https://github.com/soulsmods/EldenRingHKS/blob/d88d6441f5fccfdd6a5fd10d493309b680181897/c0000.hks",
+      "sha256": "97fac87ec418656e069f26b08e0804b7cb1e3c99772ec55524ae8bbda03ad530",
+      "bytes": 862778,
+      "qualification": "Community decompilation with edits; not a pristine game executable."
+    }
+  },
+  "evidence": [
+    {
+      "id": "explorer-time-base",
+      "source_id": "explorer-js",
+      "status": "source_display_confirmed",
+      "anchor": "timelineFrameUnits / Milliseconds and Animation Player",
+      "finding": "The source UI divides source frame counts by 30 to display seconds. Absolute event origin and actual in-game transition overhead remain unverified."
+    },
+    {
+      "id": "explorer-vdex-boundary",
+      "source_id": "explorer-js",
+      "status": "source_algorithm_confirmed",
+      "anchor": "function pe(ee,Y=B.value)",
+      "finding": "Clamp vDex to 10..70; interpolate between range endpoints in doubled units, ceil, divide by two. This is boundary interpolation, not a full cast-duration model."
+    },
+    {
+      "id": "hks-combo-length",
+      "source_id": "hks-1.17-community",
+      "status": "conditional_source_rule",
+      "anchor": "GetAttackMaxNumber",
+      "finding": "Weapon category and special category select combo length; requires explicit handling of special categories."
+    },
+    {
+      "id": "hks-r1-state-branches",
+      "source_id": "hks-1.17-community",
+      "status": "conditional_source_rule",
+      "anchor": "AttackRightLight1_onUpdate through AttackRightLight6_onUpdate / AttackBothLight1_onUpdate through AttackBothLight6_onUpdate / IsEnableNextAttack / ExecAttack",
+      "finding": "R1 advances through allowed stages and returns to stage 1. Reset and special transition conditions can override the path."
+    },
+    {
+      "id": "hks-combo-magic",
+      "source_id": "hks-1.17-community",
+      "status": "conditional_source_rule",
+      "anchor": "IsComboMagic / ExecComboMagic",
+      "finding": "Requires the same last/current magic animation type; effect 100600 selects right cast 2, 100601 selects right cast 3. Left-hand effects differ."
+    }
+  ]
+}
