@@ -503,6 +503,8 @@
       showDialog(`<h2>${esc(name(w))}</h2><p class="english">${esc(v.name_en)}</p>`,`${badges(v,r)}<div class="dialog-grid"><div class="panel"><small>計算AR / +${r.upgrade}</small><h2 style="color:var(--gold)">${number(r.total,1)}</h2><div class="typed">${typed(r.attack)}</div><p class="muted">重量 ${w.weight} / ${state.settings.twoHand?'両手':'片手'}指定</p><p class="english">要求：${Object.entries(v.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')||'なし'}</p></div><div class="panel"><h3>能力値 +1 のAR増分</h3>${gains.map(g=>`<div class="row"><span>${LABEL[g.a]}</span><strong class="increment">${g.n===null?'上限':(g.n>=0?'+':'')+number(g.n,2)}</strong></div>`).join('')}<small>装備補正後の能力値を1増やした比較。</small></div></div><div class="table-wrap"><table><thead><tr><th>攻撃属性</th><th>AR / 蓄積</th><th>触媒補正</th></tr></thead><tbody>${Array.from({length:12},(_,t)=>r.attack[t]||r.spellScaling[t]?`<tr><td>${DAMAGE[t]||STATUS[t]}</td><td>${number(r.attack[t]||0,2)}</td><td>${r.spellScaling[t]?number(r.spellScaling[t],2):'—'}</td></tr>`:'').join('')}</tbody></table></div><h3 style="margin-top:16px">対象敵と攻撃パターン</h3><p class="english">${esc(jpEnemy(selectedEnemy()))} / ${esc(selectedEnemy().journey)}</p><label>攻撃成分<select id="detail-move">${option('standard','標準比較：MV100%・選択中の物理属性')}${moves.map(m=>option(m.id,`${m.name} · MV ${m.raw}`)).join('')}</select></label><div id="detail-damage" style="margin-top:12px"></div><div class="notice">各ヒットを別々に防御計算します。条件付きMV、複合する物理属性、追加弾・固有効果は未計算です。</div>${data.effects[w.name_en]?`<p class="english">装備の効果説明：${esc(data.effects[w.name_en].text)}（攻撃効果は未反映）</p>`:''}<div class="actions"><button data-equip-weapon="${esc(id)}" class="primary">右手1に装備</button><button data-compare="${esc(id)}">比較候補を切り替える</button></div>`);
       renderDetailDamage();
       renderDpsDetail(v,r);
+      $('dialog-content').insertAdjacentHTML('beforeend',`<section id="detail-curves"><h3 style="margin-top:20px">能力値別ダメージ推移</h3><p class="field-note">他の能力値・派生・強化・敵・攻撃成分を固定し、装備補正後の能力値だけを変更。5能力で共通の縦軸。破線は要求能力不足。</p><label>横軸の範囲<select id="curve-range">${option('99','1〜99（ゲーム内）')}${option('148','1〜148（100以上は仮想）')}</select></label><div id="curve-charts"></div></section>`);
+      renderWeaponCurves();
       $('dialog-content').insertAdjacentHTML('afterbegin',`<p class="muted" style="margin-bottom:10px">既定戦技：${esc(skill?name(skill):'資料なし')} · 戦灰変更 ${w.allow_ash_of_war===true?'可能':w.allow_ash_of_war===false?'不可':'未確認'} · 武器付与 ${w.is_buffable===true?'可能（派生条件は別）':w.is_buffable===false?'不可':'未確認'}</p>`);
     }
     function renderDpsDetail(v,r){
@@ -519,6 +521,36 @@
       if(results.some(x=>!x)){ $('detail-damage').textContent='対象敵の値が不足しています';return;}
       $('detail-damage').innerHTML=`<span class="chip">推定 ${number(results.reduce((s,x)=>s+x.total,0),1)}ダメージ / ${hits.length}ヒット</span><p class="english">${results.map((x,i)=>`${i+1}段目 ${number(x.total,1)}`).join(' + ')}${m?` · スタミナ ${esc(m.stamina)} · PvE強靭削り ${esc(m.poise)}`:''}</p>`;
     }
+    function weaponCurvePoints(attribute,max=99){
+      const v=C.variants.get(lastWeaponDetail),move=(movesByWeapon.get(v.weapon_id)||[]).find(m=>m.id===$('detail-move').value);
+      const physical=move?({Standard:'Phys',Strike:'Strike',Slash:'Slash',Pierce:'Pierce'})[move.physical]:$('physical-type').value;
+      const hits=move?move.hits:[100];
+      if(!physical||!hits)return [];
+      return Array.from({length:max},(_,i)=>{
+        const value=i+1,r=engine.weapon(v,{...derived.stats,[attribute]:value},{upgrade:engine.getUpgrade(v,state.settings),twoHand:state.settings.twoHand});
+        const results=hits.map(mv=>engine.hitDamage(Object.fromEntries(Object.entries(r.attack).map(([t,n])=>[t,n*mv/100])),selectedEnemy(),physical,multiplier()));
+        return {value,damage:results.some(x=>!x)?null:results.reduce((sum,x)=>sum+x.total,0),usable:r.usable};
+      });
+    }
+    function renderWeaponCurves(){
+      if(!$('curve-charts'))return;
+      const max=Number($('curve-range').value),series=EREngine.ATTRS.map(a=>({a,points:weaponCurvePoints(a,max)}));
+      if(series.some(s=>s.points.some(p=>p.damage===null))||!series[0].points.length){$('curve-charts').innerHTML='<p class="notice">この攻撃成分は推移を計算できません。</p>';return;}
+      const top=Math.max(1,...series.flatMap(s=>s.points.map(p=>p.damage)))*1.05;
+      const x=n=>48+(n-1)/(max-1)*494,y=n=>194-n/top*170;
+      $('curve-charts').innerHTML=(max>99?'<p class="notice">100〜148はゲーム内で割り振れない仮想値。収録補正曲線の範囲内で計算し、両手筋力は実効148で上限処理します。</p>':'')+series.map(({a,points})=>{
+        const current=derived.stats[a],base=points[current-1],next=points[current],paths=[];
+        for(let i=1;i<points.length;i++){const p=points[i-1],q=points[i];paths.push(`<path d="M${x(p.value).toFixed(2)},${y(p.damage).toFixed(2)} L${x(q.value).toFixed(2)},${y(q.damage).toFixed(2)}" stroke="${q.value>99?'#9bbbd3':q.usable?'#c9b77d':'#d89780'}"${!p.usable||!q.usable?' stroke-dasharray="3 3"':''}/>`);}
+        const title=LABEL[a]+'と推定ダメージ';
+        return `<article class="panel curve-panel" data-curve="${a}" style="margin-top:12px;padding:12px"><h3>${LABEL[a]}</h3><svg viewBox="0 0 560 230" role="img" aria-label="${title}" style="display:block;width:100%;height:auto"><title>${title}。現在 ${current}、推定 ${number(base.damage,1)}。</title>${[0,.5,1].map(f=>`<line x1="48" y1="${y(top*f)}" x2="542" y2="${y(top*f)}" stroke="#364235"/><text x="42" y="${y(top*f)+4}" text-anchor="end" fill="#adb5a6" font-size="11">${Math.round(top*f)}</text>`).join('')}${max>99?`<rect x="${x(99)}" y="24" width="${542-x(99)}" height="170" fill="#9bbbd3" opacity=".07"/>`:''}<g fill="none" stroke-width="2">${paths.join('')}</g><line x1="${x(current)}" x2="${x(current)}" y1="24" y2="194" stroke="#c9b77d" stroke-dasharray="4 4"/><circle cx="${x(current)}" cy="${y(base.damage)}" r="4" fill="#fff"/>${[1,20,40,60,80,99,...(max>99?[120,148]:[])].map(n=>`<text x="${x(n)}" y="211" text-anchor="middle" fill="#adb5a6" font-size="11">${n}</text>`).join('')}<text x="290" y="228" text-anchor="middle" fill="#adb5a6" font-size="11">装備補正後の能力値</text></svg><p class="english">現在 ${current}：${number(base.damage,1)} ／ +1：${next?number(next.damage-base.damage,2):'ゲーム内上限'}${base.usable?'':' ／ 要求能力不足'}</p><label>値を確認<input type="range" min="1" max="${max}" value="${current}" data-curve-probe="${a}"></label><output data-curve-output="${a}" class="english"></output></article>`;
+      }).join('');
+      document.querySelectorAll('[data-curve-probe]').forEach(el=>updateCurveProbe(el));
+    }
+    function updateCurveProbe(el){
+      const points=weaponCurvePoints(el.dataset.curveProbe,Number($('curve-range').value)),point=points[Number(el.value)-1],base=points[derived.stats[el.dataset.curveProbe]-1];
+      document.querySelector(`[data-curve-output="${el.dataset.curveProbe}"]`).textContent=`${point.value}：${number(point.damage,1)}ダメージ ／ 現在との差 ${number(point.damage-base.damage,1)}${point.usable?'':' ／ 要求能力不足'}${point.value>99?' ／ 仮想値':''}`;
+    }
+    document.addEventListener('input',event=>{if(event.target.dataset.curveProbe)updateCurveProbe(event.target);});
     function showSpellDetail(id){
       const v=C.spellVariants.get(id),s=C.spells.get(v.spell_id),row=spellRows.find(x=>x.v.id===id),r=row?.r;
       showDialog(`<h2>${esc(name(s))}</h2><p class="english">${esc(v.name_en)}</p>`,`<p class="muted">要求：${Object.entries(s.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')} · ${s.memory_slots}記憶枠</p><div class="table-wrap"><table><thead><tr><th>属性</th><th>元係数</th><th>防御前威力</th></tr></thead><tbody>${EREngine.TYPES.map((t,i)=>`<tr><td>${DAMAGE[i]}</td><td>${number(v.typed_attack_coefficient[t],2)}</td><td>${r?.power?number(r.power[i]*multiplier(),2):'未計算'}</td></tr>`).join('')}</tbody></table></div><p class="muted">FP ${esc(v.fp)} / 溜めFP欄 ${esc(v.charged_fp)} / スタミナ ${esc(v.stamina)}</p><p class="muted">${v.no_scale?'固定係数・補正なし':v.only_int?'知力のみの触媒補正':v.only_faith?'信仰のみの触媒補正':'属性別の触媒補正を使用'}</p><p class="english">攻撃ID：${esc(v.attack_id??'直接攻撃参照なし')}<br>選択触媒：${esc(row?.cat?weaponName(C.variants.get(row.cat)):'なし')}</p><div class="notice">元係数が0・空欄でも、補助効果や回復がないとは限りません。成分ごとの表であり、詠唱1回の全ヒットを表すものではありません。</div><h3>同じ魔法の派生成分</h3><div class="table-wrap"><table><thead><tr><th>元資料の成分名</th><th>FP</th></tr></thead><tbody>${s.variant_ids.map(vid=>{const x=C.spellVariants.get(vid);return `<tr><td>${esc(x.name_en)}</td><td>${esc(x.fp)}</td></tr>`;}).join('')}</tbody></table></div><button data-memorize="${esc(s.id)}" class="primary">記憶を切り替える</button>`);
@@ -571,7 +603,8 @@
       if(el.dataset.talismanSlot){const i=+el.dataset.talismanSlot,item=C.talismans.get(el.value);if(item&&state.talismans.some((id,j)=>j!==i&&C.talismans.get(id)?.group===item.group)){el.value=state.talismans[i];toast('同じ系統のタリスマンは同時に装備できません');return;}state.talismans[i]=el.value;update();return;}
       if(el.id==='enemy-journey'){const old=selectedEnemy(),journey=el.value;const next=data.enemies.find(e=>e.journey===journey&&e.name===old.name&&e.location===old.location)||data.enemies.find(e=>e.journey===journey);state.enemy=next.id;fillEnemyOptions();update();return;}
       if(el.id==='enemy-select'&&el.value){state.enemy=el.value;update();return;}
-      if(el.id==='detail-move'){renderDetailDamage();return;}
+      if(el.id==='detail-move'){renderDetailDamage();renderWeaponCurves();return;}
+      if(el.id==='curve-range'){renderWeaponCurves();return;}
       if(el.id==='import-build'){const file=el.files?.[0];if(!file)return;if(file.size>1000000){toast('ビルドJSONは1MB以内にしてください');el.value='';return;}file.text().then(text=>applyState(JSON.parse(text))).catch(e=>toast('読み込めません：'+e.message)).finally(()=>el.value='');return;}
       // Search input blur must not replace a card between pointerdown and click.
       if((el.id.startsWith('weapon-')||el.id.startsWith('spell-')||el.id==='physical-type')&&(el.tagName==='SELECT'||el.type==='checkbox'))update({save:false});
@@ -610,7 +643,7 @@
     if(matchMedia('(max-width:720px)').matches){$('build-controls').open=false;$('weapon-advanced').open=false;$('weapon-assumptions').open=false;}
     $('loading').hidden=true;$('application').hidden=false;
     // Read-only snapshot plus validated import are also useful to integration tests.
-    window.ERApp={engine,getState:()=>structuredClone(state),importBuild:applyState};
+    window.ERApp={engine,getState:()=>structuredClone(state),importBuild:applyState,weaponCurvePoints};
     document.dispatchEvent(new Event('er-ready'));
   } catch(error) {
     $('loading').textContent='起動できませんでした：'+error.message;

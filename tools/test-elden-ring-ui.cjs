@@ -29,6 +29,20 @@ async function main(){
   await page.locator('[data-weapon-detail]').first().click();
   assert.equal(await page.locator('#detail-dps tbody tr').count(),5);
   assert.ok((await page.locator('#detail-dps').textContent()).includes('未実測'));
+  assert.equal(await page.locator('[data-curve]').count(),5);
+  const curveCheck=await page.evaluate(()=>{
+    const app=window.ERApp,s=app.getState(),v=app.engine.data.variants.find(v=>v.name_en==='Longsword'),stats=app.engine.equipment(s).stats;
+    const r=app.engine.weapon(v,stats,{upgrade:app.engine.getUpgrade(v,s.settings),twoHand:s.settings.twoHand});
+    const expected=app.engine.hitDamage(r.attack,app.engine.catalogs.enemies.get(s.enemy),document.querySelector('#physical-type').value,1).total;
+    return {expected,actual:app.weaponCurvePoints('str')[stats.str-1].damage};
+  });
+  assert.ok(Math.abs(curveCheck.expected-curveCheck.actual)<1e-8,'curve matches damage engine');
+  await page.locator('#curve-range').selectOption('148');
+  assert.equal(await page.evaluate(()=>window.ERApp.weaponCurvePoints('str',148).length),148);
+  await page.locator('[data-curve-probe="str"]').evaluate(el=>{el.value='120';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.ok((await page.locator('[data-curve-output="str"]').textContent()).includes('仮想値'));
+  assert.equal(await page.locator('#detail-dialog').evaluate(el=>el.scrollWidth>el.clientWidth),false,'mobile curve overflow');
+  await page.screenshot({path:path.join(report,`${process.env.ER_BROWSER||'chromium'}-curves-mobile.png`)});
   await page.locator('#close-dialog').click();
   await page.locator('#weapon-sort').selectOption('dpsEnemy');
   assert.ok((await page.locator('#weapon-count').textContent()).includes('モデル対応 1/1'));
