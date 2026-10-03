@@ -13,6 +13,7 @@
   const number=(v,digits=0)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ja-JP',{maximumFractionDigits:digits,minimumFractionDigits:digits}):'未計算';
   const lower=s=>String(s??'').normalize('NFKC').toLocaleLowerCase().replace(/\s/g,'');
   const name=x=>x?.name_ja||x?.name_en||'';
+  const ENEMY_NAMES_JA=__ER_ENEMY_NAMES_JA__;
   const option=(value,label,selected=false)=>`<option value="${esc(value)}"${selected?' selected':''}>${esc(label)}</option>`;
   let toastTimer;
   function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
@@ -104,9 +105,7 @@
       $('ash-results').innerHTML=rows.map(a=>`<article class="item"><h3 class="name">${esc(name(a))}</h3><p class="english">${esc(a.name_en)}</p><p class="field-note">主なカテゴリフラグ：${a.types.map(t=>CATEGORY[t]).filter(Boolean).map(esc).join('・')||'対応表なし'}</p></article>`).join('')||'<p class="empty">一致する戦灰がありません。</p>';
     }
     function jpEnemy(e){
-      const map={'Margit, the Fell Omen':'忌み鬼マルギット','Godrick the Grafted':'接ぎ木のゴドリック','Malenia, Blade of Miquella':'ミケラの刃、マレニア','Malenia, Goddess of Rot':'腐敗の女神、マレニア','Starscourge Radahn':'星砕きのラダーン','Promised Consort Radahn':'約束の王ラダーン','Radahn, Consort of Miquella':'ミケラの王ラダーン','Messmer the Impaler':'串刺し公、メスメル','Maliketh, the Black Blade':'黒き剣のマリケス','Elden Beast':'エルデの獣','Radagon of the Golden Order':'黄金律、ラダゴン','Morgott, the Omen King':'忌み王、モーゴット','Mohg, Lord of Blood':'血の君主、モーグ','Rennala, Queen of the Full Moon':'満月の女王、レナラ','Rellana, Twin Moon Knight':'双月の騎士、レラーナ','Bayle the Dread':'暴竜ベール'};
-      for(const [en,ja] of Object.entries(map))if(e.name.includes(en))return ja;
-      return e.name;
+      return ENEMY_NAMES_JA[e?.name]||e?.name||'';
     }
     function fillEnemyOptions(){
       const q=lower($('enemy-search').value),journey=$('enemy-journey').value,selected=C.enemies.get(state.enemy);
@@ -384,3 +383,4 @@
     $('loading').style.color='var(--bad)';console.error(error);
   }
 })();
+
