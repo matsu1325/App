@@ -152,11 +152,32 @@
     function minimumClass(stats) {
       return data.classes.map(c=>({name:c.name_en,level:c.level+STATS.reduce((s,a)=>s+Math.max(0,stats[a]-c.stats[a]),0),wasted:STATS.reduce((s,a)=>s+Math.max(0,c.stats[a]-stats[a]),0)})).sort((a,b)=>a.level-b.level||a.wasted-b.wasted);
     }
+    function buildLevel(state) {
+      const c=data.classes.find(c=>c.name_en===state.className);
+      return c.level+STATS.reduce((s,a)=>s+Math.max(0,state.stats[a]-c.stats[a]),0);
+    }
+    function loadBudget(equip) {
+      // Strict thresholds: exactly 30% / 70% already belongs to the next roll class.
+      const threshold=equip.load*.7,difference=threshold-equip.weight;
+      const tolerance=1e-9;
+      const below=equip.weight/equip.load<.7;
+      return {threshold,canAdd:Math.max(0,Math.ceil((difference-tolerance)*10)-1)/10,
+        mustRemove:below?0:Math.max(1,Math.floor((-difference+tolerance)*10)+1)/10,below};
+    }
+    function equipmentPreview(state,slot,variantId) {
+      if(!Number.isInteger(slot)||slot<0||slot>5||!catalogs.variants.has(variantId))throw new Error('装備先または武器が不明です');
+      const next={...state,weapons:[...state.weapons]};next.weapons[slot]=variantId;
+      const before=equipment(state),after=equipment(next),old=catalogs.variants.get(state.weapons[slot]);
+      const result=(v,stats)=>weapon(v,stats,{twoHand:state.settings.twoHand,upgrade:getUpgrade(v,state.settings)});
+      const current=old?result(old,before.stats):null,candidate=result(catalogs.variants.get(variantId),after.stats);
+      return {before,after,current,candidate,arDelta:candidate.total-(current?.total||0),weightDelta:after.weight-before.weight,budget:loadBudget(after)};
+    }
     function validateState(input) {
       if(!input||input.schema!==1||typeof input!=='object')throw new Error('この形式のビルドは読み込めません');
       const stats={};for(const a of STATS){const n=input.stats?.[a];if(!Number.isInteger(n)||n<1||n>99)throw new Error('能力値は1〜99の整数にしてください');stats[a]=n;}
       const array=(name,map,max)=>{const ar=input[name];if(!Array.isArray(ar)||ar.length>max||ar.some(x=>x!==''&&!map.has(x)))throw new Error('装備データに不明な項目があります');return [...ar];};
       const settings=input.settings||{};
+      if(settings.targetLevel!=null&&(!Number.isInteger(settings.targetLevel)||settings.targetLevel<1||settings.targetLevel>713))throw new Error('目標レベルは1〜713の整数にしてください');
       const number=(name,low,high,def)=>finite(settings[name])?clamp(Math.round(settings[name]),low,high):def;
       const out={schema:1,name:typeof input.name==='string'?input.name.slice(0,80):'無名のビルド',stats,className:data.classes.some(c=>c.name_en===input.className)?input.className:'Vagabond',settings:{upgradeMode:settings.upgradeMode==='custom'?'custom':'max',normal:number('normal',0,25,25),somber:number('somber',0,10,10),twoHand:settings.twoHand===true,scadu:number('scadu',0,20,0),inShadow:settings.inShadow===true,manualMultiplier:finite(settings.manualMultiplier)?clamp(settings.manualMultiplier,0.1,5):1,memory:number('memory',2,12,10),weaponSort:['total','0','1','2','3','4','7','5','8','scaling','enemy','dps','dpsEnemy'].includes(settings.weaponSort)?settings.weaponSort:'total'},weapons:array('weapons',catalogs.variants,6),armor:array('armor',catalogs.armor,4),talismans:array('talismans',catalogs.talismans,4),memorized:array('memorized',catalogs.spells,12),compare:array('compare',catalogs.variants,6),catalyst:catalogs.variants.has(input.catalyst)?input.catalyst:'',enemy:catalogs.enemies.has(input.enemy)?input.enemy:''};
       while(out.weapons.length<6)out.weapons.push('');while(out.armor.length<4)out.armor.push('');while(out.talismans.length<4)out.talismans.push('');
@@ -165,9 +186,10 @@
       if(new Set(out.memorized).size!==out.memorized.length)throw new Error('同じ魔法が重複しています');
       out.memorized=out.memorized.filter(Boolean);
       out.enemy=out.enemy||data.enemies[0].id;
+      out.settings.targetLevel=settings.targetLevel??null;
       out.compare=[...new Set(out.compare.filter(Boolean))];return out;
     }
-    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState};
+    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState};
   }
   const api={create,graph,ATTRS,STATS,TYPES,clamp};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
