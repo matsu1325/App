@@ -28,7 +28,7 @@
     const defaultState={schema:1,name:'',stats:{vig:40,mnd:20,end:25,str:30,dex:25,int:30,fai:25,arc:34},className:'Vagabond',settings:{upgradeMode:'max',normal:25,somber:10,twoHand:false,scadu:0,inShadow:false,manualMultiplier:1,memory:10,weaponSort:'total'},weapons:Array(6).fill(''),armor:Array(4).fill(''),talismans:Array(4).fill(''),memorized:[],compare:[],catalyst:'',enemy:''};
     const defaultEnemy=data.enemies.find(e=>e.journey==='NG'&&e.name.includes('Margit, the Fell Omen'))||data.enemies[0];
     defaultState.enemy=defaultEnemy.id;
-    let state=structuredClone(defaultState), activeTab='weapons', derived, weaponRows=[],spellRows=[],weaponLimit=40,spellLimit=40,saveError='',saved=[],lastWeaponDetail='',restoring=false,storageConflict=false;
+    let state=structuredClone(defaultState), activeTab='weapons', derived, weaponRows=[],spellRows=[],weaponLimit=40,spellLimit=40,saveError='',saved=[],lastWeaponDetail='',restoring=false,storageConflict=false,pendingWeapon='';
     const sortedArmor=[...data.armor].sort((a,b)=>name(a).localeCompare(name(b),'ja'));
     const sortedTalismans=[...data.talismans].sort((a,b)=>name(a).localeCompare(name(b),'ja'));
     const weaponName=v=>`${name(C.weapons.get(v.weapon_id))}［${AFFINITY[v.affinity_id]||v.affinity_id}］`;
@@ -149,7 +149,7 @@
       $('dps-note').textContent='通常攻撃を連続で当てる場合の理論モデルです（未実測）。FP・スタミナは十分にある前提。出血・冷気の発症、条件付きバフ、回避時間は含みません。未対応は末尾に表示します。';
       $('weapon-count').textContent=`${number(weaponRows.length)}件 · ${statsLabel(derived.stats)} · ${state.settings.twoHand?'両手':'片手'}指定 · ${state.settings.upgradeMode==='max'?'最大強化':`通常+${state.settings.normal} / 喪色+${state.settings.somber}`}${['enemy','dpsEnemy'].includes($('weapon-sort').value)?' · '+jpEnemy(selectedEnemy()):''}`;
       if(isDps)$('weapon-count').textContent+=` · モデル対応 ${weaponRows.filter(x=>x.score!==null).length}/${weaponRows.length}件`;
-      $('weapon-results').innerHTML=weaponRows.slice(0,weaponLimit).map(({v,w,r,score},i)=>`<article class="item${state.compare.includes(v.id)?' selected':''}"><div class="rank">${isDps&&score===null?'—':String(i+1).padStart(2,'0')} / ${esc(metric)}</div><div class="item-head"><div><h3 class="name">${esc(name(w))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${isDps&&score===null?'—':number(score,isDps?1:0)}</strong><small>${isDps?'ダメージ / 秒 · ':''}+${r.upgrade}</small></div></div>${badges(v,r)}${isDps?`<p class="english">${score===null?esc(dpsReason(r.dpsResult)):`${state.settings.twoHand?'両手':'片手'}通常攻撃 ${r.dpsResult.hits.length}段 · 1周 ${number(r.dpsResult.cycleSeconds,2)}秒 · 未実測`}</p>`:''}<div class="typed">${typed(r.attack)}</div><div class="typed">${Object.entries(STATUS).filter(([t])=>r.attack[t]>0).map(([t,n])=>`<span>${n} ${number(r.attack[t])}</span>`).join('')}</div><div class="actions"><button class="small" data-weapon-detail="${esc(v.id)}">詳細</button><button class="small" data-compare="${esc(v.id)}">${state.compare.includes(v.id)?'比較から外す':'比較に追加'}</button><button class="small" data-equip-weapon="${esc(v.id)}">右手1へ</button></div></article>`).join('')||'<p class="empty">一致する装備がありません。検索や「装備可能のみ」の条件を変えてください。</p>';
+      $('weapon-results').innerHTML=weaponRows.slice(0,weaponLimit).map(({v,w,r,score},i)=>`<article class="item${state.compare.includes(v.id)?' selected':''}"><div class="rank">${isDps&&score===null?'—':String(i+1).padStart(2,'0')} / ${esc(metric)}</div><div class="item-head"><div><h3 class="name">${esc(name(w))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${isDps&&score===null?'—':number(score,isDps?1:0)}</strong><small>${isDps?'ダメージ / 秒 · ':''}+${r.upgrade}</small></div></div>${badges(v,r)}${isDps?`<p class="english">${score===null?esc(dpsReason(r.dpsResult)):`${state.settings.twoHand?'両手':'片手'}通常攻撃 ${r.dpsResult.hits.length}段 · 1周 ${number(r.dpsResult.cycleSeconds,2)}秒 · 未実測`}</p>`:''}<div class="typed">${typed(r.attack)}</div><div class="typed">${Object.entries(STATUS).filter(([t])=>r.attack[t]>0).map(([t,n])=>`<span>${n} ${number(r.attack[t])}</span>`).join('')}</div><div class="actions"><button class="small" data-weapon-detail="${esc(v.id)}">詳細</button><button class="small" data-compare="${esc(v.id)}">${state.compare.includes(v.id)?'比較から外す':'比較に追加'}</button><button class="small" data-equip-weapon="${esc(v.id)}">装備する</button></div></article>`).join('')||'<p class="empty">一致する装備がありません。検索や「装備可能のみ」の条件を変えてください。</p>';
       $('weapon-more').hidden=weaponLimit>=weaponRows.length;$('compare-count').textContent=state.compare.length;
     }
     function calculateSpells(){
@@ -186,11 +186,17 @@
       const below=EREngine.STATS.filter(a=>state.stats[a]<baseClass.stats[a]);
       $('class-warning').textContent=below.length?`素性の初期値未満：${below.map(a=>LABEL[a]).join('・')}。実際に割り振れる能力値に調整してください。`:`装備補正後：${statsLabel(derived.stats)}`;
       $('build-summary').innerHTML=[['HP',derived.hp,''],['FP',derived.fp,''],['スタミナ',derived.stamina,''],['装備重量',number(derived.weight,1),'/ '+number(derived.load,1)]].map(([title,value,unit])=>`<div class="summary-tile"><small>${title}</small><strong>${typeof value==='number'?number(value):esc(value)}</strong><span class="unit">${esc(unit)}</span></div>`).join('');
+      const weaponResult=v=>engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)});
+      const equipped=state.weapons.map((id,i)=>({v:C.variants.get(id),i})).filter(x=>x.v);
+      const missing=equipped.map(({v,i})=>({v,i,r:weaponResult(v)})).filter(x=>!x.r.usable);
+      const handSummary=[0,3].map(i=>{const v=C.variants.get(state.weapons[i]);return `<div><small>${i===0?'右手1':'左手1'}</small><strong>${v?esc(weaponName(v)):'装備なし'}</strong>${v?`<small>計算AR ${number(weaponResult(v).total)} · +${weaponResult(v).upgrade}</small>`:''}</div>`;}).join('');
+      $('build-overview').innerHTML=`<div class="overview-heading"><strong>現在のビルド · Lv.${level}</strong><span class="badge ${derived.ratio<.7?'ok':'bad'}">${esc(derived.roll)} · ${number(derived.ratio*100,1)}%</span><button class="small" data-tab="equipment">装備構成を開く</button></div><div class="overview-weapons">${handSummary}</div>${below.length?`<p class="overview-warning">素性の初期値未満：${below.map(a=>LABEL[a]).join('・')}</p>`:''}${missing.map(({v,i,r})=>`<p class="overview-warning">${slotName(i)}：${esc(weaponName(v))} — ${esc(missingText(r.missing))}</p>`).join('')}${state.memorized.some(id=>Object.entries(C.spells.get(id).requirements).some(([a,n])=>derived.stats[a]<n))?'<p class="overview-warning">記憶魔法に要求能力不足があります。</p>':''}${memoryUsed()>memoryAvailable()?'<p class="overview-warning">記憶枠が不足しています。</p>':''}`;
+      renderCompareBar();
       $('compare-count').textContent=state.compare.length;
       $('autosave-status').textContent=saveError||'入力はこの端末に保存されます';$('autosave-status').className='status'+(saveError?' error':'');
     }
     function renderEquipment(){
-      for(let i=0;i<6;i++){const v=C.variants.get(state.weapons[i]);const r=v?engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)}):null;$('weapon-slot-note-'+i).textContent=r?`計算AR ${number(r.total)} · 重量 ${C.weapons.get(v.weapon_id).weight} · ${r.usable?'装備可能':missingText(r.missing)}`:'ランキングの「右手1へ」でも選べます';}
+      for(let i=0;i<6;i++){const v=C.variants.get(state.weapons[i]);const r=v?engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)}):null;$('weapon-slot-note-'+i).textContent=r?`計算AR ${number(r.total)} · 重量 ${C.weapons.get(v.weapon_id).weight} · ${r.usable?'装備可能':missingText(r.missing)}`:'ランキングの「装備する」でも選べます';}
       for(let i=0;i<4;i++){$('armor-note-'+i).textContent=state.armor[i]?`重量 ${C.armor.get(state.armor[i]).weight}`:'';const t=C.talismans.get(state.talismans[i]);const e=t&&data.effects[t.name_en];$('talisman-note-'+i).textContent=t?`重量 ${t.weight} · ${e?.text||'特殊効果は未収録'}`:'';}
       const n=derived;
       $('equipment-summary').innerHTML=`<div class="panel"><div class="row"><h3>装備重量 ${number(n.weight,1)} / ${number(n.load,1)}</h3><span class="badge ${n.ratio<.7?'ok':'bad'}">${number(n.ratio*100,1)}% · ${n.roll}</span></div><div class="progress"><span style="width:${Math.min(100,n.ratio*100)}%"></span></div><p class="muted">軽量 &lt;30% / 中量 &lt;70% / 重量 &lt;100%</p><div class="table-wrap"><table><thead><tr><th>カット率（常時PvE）</th>${DAMAGE.map(x=>`<th>${x}</th>`).join('')}<th>強靭</th></tr></thead><tbody><tr><td>装備合成</td>${n.negation.map(x=>`<td>${number(x,1)}%</td>`).join('')}<td>${number(n.poise)}</td></tr></tbody></table></div><p class="muted">装備補正後：${EREngine.STATS.map(a=>LABEL[a]+' '+n.stats[a]).join(' / ')}</p>${n.effects.length?`<details style="margin-top:12px"><summary>装備の効果説明（${n.effects.length}件）</summary>${n.effects.map(e=>`<p class="english" style="margin:10px 0"><strong>${esc(e.name)}</strong><br>${esc(e.text)}${e.always?'':'<br>条件付き効果は未適用'}</p>`).join('')}</details>`:''}</div>`;
@@ -212,7 +218,7 @@
     }
     function activate(tab){
       activeTab=tab;
-      for(const button of document.querySelectorAll('[data-tab]')){const yes=button.dataset.tab===tab;button.setAttribute('aria-selected',String(yes));button.tabIndex=yes?0:-1;}
+      for(const button of document.querySelectorAll('.tabs [data-tab]')){const yes=button.dataset.tab===tab;button.setAttribute('aria-selected',String(yes));button.tabIndex=yes?0:-1;}
       for(const panel of document.querySelectorAll('[role=tabpanel]'))panel.hidden=panel.id!=='panel-'+tab;
       renderActive();
     }
@@ -225,7 +231,7 @@
       const moves=movesByWeapon.get(v.weapon_id)||[];
       const skill=data.skills?.[w.default_skill_id];
       const gains=EREngine.ATTRS.map(a=>{if(derived.stats[a]>=99)return {a,n:null};const stats={...derived.stats,[a]:derived.stats[a]+1};return {a,n:engine.weapon(v,stats,{upgrade:r.upgrade,twoHand:state.settings.twoHand}).total-r.total};});
-      showDialog(`<h2>${esc(name(w))}</h2><p class="english">${esc(v.name_en)}</p>`,`${badges(v,r)}<div class="dialog-grid"><div class="panel"><small>計算AR / +${r.upgrade}</small><h2 style="color:var(--gold)">${number(r.total,1)}</h2><div class="typed">${typed(r.attack)}</div><p class="muted">重量 ${w.weight} / ${state.settings.twoHand?'両手':'片手'}指定</p><p class="english">要求：${Object.entries(v.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')||'なし'}</p></div><div class="panel"><h3>能力値 +1 のAR増分</h3>${gains.map(g=>`<div class="row"><span>${LABEL[g.a]}</span><strong class="increment">${g.n===null?'上限':(g.n>=0?'+':'')+number(g.n,2)}</strong></div>`).join('')}<small>装備補正後の能力値を1増やした比較。</small></div></div><div class="table-wrap"><table><thead><tr><th>攻撃属性</th><th>AR / 蓄積</th><th>触媒補正</th></tr></thead><tbody>${Array.from({length:12},(_,t)=>r.attack[t]||r.spellScaling[t]?`<tr><td>${DAMAGE[t]||STATUS[t]}</td><td>${number(r.attack[t]||0,2)}</td><td>${r.spellScaling[t]?number(r.spellScaling[t],2):'—'}</td></tr>`:'').join('')}</tbody></table></div><h3 style="margin-top:16px">対象敵と攻撃パターン</h3><p class="english">${esc(jpEnemy(selectedEnemy()))} / ${esc(selectedEnemy().journey)}</p><label>攻撃成分<select id="detail-move">${option('standard','標準比較：MV100%・選択中の物理属性')}${moves.map(m=>option(m.id,`${m.name} · MV ${m.raw}`)).join('')}</select></label><div id="detail-damage" style="margin-top:12px"></div><div class="notice">各ヒットを別々に防御計算します。条件付きMV、複合する物理属性、追加弾・固有効果は未計算です。</div>${data.effects[w.name_en]?`<p class="english">装備の効果説明：${esc(data.effects[w.name_en].text)}（攻撃効果は未反映）</p>`:''}<div class="actions"><button data-equip-weapon="${esc(id)}" class="primary">右手1に装備</button><button data-compare="${esc(id)}">比較候補を切り替える</button></div>`);
+      showDialog(`<h2>${esc(name(w))}</h2><p class="english">${esc(v.name_en)}</p>`,`${badges(v,r)}<div class="dialog-grid"><div class="panel"><small>計算AR / +${r.upgrade}</small><h2 style="color:var(--gold)">${number(r.total,1)}</h2><div class="typed">${typed(r.attack)}</div><p class="muted">重量 ${w.weight} / ${state.settings.twoHand?'両手':'片手'}指定</p><p class="english">要求：${Object.entries(v.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')||'なし'}</p></div><div class="panel"><h3>能力値 +1 のAR増分</h3>${gains.map(g=>`<div class="row"><span>${LABEL[g.a]}</span><strong class="increment">${g.n===null?'上限':(g.n>=0?'+':'')+number(g.n,2)}</strong></div>`).join('')}<small>装備補正後の能力値を1増やした比較。</small></div></div><div class="table-wrap"><table><thead><tr><th>攻撃属性</th><th>AR / 蓄積</th><th>触媒補正</th></tr></thead><tbody>${Array.from({length:12},(_,t)=>r.attack[t]||r.spellScaling[t]?`<tr><td>${DAMAGE[t]||STATUS[t]}</td><td>${number(r.attack[t]||0,2)}</td><td>${r.spellScaling[t]?number(r.spellScaling[t],2):'—'}</td></tr>`:'').join('')}</tbody></table></div><h3 style="margin-top:16px">対象敵と攻撃パターン</h3><p class="english">${esc(jpEnemy(selectedEnemy()))} / ${esc(selectedEnemy().journey)}</p><label>攻撃成分<select id="detail-move">${option('standard','標準比較：MV100%・選択中の物理属性')}${moves.map(m=>option(m.id,`${m.name} · MV ${m.raw}`)).join('')}</select></label><div id="detail-damage" style="margin-top:12px"></div><div class="notice">各ヒットを別々に防御計算します。条件付きMV、複合する物理属性、追加弾・固有効果は未計算です。</div>${data.effects[w.name_en]?`<p class="english">装備の効果説明：${esc(data.effects[w.name_en].text)}（攻撃効果は未反映）</p>`:''}<div class="actions"><button data-equip-weapon="${esc(id)}" class="primary">装備する</button><button data-compare="${esc(id)}">比較候補を切り替える</button></div>`);
       renderDetailDamage();
       renderDpsDetail(v,r);
       $('dialog-content').insertAdjacentHTML('beforeend',`<section id="detail-curves"><h3 style="margin-top:20px">能力値別ダメージ推移</h3><p class="field-note">他の能力値・派生・強化・敵・攻撃成分を固定し、装備補正後の能力値だけを変更。5能力を同じグラフに重ねて表示。破線は要求能力不足。</p><label>横軸の範囲<select id="curve-range">${option('99','1〜99（ゲーム内）')}${option('148','1〜148（100以上は仮想）')}</select></label><div id="curve-charts"></div></section>`);
@@ -288,12 +294,26 @@
       const v=C.spellVariants.get(id),s=C.spells.get(v.spell_id),row=spellRows.find(x=>x.v.id===id),r=row?.r;
       showDialog(`<h2>${esc(name(s))}</h2><p class="english">${esc(v.name_en)}</p>`,`<p class="muted">要求：${Object.entries(s.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')} · ${s.memory_slots}記憶枠</p><div class="table-wrap"><table><thead><tr><th>属性</th><th>元係数</th><th>防御前威力</th></tr></thead><tbody>${EREngine.TYPES.map((t,i)=>`<tr><td>${DAMAGE[i]}</td><td>${number(v.typed_attack_coefficient[t],2)}</td><td>${r?.power?number(r.power[i]*multiplier(),2):'未計算'}</td></tr>`).join('')}</tbody></table></div><p class="muted">FP ${esc(v.fp)} / 溜めFP欄 ${esc(v.charged_fp)} / スタミナ ${esc(v.stamina)}</p><p class="muted">${v.no_scale?'固定係数・補正なし':v.only_int?'知力のみの触媒補正':v.only_faith?'信仰のみの触媒補正':'属性別の触媒補正を使用'}</p><p class="english">攻撃ID：${esc(v.attack_id??'直接攻撃参照なし')}<br>選択触媒：${esc(row?.cat?weaponName(C.variants.get(row.cat)):'なし')}</p><div class="notice">元係数が0・空欄でも、補助効果や回復がないとは限りません。成分ごとの表であり、詠唱1回の全ヒットを表すものではありません。</div><h3>同じ魔法の派生成分</h3><div class="table-wrap"><table><thead><tr><th>元資料の成分名</th><th>FP</th></tr></thead><tbody>${s.variant_ids.map(vid=>{const x=C.spellVariants.get(vid);return `<tr><td>${esc(x.name_en)}</td><td>${esc(x.fp)}</td></tr>`;}).join('')}</tbody></table></div><button data-memorize="${esc(s.id)}" class="primary">記憶を切り替える</button>`);
     }
+    function slotName(i){return `${i<3?'右手':'左手'}${i%3+1}`;}
+    function renderCompareBar(){
+      const has=state.compare.length>0;
+      $('compare-bar').hidden=!has;document.body.classList.toggle('has-compare',has);
+      $('compare-bar-count').textContent=`比較候補 ${state.compare.length}/6`;
+      $('compare-bar-items').innerHTML=state.compare.map(id=>`<button data-compare="${esc(id)}" aria-label="${esc(weaponName(C.variants.get(id)))}を比較から外す">${esc(weaponName(C.variants.get(id)))}<span aria-hidden="true">×</span></button>`).join('');
+    }
+    function chooseEquipSlot(id){
+      if(!C.variants.has(id))return;
+      pendingWeapon=id;
+      $('equip-name').textContent=weaponName(C.variants.get(id));
+      $('equip-targets').innerHTML=state.weapons.map((current,i)=>`<button data-equip-target="${i}"><strong>${slotName(i)}に装備</strong><small>現在：${current?esc(weaponName(C.variants.get(current))):'装備なし'}</small></button>`).join('');
+      $('equip-dialog').showModal();
+    }
     function showCompare(){
       const rows=state.compare.map(id=>{const v=C.variants.get(id);return {v,r:engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)})};});
       showDialog('<h2>比較候補</h2><p class="english">同じ能力値・強化設定で最大6派生</p>',rows.length?`<div class="table-wrap compare-table"><table><thead><tr><th>装備</th><th>AR</th>${DAMAGE.map(n=>`<th>${n}</th>`).join('')}<th>重量</th><th>条件</th><th></th></tr></thead><tbody>${rows.map(({v,r})=>`<tr><td>${esc(weaponName(v))}<br>+${r.upgrade}</td><td>${number(r.total,1)}</td>${Array.from({length:5},(_,i)=>`<td>${number(r.attack[i]||0,1)}</td>`).join('')}<td>${C.weapons.get(v.weapon_id).weight}</td><td>${r.usable?'装備可能':esc(missingText(r.missing))}</td><td><button data-compare="${esc(v.id)}">外す</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">武器一覧の「比較に追加」で候補を残してください。</p>');
       lastWeaponDetail='';
     }
-    function toggleCompare(id){if(state.compare.includes(id))state.compare=state.compare.filter(x=>x!==id);else if(state.compare.length>=6){toast('比較候補は6件までです');return;}else state.compare.push(id);update({reset:false});if($('detail-dialog').open&&!lastWeaponDetail)showCompare();}
+    function toggleCompare(id){if(state.compare.includes(id))state.compare=state.compare.filter(x=>x!==id);else if(state.compare.length>=6){toast('比較候補は6件までです');return;}else state.compare.push(id);update({reset:false});if($('detail-dialog').open&&$('dialog-content').querySelector('.compare-table'))showCompare();}
     function toggleMemory(id){if(state.memorized.includes(id))state.memorized=state.memorized.filter(x=>x!==id);else {const slots=C.spells.get(id).memory_slots;if(memoryUsed()+slots>memoryAvailable()){toast('記憶枠が足りません。装備構成で枠数を設定してください。');return;}state.memorized.push(id);}update({reset:false});toast('記憶魔法を更新しました');}
     function serialize(){return JSON.stringify({...state,name:$('build-name').value.slice(0,80)});}
     function download(){const blob=new Blob([serialize()],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='elden-ring-build.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('ビルドJSONを書き出しました');}
@@ -349,7 +369,8 @@
       if(el.dataset.weaponDetail){showWeaponDetail(el.dataset.weaponDetail);return;}
       if(el.dataset.spellDetail){lastWeaponDetail='';showSpellDetail(el.dataset.spellDetail);return;}
       if(el.dataset.compare){toggleCompare(el.dataset.compare);return;}
-      if(el.dataset.equipWeapon){state.weapons[0]=el.dataset.equipWeapon;syncControls();update({reset:false});toast('右手1に装備しました');return;}
+      if(el.dataset.equipWeapon){chooseEquipSlot(el.dataset.equipWeapon);return;}
+      if(el.dataset.equipTarget!==undefined){const i=Number(el.dataset.equipTarget);if(!pendingWeapon||!Number.isInteger(i)||i<0||i>5)return;state.weapons[i]=pendingWeapon;pendingWeapon='';syncControls();update({reset:false});$('equip-dialog').close();toast(slotName(i)+'に装備しました');return;}
       if(el.dataset.memorize){toggleMemory(el.dataset.memorize);return;}
       if(el.dataset.loadSave){const record=saved?.find(s=>s.key===el.dataset.loadSave);if(record)applyState(record.state);return;}
       if(el.dataset.deleteSave){if(confirm('この保存ビルドを削除しますか？'))writeSaves(saved.filter(s=>s.key!==el.dataset.deleteSave));return;}
@@ -357,7 +378,8 @@
         case 'apply-class':if(confirm('現在の能力値を素性の初期値に戻しますか？')){state.stats={...data.classes.find(c=>c.name_en===state.className).stats};syncControls();update();}break;
         case 'weapon-more':weaponLimit+=40;renderWeapons();break;
         case 'spell-more':spellLimit+=40;renderSpells();break;
-        case 'show-compare':showCompare();break;
+        case 'show-compare':case 'compare-bar-open':showCompare();break;
+        case 'close-equip':$('equip-dialog').close();pendingWeapon='';break;
         case 'close-dialog':$('detail-dialog').close();lastWeaponDetail='';break;
         case 'scope-link':event.preventDefault();activate('about');break;
         case 'rank-for-enemy':state.settings.weaponSort='enemy';$('weapon-sort').value='enemy';activate('weapons');persist();break;
@@ -370,7 +392,7 @@
         case 'keep-current':if(confirm('別タブの内容を、このタブのビルドで上書きしますか？')){storageConflict=false;$('conflict-actions').hidden=true;persist();}break;
       }
     });
-    document.querySelector('.tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=[...document.querySelectorAll('[data-tab]')],i=tabs.findIndex(t=>t.dataset.tab===activeTab),next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();activate(tabs[next].dataset.tab);tabs[next].focus();});
+    document.querySelector('.tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=[...document.querySelectorAll('.tabs [data-tab]')],i=tabs.findIndex(t=>t.dataset.tab===activeTab),next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();activate(tabs[next].dataset.tab);tabs[next].focus();});
     window.addEventListener('storage',event=>{if(event.key===KEY){storageConflict=true;saveError='別タブでビルドが変更されました。自動保存を停止しています。';$('autosave-status').textContent=saveError;$('autosave-status').className='status error';$('conflict-actions').hidden=false;toast('別タブで保存内容が変わりました');}else if(event.key===SAVES){try{const ar=JSON.parse(event.newValue||'[]');if(!Array.isArray(ar)||ar.length>30)throw new Error();saved=ar.map(s=>({key:s.key,updated:s.updated,state:engine.validateState(s.state)}));if(activeTab==='saves')renderSaves();toast('別タブの保存一覧を反映しました');}catch(e){saved=null;toast('別タブの保存一覧を確認できません');}}});
     setupControls();syncControls();refreshSummary();renderActive();
     if(matchMedia('(max-width:720px)').matches){$('build-controls').open=false;$('weapon-advanced').open=false;$('weapon-assumptions').open=false;}
