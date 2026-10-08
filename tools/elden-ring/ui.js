@@ -9,7 +9,7 @@
   const CLASSES={Vagabond:'放浪騎士',Warrior:'剣士',Hero:'勇者',Bandit:'盗賊',Astrologer:'星見',Prophet:'預言者',Samurai:'侍',Prisoner:'囚人',Confessor:'密使',Wretch:'素寒貧'};
   const ARMOR_LABEL=['頭','胴','腕','脚'], ARMOR_SLOT=['Head','Body','Arms','Legs'];
   const JOURNEYS=['NG','NG+','NG+2','NG+3','NG+4','NG+5','NG+6','NG+7'];
-  const KEY='elden-ring-build-v1', SAVES='elden-ring-saves-v1';
+  const KEY='elden-ring-build-v1', SAVES='elden-ring-saves-v1', FAVORITES='elden-ring-favorites-v1';
   const number=(v,digits=0)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('ja-JP',{maximumFractionDigits:digits,minimumFractionDigits:digits}):'未計算';
   const lower=s=>String(s??'').normalize('NFKC').toLocaleLowerCase().replace(/\s/g,'');
   const name=x=>x?.name_ja||x?.name_en||'';
@@ -25,7 +25,7 @@
     if(buffer.byteLength!==payload.raw_bytes)throw new Error('内蔵データのサイズが一致しません');
     if(globalThis.crypto?.subtle){const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',buffer)),b=>b.toString(16).padStart(2,'0')).join('');if(hash!==payload.sha256)throw new Error('内蔵データの検証に失敗しました');}
     const data=JSON.parse(new TextDecoder().decode(buffer)), engine=EREngine.create(data,JSON.parse($('er-dps-data').textContent)), C=engine.catalogs;
-    const defaultState={schema:1,name:'',stats:{vig:40,mnd:20,end:25,str:30,dex:25,int:30,fai:25,arc:34},className:'Vagabond',settings:{upgradeMode:'max',normal:25,somber:10,twoHand:false,scadu:0,inShadow:false,manualMultiplier:1,memory:10,weaponSort:'total'},weapons:Array(6).fill(''),armor:Array(4).fill(''),talismans:Array(4).fill(''),memorized:[],compare:[],catalyst:'',enemy:''};
+    const defaultState={schema:1,name:'',stats:{vig:40,mnd:20,end:25,str:30,dex:25,int:30,fai:25,arc:34},className:'Vagabond',settings:{upgradeMode:'max',normal:25,somber:10,twoHand:false,scadu:0,inShadow:false,manualMultiplier:1,memory:10,weaponSort:'total',targetLevel:null},weapons:Array(6).fill(''),armor:Array(4).fill(''),talismans:Array(4).fill(''),memorized:[],compare:[],catalyst:'',enemy:''};
     const defaultEnemy=data.enemies.find(e=>e.journey==='NG'&&e.name.includes('Margit, the Fell Omen'))||data.enemies[0];
     defaultState.enemy=defaultEnemy.id;
     let state=structuredClone(defaultState), activeTab='weapons', derived, weaponRows=[],spellRows=[],weaponLimit=40,spellLimit=40,saveError='',saved=[],lastWeaponDetail='',restoring=false,storageConflict=false,pendingWeapon='';
@@ -55,6 +55,34 @@
     catch(e){toast('保存一覧を復元できませんでした。元データは変更していません。');saved=null;}
     if(location.hash.startsWith('#build='))try{state=engine.validateState(decodeShare(location.hash));toast('共有されたビルドを読み込みました');}catch(e){toast('共有ビルドを読み込めません：'+e.message);}
     state.name=state.name==='無名のビルド'?'':state.name;
+    let favorites=[],favoriteError='',favoriteBlocked=false;
+    const spellSelections=new Map();
+    let undoStack=[],redoStack=[],lastCommitted=structuredClone(state);
+    function readFavorites(text){const input=JSON.parse(text||'{"schema":1,"ids":[]}');if(input.schema!==1||!Array.isArray(input.ids)||input.ids.length>data.weapons.length||input.ids.some(id=>!C.weapons.has(id)))throw new Error();return [...new Set(input.ids)];}
+    try{favorites=readFavorites(localStorage.getItem(FAVORITES));}catch{favoriteBlocked=true;favoriteError='お気に入りを復元できません。保存済みの値を保護しています。';}
+    function toggleFavorite(id){
+      if(favoriteBlocked){toast(favoriteError);return;}
+      const next=favorites.includes(id)?favorites.filter(x=>x!==id):[...favorites,id];
+      try{localStorage.setItem(FAVORITES,JSON.stringify({schema:1,ids:next}));favorites=next;favoriteError='';}catch{favoriteError='お気に入りの保存に失敗しました。';toast(favoriteError);}
+      calculateWeapons();
+    }
+    function recordHistory(){
+      if(JSON.stringify(state)===JSON.stringify(lastCommitted))return;
+      undoStack.push(lastCommitted);if(undoStack.length>20)undoStack.shift();redoStack=[];lastCommitted=structuredClone(state);
+    }
+    function renderHistory(){
+      $('undo-build').disabled=storageConflict||undoStack.length===0;$('redo-build').disabled=storageConflict||redoStack.length===0;
+      $('history-status').textContent=storageConflict?'別タブの変更を確認してください':`取り消せる操作 ${undoStack.length}/20 · やり直し ${redoStack.length}`;
+    }
+    function restoreHistory(redo=false){
+      if(storageConflict){toast('別タブの変更を確認してから操作してください');return;}
+      const from=redo?redoStack:undoStack,to=redo?undoStack:redoStack;if(!from.length)return;
+      to.push(structuredClone(state));const currentName=state.name;state=from.pop();state.name=currentName;lastCommitted=structuredClone(state);
+      $('equip-dialog').close();$('detail-dialog').close();pendingWeapon='';lastWeaponDetail='';
+      syncControls();update({record:false});toast(redo?'操作をやり直しました':'操作を取り消しました');
+    }
+    function weightBudgetText(equip){const b=engine.loadBudget(equip);return b.below?`中量以下を維持：あと${number(b.canAdd,1)}まで追加可能`:`中量に戻す：${number(b.mustRemove,1)}以上軽くする`;}
+    function signed(n,digits=1){return (n>0?'+':'')+number(n,digits);}
     function setupControls(){
       $('class-select').innerHTML=data.classes.map(c=>option(c.name_en,CLASSES[c.name_en]||c.name_en)).join('');
       $('stat-fields').innerHTML=EREngine.STATS.map(a=>`<label>${LABEL[a]}<span class="stat-input"><button type="button" data-step="${a}" data-delta="-1" aria-label="${LABEL[a]}を1下げる">−</button><input id="stat-${a}" aria-label="${LABEL[a]}" data-stat="${a}" type="number" min="1" max="99" inputmode="numeric"><button type="button" data-step="${a}" data-delta="1" aria-label="${LABEL[a]}を1上げる">＋</button></span></label>`).join('');
@@ -79,6 +107,7 @@
       $('weapon-sort').value=state.settings.weaponSort||'total';$('normal-upgrade').value=state.settings.normal;$('somber-upgrade').value=state.settings.somber;$('two-hand').checked=state.settings.twoHand;
       $('scadu-level').value=state.settings.scadu;$('in-shadow').checked=state.settings.inShadow;$('manual-multiplier').value=state.settings.manualMultiplier;$('memory-slots').value=state.settings.memory;
       $('build-name').value=state.name;$('catalyst-select').value=state.catalyst;
+      $('target-level').value=state.settings.targetLevel??'';
       fillWeaponOptions();
       for(const select of document.querySelectorAll('[data-weapon-slot]'))select.value=state.weapons[+select.dataset.weaponSlot];
       for(const select of document.querySelectorAll('[data-talisman-slot]'))select.value=state.talismans[+select.dataset.talismanSlot];
@@ -134,6 +163,7 @@
       let rows=[];
       for(const v of data.variants){const w=C.weapons.get(v.weapon_id),d=engine.decoded[v.source_regulation_index];
         if(q&&!lower(name(w)+' '+w.name_en+' '+v.name_en).includes(q))continue;
+        if($('weapon-favorites').checked&&!favorites.includes(w.id))continue;
         if(category&&d.weaponType!==+category)continue;if(affinity&&v.affinity_id!==+affinity)continue;if(content==='dlc'&&!w.dlc||content==='base'&&w.dlc)continue;
         const r=engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)});if(usable&&!r.usable)continue;
         if(dpsMode())r.dpsResult=getWeaponDps(v,r);
@@ -145,11 +175,12 @@
     }
     function renderWeapons(){
       const metric=weaponMetric(),isDps=dpsMode();
+      $('favorite-count').textContent=favorites.length;$('favorite-status').textContent=favoriteError;
       $('dps-note').hidden=!isDps;
       $('dps-note').textContent='通常攻撃を連続で当てる場合の理論モデルです（未実測）。FP・スタミナは十分にある前提。出血・冷気の発症、条件付きバフ、回避時間は含みません。未対応は末尾に表示します。';
       $('weapon-count').textContent=`${number(weaponRows.length)}件 · ${statsLabel(derived.stats)} · ${state.settings.twoHand?'両手':'片手'}指定 · ${state.settings.upgradeMode==='max'?'最大強化':`通常+${state.settings.normal} / 喪色+${state.settings.somber}`}${['enemy','dpsEnemy'].includes($('weapon-sort').value)?' · '+jpEnemy(selectedEnemy()):''}`;
       if(isDps)$('weapon-count').textContent+=` · モデル対応 ${weaponRows.filter(x=>x.score!==null).length}/${weaponRows.length}件`;
-      $('weapon-results').innerHTML=weaponRows.slice(0,weaponLimit).map(({v,w,r,score},i)=>`<article class="item${state.compare.includes(v.id)?' selected':''}"><div class="rank">${isDps&&score===null?'—':String(i+1).padStart(2,'0')} / ${esc(metric)}</div><div class="item-head"><div><h3 class="name">${esc(name(w))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${isDps&&score===null?'—':number(score,isDps?1:0)}</strong><small>${isDps?'ダメージ / 秒 · ':''}+${r.upgrade}</small></div></div>${badges(v,r)}${isDps?`<p class="english">${score===null?esc(dpsReason(r.dpsResult)):`${state.settings.twoHand?'両手':'片手'}通常攻撃 ${r.dpsResult.hits.length}段 · 1周 ${number(r.dpsResult.cycleSeconds,2)}秒 · 未実測`}</p>`:''}<div class="typed">${typed(r.attack)}</div><div class="typed">${Object.entries(STATUS).filter(([t])=>r.attack[t]>0).map(([t,n])=>`<span>${n} ${number(r.attack[t])}</span>`).join('')}</div><div class="actions"><button class="small" data-weapon-detail="${esc(v.id)}">詳細</button><button class="small" data-compare="${esc(v.id)}">${state.compare.includes(v.id)?'比較から外す':'比較に追加'}</button><button class="small" data-equip-weapon="${esc(v.id)}">装備する</button></div></article>`).join('')||'<p class="empty">一致する装備がありません。検索や「装備可能のみ」の条件を変えてください。</p>';
+      $('weapon-results').innerHTML=weaponRows.slice(0,weaponLimit).map(({v,w,r,score},i)=>`<article class="item${state.compare.includes(v.id)?' selected':''}"><div class="rank">${isDps&&score===null?'—':String(i+1).padStart(2,'0')} / ${esc(metric)}</div><div class="item-head"><div><h3 class="name">${esc(name(w))}</h3><button class="small favorite-button" data-favorite="${esc(w.id)}" aria-pressed="${favorites.includes(w.id)}" aria-label="${esc(name(w))}のお気に入りを切り替える"${favoriteBlocked?' disabled':''}>${favorites.includes(w.id)?'★ お気に入り':'☆ お気に入り'}</button><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${isDps&&score===null?'—':number(score,isDps?1:0)}</strong><small>${isDps?'ダメージ / 秒 · ':''}+${r.upgrade}</small></div></div>${badges(v,r)}${isDps?`<p class="english">${score===null?esc(dpsReason(r.dpsResult)):`${state.settings.twoHand?'両手':'片手'}通常攻撃 ${r.dpsResult.hits.length}段 · 1周 ${number(r.dpsResult.cycleSeconds,2)}秒 · 未実測`}</p>`:''}<div class="typed">${typed(r.attack)}</div><div class="typed">${Object.entries(STATUS).filter(([t])=>r.attack[t]>0).map(([t,n])=>`<span>${n} ${number(r.attack[t])}</span>`).join('')}</div><div class="actions"><button class="small" data-weapon-detail="${esc(v.id)}">詳細</button><button class="small" data-compare="${esc(v.id)}">${state.compare.includes(v.id)?'比較から外す':'比較に追加'}</button><button class="small" data-equip-weapon="${esc(v.id)}">装備する</button></div></article>`).join('')||'<p class="empty">一致する装備がありません。検索や「装備可能のみ」の条件を変えてください。</p>';
       $('weapon-more').hidden=weaponLimit>=weaponRows.length;$('compare-count').textContent=state.compare.length;
     }
     function calculateSpells(){
@@ -175,14 +206,21 @@
     }
     function renderSpells(){
       const sort=$('spell-sort').value,metric=sort==='efficiency'?'成分威力 / FP':sort==='enemy'?'推定ダメージ':'防御前威力';
-      $('spell-count').textContent=`${number(spellRows.length)}派生成分 / ${new Set(spellRows.map(x=>x.s.id)).size}魔法 · 記憶 ${memoryUsed()}/${memoryAvailable()}枠`;
-      $('spell-results').innerHTML=spellRows.slice(0,spellLimit).map(({v,s,r,cat,score},i)=>`<article class="item"><div class="rank">${String(i+1).padStart(2,'0')} / ${metric}</div><div class="item-head"><div><h3 class="name">${esc(name(s))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${number(score,sort==='efficiency'?1:0)}</strong><small>${r.fp>0?`FP ${r.fp}`:'FP要確認'}</small></div></div><div class="badges"><span class="badge">${s.type==='Sorcery'?'魔術':'祈祷'}</span><span class="badge">${s.memory_slots}枠</span><span class="badge ${r.usable?'ok':'bad'}">${r.required.length?esc(missingText(r.required)):!r.correctTool?'対応触媒なし':!r.catalyst?.usable?'触媒の能力不足':'使用可能'}</span></div><p class="english">触媒：${esc(cat?name(C.weapons.get(C.variants.get(cat).weapon_id)):'なし')} ${r.catalyst?'+'+r.catalyst.upgrade:''}</p><div class="typed">${r.power?typed(r.power.map(n=>n*multiplier())):'直接攻撃成分は未計算'}</div><div class="actions"><button class="small" data-spell-detail="${esc(v.id)}">係数・詳細</button><button class="small" data-memorize="${esc(s.id)}">${state.memorized.includes(s.id)?'記憶から外す':'記憶する'}</button></div></article>`).join('')||'<p class="empty">一致する魔法がありません。触媒や能力値、検索条件を変えてください。</p>';
-      $('spell-more').hidden=spellLimit>=spellRows.length;
+      const groups=new Map();
+      for(const row of spellRows){if(!groups.has(row.s.id))groups.set(row.s.id,[]);groups.get(row.s.id).push(row);}
+      const cards=[...groups.values()].map(rows=>({rows,selected:rows.find(row=>row.v.id===spellSelections.get(row.s.id))||rows[0]}));
+      cards.sort(sort==='name'?(a,b)=>name(a.selected.s).localeCompare(name(b.selected.s),'ja'):(a,b)=>(b.selected.score??-Infinity)-(a.selected.score??-Infinity)||a.selected.s.id.localeCompare(b.selected.s.id));
+      $('spell-count').textContent=`${cards.length}魔法 / ${number(spellRows.length)}派生成分 · 記憶 ${memoryUsed()}/${memoryAvailable()}枠`;
+      $('spell-results').innerHTML=cards.slice(0,spellLimit).map(({rows,selected:{v,s,r,cat,score}},i)=>`<article class="item" data-spell-card="${esc(s.id)}"><div class="rank">${score===null?'—':String(i+1).padStart(2,'0')} / ${metric}</div><div class="item-head"><div><h3 class="name">${esc(name(s))}</h3><p class="english">${esc(v.name_en)}</p></div><div class="score"><strong>${number(score,sort==='efficiency'?1:0)}</strong><small>${r.fp>0?`FP ${r.fp}`:'FP要確認'}</small></div></div>${rows.length>1?`<label class="spell-component">比較する成分<select data-spell-component="${esc(s.id)}">${rows.map(row=>option(row.v.id,`${row.v.name_en} · FP ${row.r.fp??'未計算'}`,row.v.id===v.id)).join('')}</select></label>`:'<p class="field-note">比較できる成分：1件</p>'}<div class="badges"><span class="badge">${s.type==='Sorcery'?'魔術':'祈祷'}</span><span class="badge">${s.memory_slots}枠</span><span class="badge ${r.usable?'ok':'bad'}">${r.required.length?esc(missingText(r.required)):!r.correctTool?'対応触媒なし':!r.catalyst?.usable?'触媒の能力不足':'使用可能'}</span></div><p class="english">触媒：${esc(cat?name(C.weapons.get(C.variants.get(cat).weapon_id)):'なし')} ${r.catalyst?'+'+r.catalyst.upgrade:''}</p><div class="typed">${r.power?typed(r.power.map(n=>n*multiplier())):'直接攻撃成分は未計算'}</div><div class="actions"><button class="small" data-spell-detail="${esc(v.id)}">係数・詳細</button><button class="small" data-memorize="${esc(s.id)}">${state.memorized.includes(s.id)?'記憶から外す':'記憶する'}</button></div></article>`).join('')||'<p class="empty">一致する魔法がありません。触媒や能力値、検索条件を変えてください。</p>';
+      $('spell-more').hidden=spellLimit>=cards.length;
     }
     function refreshSummary(){
       derived=engine.equipment(state);
-      const baseClass=data.classes.find(c=>c.name_en===state.className),level=baseClass.level+EREngine.STATS.reduce((s,a)=>s+Math.max(0,state.stats[a]-baseClass.stats[a]),0);
+      const baseClass=data.classes.find(c=>c.name_en===state.className),level=engine.buildLevel(state);
       $('level-chip').textContent='Lv.'+level;
+      const remaining=state.settings.targetLevel==null?null:state.settings.targetLevel-level;
+      const budgetText=remaining===null?'目標レベルを入力すると残りポイントを表示します。':remaining<0?`目標Lv.${state.settings.targetLevel}を${-remaining}ポイント超過`:remaining===0?`目標Lv.${state.settings.targetLevel}に到達`:`目標Lv.${state.settings.targetLevel} · 残り${remaining}ポイント`;
+      $('level-budget').textContent=budgetText;$('level-budget').classList.toggle('overview-warning',remaining<0);
       const below=EREngine.STATS.filter(a=>state.stats[a]<baseClass.stats[a]);
       $('class-warning').textContent=below.length?`素性の初期値未満：${below.map(a=>LABEL[a]).join('・')}。実際に割り振れる能力値に調整してください。`:`装備補正後：${statsLabel(derived.stats)}`;
       $('build-summary').innerHTML=[['HP',derived.hp,''],['FP',derived.fp,''],['スタミナ',derived.stamina,''],['装備重量',number(derived.weight,1),'/ '+number(derived.load,1)]].map(([title,value,unit])=>`<div class="summary-tile"><small>${title}</small><strong>${typeof value==='number'?number(value):esc(value)}</strong><span class="unit">${esc(unit)}</span></div>`).join('');
@@ -190,8 +228,8 @@
       const equipped=state.weapons.map((id,i)=>({v:C.variants.get(id),i})).filter(x=>x.v);
       const missing=equipped.map(({v,i})=>({v,i,r:weaponResult(v)})).filter(x=>!x.r.usable);
       const handSummary=[0,3].map(i=>{const v=C.variants.get(state.weapons[i]);return `<div><small>${i===0?'右手1':'左手1'}</small><strong>${v?esc(weaponName(v)):'装備なし'}</strong>${v?`<small>計算AR ${number(weaponResult(v).total)} · +${weaponResult(v).upgrade}</small>`:''}</div>`;}).join('');
-      $('build-overview').innerHTML=`<div class="overview-heading"><strong>現在のビルド · Lv.${level}</strong><span class="badge ${derived.ratio<.7?'ok':'bad'}">${esc(derived.roll)} · ${number(derived.ratio*100,1)}%</span><button class="small" data-tab="equipment">装備構成を開く</button></div><div class="overview-weapons">${handSummary}</div>${below.length?`<p class="overview-warning">素性の初期値未満：${below.map(a=>LABEL[a]).join('・')}</p>`:''}${missing.map(({v,i,r})=>`<p class="overview-warning">${slotName(i)}：${esc(weaponName(v))} — ${esc(missingText(r.missing))}</p>`).join('')}${state.memorized.some(id=>Object.entries(C.spells.get(id).requirements).some(([a,n])=>derived.stats[a]<n))?'<p class="overview-warning">記憶魔法に要求能力不足があります。</p>':''}${memoryUsed()>memoryAvailable()?'<p class="overview-warning">記憶枠が不足しています。</p>':''}`;
-      renderCompareBar();
+      $('build-overview').innerHTML=`<div class="overview-heading"><strong>現在のビルド · Lv.${level}</strong><span class="badge ${derived.ratio<.7?'ok':'bad'}">${esc(derived.roll)} · ${number(derived.ratio*100,1)}%</span><button class="small" data-tab="equipment">装備構成を開く</button></div><p class="field-note${remaining<0?' overview-warning':''}">${remaining!==null?esc(budgetText):''}</p><p class="field-note">${esc(weightBudgetText(derived))}（0.1刻み）</p><div class="overview-weapons">${handSummary}</div>${below.length?`<p class="overview-warning">素性の初期値未満：${below.map(a=>LABEL[a]).join('・')}</p>`:''}${missing.map(({v,i,r})=>`<p class="overview-warning">${slotName(i)}：${esc(weaponName(v))} — ${esc(missingText(r.missing))}</p>`).join('')}${state.memorized.some(id=>Object.entries(C.spells.get(id).requirements).some(([a,n])=>derived.stats[a]<n))?'<p class="overview-warning">記憶魔法に要求能力不足があります。</p>':''}${memoryUsed()>memoryAvailable()?'<p class="overview-warning">記憶枠が不足しています。</p>':''}`;
+      renderCompareBar();renderHistory();
       $('compare-count').textContent=state.compare.length;
       $('autosave-status').textContent=saveError||'入力はこの端末に保存されます';$('autosave-status').className='status'+(saveError?' error':'');
     }
@@ -199,7 +237,7 @@
       for(let i=0;i<6;i++){const v=C.variants.get(state.weapons[i]);const r=v?engine.weapon(v,derived.stats,{twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)}):null;$('weapon-slot-note-'+i).textContent=r?`計算AR ${number(r.total)} · 重量 ${C.weapons.get(v.weapon_id).weight} · ${r.usable?'装備可能':missingText(r.missing)}`:'ランキングの「装備する」でも選べます';}
       for(let i=0;i<4;i++){$('armor-note-'+i).textContent=state.armor[i]?`重量 ${C.armor.get(state.armor[i]).weight}`:'';const t=C.talismans.get(state.talismans[i]);const e=t&&data.effects[t.name_en];$('talisman-note-'+i).textContent=t?`重量 ${t.weight} · ${e?.text||'特殊効果は未収録'}`:'';}
       const n=derived;
-      $('equipment-summary').innerHTML=`<div class="panel"><div class="row"><h3>装備重量 ${number(n.weight,1)} / ${number(n.load,1)}</h3><span class="badge ${n.ratio<.7?'ok':'bad'}">${number(n.ratio*100,1)}% · ${n.roll}</span></div><div class="progress"><span style="width:${Math.min(100,n.ratio*100)}%"></span></div><p class="muted">軽量 &lt;30% / 中量 &lt;70% / 重量 &lt;100%</p><div class="table-wrap"><table><thead><tr><th>カット率（常時PvE）</th>${DAMAGE.map(x=>`<th>${x}</th>`).join('')}<th>強靭</th></tr></thead><tbody><tr><td>装備合成</td>${n.negation.map(x=>`<td>${number(x,1)}%</td>`).join('')}<td>${number(n.poise)}</td></tr></tbody></table></div><p class="muted">装備補正後：${EREngine.STATS.map(a=>LABEL[a]+' '+n.stats[a]).join(' / ')}</p>${n.effects.length?`<details style="margin-top:12px"><summary>装備の効果説明（${n.effects.length}件）</summary>${n.effects.map(e=>`<p class="english" style="margin:10px 0"><strong>${esc(e.name)}</strong><br>${esc(e.text)}${e.always?'':'<br>条件付き効果は未適用'}</p>`).join('')}</details>`:''}</div>`;
+      $('equipment-summary').innerHTML=`<div class="panel"><div class="row"><h3>装備重量 ${number(n.weight,1)} / ${number(n.load,1)}</h3><span class="badge ${n.ratio<.7?'ok':'bad'}">${number(n.ratio*100,1)}% · ${n.roll}</span></div><div class="progress"><span style="width:${Math.min(100,n.ratio*100)}%"></span></div><p class="muted">軽量 &lt;30% / 中量 &lt;70% / 重量 &lt;100%</p><p class="field-note">${esc(weightBudgetText(n))}（0.1刻み）</p><div class="table-wrap"><table><thead><tr><th>カット率（常時PvE）</th>${DAMAGE.map(x=>`<th>${x}</th>`).join('')}<th>強靭</th></tr></thead><tbody><tr><td>装備合成</td>${n.negation.map(x=>`<td>${number(x,1)}%</td>`).join('')}<td>${number(n.poise)}</td></tr></tbody></table></div><p class="muted">装備補正後：${EREngine.STATS.map(a=>LABEL[a]+' '+n.stats[a]).join(' / ')}</p>${n.effects.length?`<details style="margin-top:12px"><summary>装備の効果説明（${n.effects.length}件）</summary>${n.effects.map(e=>`<p class="english" style="margin:10px 0"><strong>${esc(e.name)}</strong><br>${esc(e.text)}${e.always?'':'<br>条件付き効果は未適用'}</p>`).join('')}</details>`:''}</div>`;
       $('memory-count').textContent=`${memoryUsed()} / ${memoryAvailable()}枠`;
       $('memorized-spells').innerHTML=state.memorized.map(id=>{const s=C.spells.get(id),missing=Object.entries(s.requirements).filter(([a,n])=>derived.stats[a]<n);return `<div class="save-card"><div><strong>${esc(name(s))}</strong><small> ${s.memory_slots}枠 ${missing.length?'· 能力不足':''}</small></div><button class="small" data-memorize="${esc(id)}">外す</button></div>`;}).join('')||'<p class="muted">魔術・祈祷の一覧から「記憶する」で追加できます。</p>';
       if(memoryUsed()>memoryAvailable())$('memory-count').textContent+=' · 枠不足';
@@ -210,7 +248,29 @@
       if(!e){$('enemy-details').innerHTML='<p class="empty">対象敵を選んでください。</p>';return;}
       $('enemy-details').innerHTML=`<div class="enemy-info"><div class="panel"><p class="eyebrow">${esc(e.journey)} / TARGET</p><h3>${esc(jpEnemy(e))}</h3><p class="english">${esc(e.name)}<br>${esc(e.location)}</p><div class="row" style="margin-top:16px"><span class="chip">HP ${number(e.hp)}</span><span class="badge">強靭 ${number(e.poise.Effective)}</span></div><div class="table-wrap"><table><thead><tr><th>属性</th><th>防御力</th><th>カット率</th></tr></thead><tbody>${DAMAGE.map((n,i)=>`<tr><td>${n}</td><td>${number(e.defense[i])}</td><td>${number(e.negation[i])}%</td></tr>`).join('')}</tbody></table></div><small>検索結果 ${$('enemy-select').dataset.matches||0}件（選択肢は最大400件＋選択中）。対象は検索を変えても維持します。</small></div><div class="panel"><h3>状態異常耐性</h3>${Object.entries(e.status).map(([n,v])=>`<div class="bar-row"><span>${esc({Poison:'毒','Scarlet Rot':'腐敗',Bleed:'出血',Frost:'冷気',Sleep:'睡眠',Madness:'発狂',Deathblight:'死'}[n]||n)}</span><div class="bar"><span style="width:${typeof v==='number'?Math.min(100,v/12):100}%"></span></div><span>${v==='Immune'?'無効':number(v)}</span></div>`).join('')}<p class="field-note">数値は初回の発症閾値。バーは比較用表示。攻撃回数や発症後の耐性上昇は別計算です。</p><div class="divider"></div><p class="muted">適用倍率：${number(multiplier(),2)}倍${state.settings.inShadow?'（影樹の加護込み）':''}</p></div></div>`;
     }
+    const abChoices={a:'',b:''};let abInitialized=false;
+    function renderBuildComparison(){
+      if(!saved||!saved.length){$('build-a').innerHTML=$('build-b').innerHTML=option('','現在のビルド');$('build-ab-results').innerHTML='<p class="muted">名前を付けて保存すると、現在のビルドや別の保存ビルドと比較できます。</p>';return;}
+      if(!abInitialized){abChoices.b=saved[0].key;abInitialized=true;}
+      for(const side of ['a','b']){
+        if(abChoices[side]&&!saved.some(s=>s.key===abChoices[side]))abChoices[side]='';
+        $('build-'+side).innerHTML=option('','現在のビルド')+saved.map(s=>option(s.key,s.state.name||'無名のビルド')).join('');$('build-'+side).value=abChoices[side];
+      }
+      const resolve=side=>abChoices[side]?saved.find(s=>s.key===abChoices[side]).state:state;
+      const a=resolve('a'),b=resolve('b'),ae=engine.equipment(a),be=engine.equipment(b);
+      const rows=[['レベル',engine.buildLevel(a),engine.buildLevel(b),0],...EREngine.STATS.map(k=>[LABEL[k]+'（配分）',a.stats[k],b.stats[k],0]),['HP',ae.hp,be.hp,0],['FP',ae.fp,be.fp,0],['スタミナ',ae.stamina,be.stamina,0],['強靭',ae.poise,be.poise,0],['装備重量',ae.weight,be.weight,1],['最大装備重量',ae.load,be.load,1],['重量割合（%）',ae.ratio*100,be.ratio*100,1],['ローリング',ae.roll,be.roll]];
+      for(const i of [0,3]){
+        const av=C.variants.get(a.weapons[i]),bv=C.variants.get(b.weapons[i]);
+        rows.push([slotName(i),av?weaponName(av):'装備なし',bv?weaponName(bv):'装備なし']);
+        const ar=(v,build,equip)=>v?engine.weapon(v,equip.stats,{twoHand:build.settings.twoHand,upgrade:engine.getUpgrade(v,build.settings)}).total:0;
+        rows.push([slotName(i)+' 計算AR',ar(av,a,ae),ar(bv,b,be),1]);
+      }
+      const table=items=>`<div class="table-wrap ab-table"><table><thead><tr><th scope="col">項目</th><th scope="col">A</th><th scope="col">B</th><th scope="col">差（B−A）</th></tr></thead><tbody>${items.map(([label,av,bv,digits])=>`<tr${av!==bv?' class="ab-changed"':''}><th scope="row">${esc(label)}</th><td>${typeof av==='number'?number(av,digits):esc(av)}</td><td>${typeof bv==='number'?number(bv,digits):esc(bv)}</td><td>${typeof av==='number'?signed(bv-av,digits):av===bv?'同じ':'変更あり'}</td></tr>`).join('')}</tbody></table></div>`;
+      const equipmentRows=[...Array.from({length:6},(_,i)=>[slotName(i),a.weapons[i]?weaponName(C.variants.get(a.weapons[i])):'装備なし',b.weapons[i]?weaponName(C.variants.get(b.weapons[i])):'装備なし']),...ARMOR_LABEL.map((label,i)=>[label+'の防具',a.armor[i]?name(C.armor.get(a.armor[i])):'装備なし',b.armor[i]?name(C.armor.get(b.armor[i])):'装備なし']),...Array.from({length:4},(_,i)=>['タリスマン'+(i+1),a.talismans[i]?name(C.talismans.get(a.talismans[i])):'装備なし',b.talismans[i]?name(C.talismans.get(b.talismans[i])):'装備なし'])];
+      $('build-ab-results').innerHTML=`<p class="field-note">A：${a.settings.twoHand?'両手':'片手'} · ${a.settings.upgradeMode==='max'?'最大強化':`通常+${a.settings.normal} / 喪色+${a.settings.somber}`} ／ B：${b.settings.twoHand?'両手':'片手'} · ${b.settings.upgradeMode==='max'?'最大強化':`通常+${b.settings.normal} / 喪色+${b.settings.somber}`}</p>${table(rows)}<details><summary>全スロットの装備差を見る</summary>${table(equipmentRows)}</details>`;
+    }
     function renderSaves(){
+      renderBuildComparison();
       $('saved-builds').innerHTML=saved===null?'<p class="notice">保存一覧の形式を確認できません。既存データを保護するため、この一覧への書込みを停止しています。</p>':saved.map(s=>`<div class="save-card"><div><strong>${esc(s.state.name||'無名のビルド')}</strong><p class="english">${statsLabel(s.state.stats)}<br>${esc(new Date(s.updated).toLocaleString('ja-JP'))}</p></div><div class="actions"><button class="small" data-load-save="${esc(s.key)}">読み込む</button><button class="small" data-delete-save="${esc(s.key)}">削除</button></div></div>`).join('')||'<p class="empty">まだ保存したビルドはありません。</p>';
     }
     function fillAbout(){
@@ -223,8 +283,8 @@
       renderActive();
     }
     function renderActive(){if(activeTab==='weapons')calculateWeapons();else if(activeTab==='spells')calculateSpells();else if(activeTab==='equipment')renderEquipment();else if(activeTab==='enemies')renderEnemy();else if(activeTab==='saves')renderSaves();}
-    function update({save=true,reset=true}={}){if(reset){weaponLimit=40;spellLimit=40;}refreshSummary();renderActive();if(save)persist();}
-    function applyState(newState){const checked=engine.validateState(newState);state=checked;syncControls();update();toast('ビルドを読み込みました');}
+    function update({save=true,reset=true,record=true}={}){if(record)recordHistory();if(reset){weaponLimit=40;spellLimit=40;}refreshSummary();renderActive();if(save)persist();}
+    function applyState(newState,{resetHistory=false}={}){const checked=engine.validateState(newState);if(resetHistory){clearTimeout(statTimer);statTimer=null;}else flushStatInput();state=checked;if(resetHistory){undoStack=[];redoStack=[];lastCommitted=structuredClone(state);}syncControls();update({record:!resetHistory});toast('ビルドを読み込みました');}
     function showDialog(title,html){$('dialog-title').innerHTML=title;$('dialog-content').innerHTML=html;if(!$('detail-dialog').open)$('detail-dialog').showModal();}
     function showWeaponDetail(id){
       lastWeaponDetail=id;const v=C.variants.get(id),w=C.weapons.get(v.weapon_id),r=engine.weapon(v,derived.stats,{upgrade:engine.getUpgrade(v,state.settings),twoHand:state.settings.twoHand});
@@ -305,7 +365,10 @@
       if(!C.variants.has(id))return;
       pendingWeapon=id;
       $('equip-name').textContent=weaponName(C.variants.get(id));
-      $('equip-targets').innerHTML=state.weapons.map((current,i)=>`<button data-equip-target="${i}"><strong>${slotName(i)}に装備</strong><small>現在：${current?esc(weaponName(C.variants.get(current))):'装備なし'}</small></button>`).join('');
+      $('equip-targets').innerHTML=state.weapons.map((current,i)=>{
+        const p=engine.equipmentPreview(state,i,id);
+        return `<button data-equip-target="${i}" data-preview-roll="${esc(p.after.roll)}"><strong>${slotName(i)}に装備</strong><small>現在：${current?esc(weaponName(C.variants.get(current))):'装備なし'}</small><small>計算AR ${number(p.current?.total||0,1)} → ${number(p.candidate.total,1)}（${signed(p.arDelta)}）</small><small>総重量 ${number(p.before.weight,1)} → ${number(p.after.weight,1)}（${signed(p.weightDelta)}）</small><span class="badge ${p.after.ratio<.7?'ok':'bad'}">${esc(p.before.roll)} → ${esc(p.after.roll)} · ${number(p.after.ratio*100,1)}%</span><small>${esc(weightBudgetText(p.after))}</small>${p.candidate.usable?'':`<small class="overview-warning">${esc(missingText(p.candidate.missing))}</small>`}</button>`;
+      }).join('');
       $('equip-dialog').showModal();
     }
     function showCompare(){
@@ -333,18 +396,22 @@
       if(saved.length>=30&&!existing){toast('保存は30件までです。不要なビルドを削除してください。');return;}
       if(writeSaves([record,...saved.filter(s=>s.key!==record.key)])){persist();toast('ビルドを保存しました');}
     }
-    let inputTimer;
+    let statTimer,searchTimer;
+    function flushStatInput(){if(statTimer){clearTimeout(statTimer);statTimer=null;update();}}
     document.addEventListener('input',event=>{
       const el=event.target;
-      if(el.dataset.stat){const n=Number(el.value);if(el.value===''||!Number.isInteger(n)||n<1||n>99){el.setCustomValidity('1〜99の整数を入力してください');return;}el.setCustomValidity('');state.stats[el.dataset.stat]=n;clearTimeout(inputTimer);inputTimer=setTimeout(()=>update(),130);}
-      if(['weapon-search','spell-search','enemy-search','armor-search','slot-weapon-search'].includes(el.id)){clearTimeout(inputTimer);inputTimer=setTimeout(()=>{if(el.id==='enemy-search'){fillEnemyOptions();renderEnemy();}else if(el.id==='armor-search')fillArmorOptions();else if(el.id==='slot-weapon-search')fillWeaponOptions();else update({save:false});},130);}
-      if(el.id==='build-name'){state.name=el.value.slice(0,80);persist();}
+      if(el.dataset.stat){const n=Number(el.value);if(el.value===''||!Number.isInteger(n)||n<1||n>99){el.setCustomValidity('1〜99の整数を入力してください');return;}el.setCustomValidity('');state.stats[el.dataset.stat]=n;clearTimeout(statTimer);statTimer=setTimeout(()=>{statTimer=null;update();},130);}
+      if(['weapon-search','spell-search','enemy-search','armor-search','slot-weapon-search'].includes(el.id)){clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(el.id==='enemy-search'){fillEnemyOptions();renderEnemy();}else if(el.id==='armor-search')fillArmorOptions();else if(el.id==='slot-weapon-search')fillWeaponOptions();else update({save:false});},130);}
+      if(el.id==='build-name'){state.name=el.value.slice(0,80);lastCommitted.name=state.name;persist();}
       if(el.id==='ash-search')renderAshes();
     });
     document.addEventListener('change',event=>{
-      const el=event.target;if(restoring)return;
+      const el=event.target;if(restoring)return;flushStatInput();
+      if(el.id==='target-level'){const n=el.value===''?null:Number(el.value);if(n!==null&&(!Number.isInteger(n)||n<1||n>713)){el.value=state.settings.targetLevel??'';toast('目標レベルは1〜713の整数にしてください');return;}state.settings.targetLevel=n;update();return;}
+      if(el.dataset.spellComponent){spellSelections.set(el.dataset.spellComponent,el.value);renderSpells();document.querySelector(`[data-spell-component="${CSS.escape(el.dataset.spellComponent)}"]`)?.focus();return;}
+      if(el.id==='build-a'||el.id==='build-b'){abChoices[el.id==='build-a'?'a':'b']=el.value;renderBuildComparison();return;}
       if(el.id==='weapon-sort'){state.settings.weaponSort=el.value;update();return;}
-      if(el.dataset.stat){const n=Number(el.value);if(!el.value||!Number.isInteger(n)||n<1||n>99){el.value=state.stats[el.dataset.stat];el.setCustomValidity('');toast('能力値は1〜99の整数で入力してください');}else if(state.stats[el.dataset.stat]!==n){state.stats[el.dataset.stat]=n;update();}return;}
+      if(el.dataset.stat){const n=Number(el.value);if(!el.value||!Number.isInteger(n)||n<1||n>99){el.value=state.stats[el.dataset.stat];el.setCustomValidity('');toast('能力値は1〜99の整数で入力してください');}else{state.stats[el.dataset.stat]=n;update();}return;}
       const settings={'normal-upgrade':['normal',0,25],'somber-upgrade':['somber',0,10],'scadu-level':['scadu',0,20],'memory-slots':['memory',2,12],'manual-multiplier':['manualMultiplier',.1,5]};
       if(settings[el.id]){const [key,min,max]=settings[el.id];const n=Number(el.value);if(!el.value||!Number.isFinite(n)||(key!=='manualMultiplier'&&!Number.isInteger(n))||n<min||n>max){el.value=state.settings[key];toast(`値は${min}〜${max}で入力してください`);return;}state.settings[key]=n;update();return;}
       if(el.id==='class-select'){state.className=el.value;update();return;}
@@ -363,11 +430,12 @@
       if((el.id.startsWith('weapon-')||el.id.startsWith('spell-')||el.id==='physical-type')&&(el.tagName==='SELECT'||el.type==='checkbox'))update({save:false});
     });
     document.addEventListener('click',event=>{
-      const el=event.target.closest('button,a');if(!el)return;
+      const el=event.target.closest('button,a');if(!el)return;flushStatInput();
       if(el.dataset.tab){activate(el.dataset.tab);return;}
       if(el.dataset.step){const a=el.dataset.step;state.stats[a]=EREngine.clamp(state.stats[a]+Number(el.dataset.delta),1,99);$('stat-'+a).value=state.stats[a];update();return;}
       if(el.dataset.weaponDetail){showWeaponDetail(el.dataset.weaponDetail);return;}
       if(el.dataset.spellDetail){lastWeaponDetail='';showSpellDetail(el.dataset.spellDetail);return;}
+      if(el.dataset.favorite){toggleFavorite(el.dataset.favorite);return;}
       if(el.dataset.compare){toggleCompare(el.dataset.compare);return;}
       if(el.dataset.equipWeapon){chooseEquipSlot(el.dataset.equipWeapon);return;}
       if(el.dataset.equipTarget!==undefined){const i=Number(el.dataset.equipTarget);if(!pendingWeapon||!Number.isInteger(i)||i<0||i>5)return;state.weapons[i]=pendingWeapon;pendingWeapon='';syncControls();update({reset:false});$('equip-dialog').close();toast(slotName(i)+'に装備しました');return;}
@@ -375,6 +443,8 @@
       if(el.dataset.loadSave){const record=saved?.find(s=>s.key===el.dataset.loadSave);if(record)applyState(record.state);return;}
       if(el.dataset.deleteSave){if(confirm('この保存ビルドを削除しますか？'))writeSaves(saved.filter(s=>s.key!==el.dataset.deleteSave));return;}
       switch(el.id){
+        case 'undo-build':restoreHistory();break;
+        case 'redo-build':restoreHistory(true);break;
         case 'apply-class':if(confirm('現在の能力値を素性の初期値に戻しますか？')){state.stats={...data.classes.find(c=>c.name_en===state.className).stats};syncControls();update();}break;
         case 'weapon-more':weaponLimit+=40;renderWeapons();break;
         case 'spell-more':spellLimit+=40;renderSpells();break;
@@ -382,18 +452,18 @@
         case 'close-equip':$('equip-dialog').close();pendingWeapon='';break;
         case 'close-dialog':$('detail-dialog').close();lastWeaponDetail='';break;
         case 'scope-link':event.preventDefault();activate('about');break;
-        case 'rank-for-enemy':state.settings.weaponSort='enemy';$('weapon-sort').value='enemy';activate('weapons');persist();break;
+        case 'rank-for-enemy':state.settings.weaponSort='enemy';$('weapon-sort').value='enemy';activate('weapons');update();break;
         case 'save-build':saveBuild();break;
         case 'share-build':share();break;
         case 'export-build':download();break;
         case 'import-link':try{applyState(decodeShare($('share-input').value.trim()));}catch(e){toast('読み込めません：'+e.message);}break;
         case 'delete-saves':if(confirm('このアプリの保存ビルドをすべて削除しますか？'))writeSaves([]);break;
-        case 'reload-stored':try{const next=engine.validateState(JSON.parse(localStorage.getItem(KEY)));storageConflict=false;$('conflict-actions').hidden=true;applyState(next);}catch(e){toast('保存内容を読み込めません：'+e.message);}break;
-        case 'keep-current':if(confirm('別タブの内容を、このタブのビルドで上書きしますか？')){storageConflict=false;$('conflict-actions').hidden=true;persist();}break;
+        case 'reload-stored':try{const next=engine.validateState(JSON.parse(localStorage.getItem(KEY)));storageConflict=false;$('conflict-actions').hidden=true;applyState(next,{resetHistory:true});}catch(e){toast('保存内容を読み込めません：'+e.message);}break;
+        case 'keep-current':if(confirm('別タブの内容を、このタブのビルドで上書きしますか？')){storageConflict=false;$('conflict-actions').hidden=true;persist();renderHistory();}break;
       }
     });
     document.querySelector('.tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=[...document.querySelectorAll('.tabs [data-tab]')],i=tabs.findIndex(t=>t.dataset.tab===activeTab),next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();activate(tabs[next].dataset.tab);tabs[next].focus();});
-    window.addEventListener('storage',event=>{if(event.key===KEY){storageConflict=true;saveError='別タブでビルドが変更されました。自動保存を停止しています。';$('autosave-status').textContent=saveError;$('autosave-status').className='status error';$('conflict-actions').hidden=false;toast('別タブで保存内容が変わりました');}else if(event.key===SAVES){try{const ar=JSON.parse(event.newValue||'[]');if(!Array.isArray(ar)||ar.length>30)throw new Error();saved=ar.map(s=>({key:s.key,updated:s.updated,state:engine.validateState(s.state)}));if(activeTab==='saves')renderSaves();toast('別タブの保存一覧を反映しました');}catch(e){saved=null;toast('別タブの保存一覧を確認できません');}}});
+    window.addEventListener('storage',event=>{if(event.key===FAVORITES){try{favorites=readFavorites(event.newValue);favoriteBlocked=false;favoriteError='';}catch{favoriteBlocked=true;favoriteError='別タブのお気に入りを確認できません。';}if(activeTab==='weapons')calculateWeapons();}else if(event.key===KEY){storageConflict=true;saveError='別タブでビルドが変更されました。自動保存を停止しています。';$('autosave-status').textContent=saveError;$('autosave-status').className='status error';$('conflict-actions').hidden=false;renderHistory();toast('別タブで保存内容が変わりました');}else if(event.key===SAVES){try{const ar=JSON.parse(event.newValue||'[]');if(!Array.isArray(ar)||ar.length>30)throw new Error();saved=ar.map(s=>({key:s.key,updated:s.updated,state:engine.validateState(s.state)}));if(activeTab==='saves')renderSaves();toast('別タブの保存一覧を反映しました');}catch(e){saved=null;toast('別タブの保存一覧を確認できません');}}});
     setupControls();syncControls();refreshSummary();renderActive();
     if(matchMedia('(max-width:720px)').matches){$('build-controls').open=false;$('weapon-advanced').open=false;$('weapon-assumptions').open=false;}
     $('loading').hidden=true;$('application').hidden=false;

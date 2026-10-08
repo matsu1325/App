@@ -33,6 +33,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: node tools/build-steam-sales.mjs
 
+      - name: エルデンリングヘルパーを再生成する
+        run: node tools/build-elden-ring.mjs
+
       - name: 器械台帳を作り直す
         run: node tools/build-register.mjs
 
@@ -40,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps.json data/steam-sales-*.json
+          git add apps.json data/steam-sales-*.json apps/elden-ring-build-helper.html
           if ! git diff --cached --quiet; then
             git commit -m "記帳: 台帳とSteamセール情報を更新"
             git push

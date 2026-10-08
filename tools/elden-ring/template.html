@@ -16,6 +16,8 @@
 
 .build-overview{margin-bottom:18px;padding:14px 16px}.build-overview .overview-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.overview-weapons{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.overview-weapons strong{display:block;overflow-wrap:anywhere}.overview-warning{color:var(--bad);margin-top:8px;font-size:12px}.compare-bar{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:min(960px,calc(100% - 24px));padding:12px;background:#202b23;border:1px solid var(--gold);border-radius:14px;z-index:10;box-shadow:0 6px 24px #0009}.compare-bar-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.compare-bar-items{display:flex;gap:8px;overflow-x:auto;margin-top:8px}.compare-bar-items button{flex-shrink:0;max-width:260px;white-space:normal;text-align:left;font-size:12px}.compare-bar-items button span{color:var(--gold);margin-left:8px}body.has-compare .wrap{padding-bottom:calc(190px + env(safe-area-inset-bottom))}body.has-compare #toast{bottom:calc(160px + env(safe-area-inset-bottom))}#equip-targets button{text-align:left;white-space:normal}#equip-targets small{display:block;overflow-wrap:anywhere}#equip-name{overflow-wrap:anywhere}
 @media(max-width:720px){.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.stat-input button{display:block;min-width:44px;min-height:44px}.stat-input input{min-height:44px}.overview-weapons{grid-template-columns:1fr}.compare-bar-items button{max-width:210px}.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.history-toolbar{margin:0 0 18px}.history-toolbar small{font-size:11px}.favorite-button{margin-top:6px}.favorite-button[aria-pressed=true]{color:var(--gold);border-color:var(--gold)}.spell-component{margin-top:12px}.spell-component select{width:100%;max-width:100%}.build-ab{margin-top:24px}.ab-table td{white-space:normal;overflow-wrap:anywhere;min-width:85px}.ab-table th{white-space:normal;min-width:85px}.ab-table .ab-changed{background:#d9ba7810}.ab-table .ab-changed td:last-child{color:var(--gold)}#equip-targets small{margin-top:5px}#equip-targets .badge{white-space:normal}.overview-warning{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -30,6 +32,8 @@
 <div class="stack" style="margin-top:16px"><label>素性<select id="class-select"></select></label><button id="apply-class" class="small">素性の初期能力値に戻す</button></div>
 <div id="stat-fields" class="stat-grid"></div>
 <p class="stat-help muted" id="class-warning"></p>
+<label style="margin-top:12px">目標レベル（任意）<input id="target-level" type="number" min="1" max="713" inputmode="numeric" placeholder="例：150"></label>
+<p id="level-budget" class="field-note" role="status"></p>
 <div class="divider"></div>
 <div class="stack"><label>強化段階<select id="upgrade-mode"><option value="max">各装備の最大強化で比較</option><option value="custom">強化段階を指定</option></select></label><div class="grid2" id="upgrade-fields" hidden><label>通常強化<input id="normal-upgrade" type="number" min="0" max="25" value="25"></label><label>喪色強化<input id="somber-upgrade" type="number" min="0" max="10" value="10"></label></div><label class="check"><input id="two-hand" type="checkbox">武器を両手持ちで比較</label><small>対の武器には筋力1.5倍を適用しません。弓・バリスタは自動で両手扱い。</small></div>
 <div class="divider"></div>
@@ -43,10 +47,12 @@
 <main>
 <div class="summary-grid" id="build-summary"></div>
 <section id="build-overview" class="panel build-overview" aria-label="現在のビルド"></section>
+<div class="history-toolbar row" aria-label="ビルド操作履歴"><button id="undo-build" class="small" disabled>取り消す</button><button id="redo-build" class="small" disabled>やり直す</button><small id="history-status" role="status">直近20操作を戻せます</small></div>
 <nav class="tabs" role="tablist" aria-label="ビルド構築"><button role="tab" aria-selected="true" aria-controls="panel-weapons" id="tab-weapons" data-tab="weapons">武器</button><button role="tab" aria-selected="false" aria-controls="panel-spells" id="tab-spells" data-tab="spells" tabindex="-1">魔術・祈祷</button><button role="tab" aria-selected="false" aria-controls="panel-equipment" id="tab-equipment" data-tab="equipment" tabindex="-1">装備構成</button><button role="tab" aria-selected="false" aria-controls="panel-enemies" id="tab-enemies" data-tab="enemies" tabindex="-1">敵と耐性</button><button role="tab" aria-selected="false" aria-controls="panel-saves" id="tab-saves" data-tab="saves" tabindex="-1">保存・共有</button><button role="tab" aria-selected="false" aria-controls="panel-about" id="tab-about" data-tab="about" tabindex="-1">計算の範囲</button></nav>
 <section id="panel-weapons" role="tabpanel" aria-labelledby="tab-weapons">
 <div class="section-head"><div><h2>武器ランキング</h2><small>488装備・3,296派生を、現在の能力値で再計算</small></div><button id="show-compare" class="small">比較 <span id="compare-count">0</span>/6</button></div>
 <label style="margin-bottom:10px">名前で検索<input id="weapon-search" type="search" placeholder="例：打刀 / Moonveil" autocomplete="off"></label>
+<label class="check"><input id="weapon-favorites" type="checkbox">お気に入りのみ <span id="favorite-count">0</span></label><p id="favorite-status" class="status" role="status"></p>
 <details id="weapon-advanced" open><summary style="cursor:pointer;color:var(--gold);min-height:40px">絞り込み・並び順</summary><div class="grid2" style="margin-bottom:8px"><label>武器種<select id="weapon-category"><option value="">すべて</option></select></label><label>派生<select id="weapon-affinity"><option value="">すべて</option></select></label></div>
 <div class="filter-extra"><label class="check"><input id="weapon-usable" type="checkbox" checked>装備可能のみ</label><label class="check"><input id="weapon-best" type="checkbox" checked>各武器の最良派生</label><label>並び順<select id="weapon-sort"><option value="total">計算AR</option><option value="dps">連続DPS（理論・未実測）</option><option value="dpsEnemy">連続DPS・対象敵（理論・未実測）</option><option value="0">物理AR</option><option value="1">魔力AR</option><option value="2">炎AR</option><option value="3">雷AR</option><option value="4">聖AR</option><option value="7">出血蓄積</option><option value="5">毒蓄積</option><option value="8">冷気蓄積</option><option value="scaling">触媒補正</option><option value="enemy">対象敵への推定</option></select></label><label>収録範囲<select id="weapon-content"><option value="">本編＋DLC</option><option value="base">本編フラグ</option><option value="dlc">DLCフラグ</option></select></label></div>
 </details>
@@ -59,7 +65,7 @@
 <div class="filters"><label>名前で検索<input id="spell-search" type="search" placeholder="例：輝石 / Lightning" autocomplete="off"></label><label>種類<select id="spell-type"><option value="">魔術＋祈祷</option><option value="Sorcery">魔術</option><option value="Incantation">祈祷</option></select></label><label>比較指標<select id="spell-sort"><option value="power">防御前威力</option><option value="efficiency">成分威力 / FP</option><option value="enemy">対象敵への推定</option><option value="name">名前</option></select></label></div>
 <label>使用する触媒<select id="catalyst-select"><option value="">装備可能な触媒から、成分威力が最大のもの</option></select></label>
 <div class="filter-extra"><label class="check"><input id="spell-usable" type="checkbox" checked>使用可能のみ</label><label class="check"><input id="spell-attack" type="checkbox">直接攻撃成分のみ</label></div>
-<div class="notice">順位は選んだ攻撃成分1つの比較です。通常・溜め・爆発などを勝手に合算しません。連続詠唱や多段の総威力・DPSは未計算。補助・回復は「未計算」と表示します。</div>
+<div class="notice">同じ魔法を1枚にまとめています。攻撃成分を切り替えると、その成分の威力・FP・触媒で順位を再計算します。通常・溜め・爆発などは合算しません。連続詠唱や多段の総威力・DPSは未計算。補助・回復は「未計算」と表示します。</div>
 <p class="count" id="spell-count" aria-live="polite"></p><div id="spell-results" class="cards"></div><button id="spell-more" class="more" hidden>さらに40件</button>
 </section>
 <section id="panel-equipment" role="tabpanel" aria-labelledby="tab-equipment" hidden>
@@ -84,6 +90,7 @@
 <div class="section-head"><div><h2>ビルドを残す</h2><small>能力値・装備・記憶魔法・比較候補・計算条件を保存</small></div></div>
 <div class="panel stack"><label>ビルド名<input id="build-name" maxlength="80" placeholder="例：知力80 月隠ビルド"></label><div class="row"><button id="save-build" class="primary">名前を付けて保存</button><button id="share-build">共有リンクをコピー</button><button id="export-build">JSONを書き出す</button></div><label>JSONから読み込む<input id="import-build" type="file" accept="application/json,.json"></label><label>共有リンク・共有コードを読み込む<input id="share-input" placeholder="共有URL または #build=…"></label><button id="import-link">共有コードを読み込む</button><small>共有リンクには入力したビルド情報が含まれます。データはこの端末内に保存します。端末を替えるときはJSONで控えを残してください。</small></div>
 <p id="save-status" class="status" role="status"></p><div id="saved-builds" class="save-list"></div>
+<section class="panel build-ab" aria-labelledby="build-ab-title"><h3 id="build-ab-title">ビルドA/B比較</h3><p class="field-note">保存したビルドまたは現在のビルドを選びます。各ビルドの能力値・装備・強化・持ち方で計算し、差はB−Aを表示します。</p><div class="grid2" style="margin-top:12px"><label>ビルドA<select id="build-a"></select></label><label>ビルドB<select id="build-b"></select></label></div><div id="build-ab-results" style="margin-top:12px"></div></section>
 <details class="panel" style="margin-top:20px"><summary>データの管理</summary><p class="muted" style="margin:10px 0">このアプリの保存ビルドを消去します。Apps内の他のアプリには影響しません。</p><button id="delete-saves">保存ビルドをすべて削除</button></details>
 </section>
 <section id="panel-about" class="about" role="tabpanel" aria-labelledby="tab-about" hidden>
