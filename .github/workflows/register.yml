@@ -10,7 +10,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-elden-ring:
+    if: github.actor != 'github-actions[bot]'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/elden-ring-checks.yml
+
   build-and-deploy:
+    needs: validate-elden-ring
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:

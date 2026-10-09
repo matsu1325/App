@@ -63,10 +63,10 @@
 </section>
 <section id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" hidden>
 <div class="section-head"><div><h2>戦技シミュレーター</h2><small>武器ARと戦技倍率からの条件付き推定。能力値・派生・強化・対象敵に連動</small></div></div>
-<p id="skill-count" class="count"></p>
+<p id="skill-count" class="count"></p><p id="skill-coverage" class="field-note"></p>
 <div class="grid2"><label>戦技名で絞る<input id="skill-search" type="search" placeholder="例：居合 / Lion" autocomplete="off"></label><label>戦技<select id="skill-select"></select></label></div>
 <div class="grid2" style="margin-top:12px"><label>使用武器（適合表の候補）<select id="skill-weapon"></select></label><label>派生<select id="skill-affinity"></select></label></div>
-<div class="grid2" style="margin-top:12px"><label>動作・入力分岐<select id="skill-action"></select></label><div class="actions"><button id="skill-use-equipped">右手1の武器を使う</button><button id="skill-for-enemy">対象敵を選ぶ</button></div></div>
+<div class="grid2" style="margin-top:12px"><label>動作・入力分岐<select id="skill-action"></select></label><div class="actions"><button id="skill-use-equipped">右手1の既定戦技を使う</button><button id="skill-for-enemy">対象敵を選ぶ</button></div></div>
 <label style="margin-top:12px">消費FPが未確定の動作：FPを指定（任意の仮定）<input id="skill-fp-override" type="number" min="0" max="999" placeholder="空欄は未計算"></label>
 <p id="skill-costs" class="field-note" style="margin-top:12px"></p><p id="skill-conditions" class="field-note"></p>
 <div class="notice">武器攻撃はAR × 属性別倍率で計算し、防御・カット率を判定ごとに適用します。選択した判定はそれぞれ1回命中する仮定です。始動・追撃は別動作。FPなしの分岐は残りFP0のモデルです。飛び道具の独自補正、条件付きバフ、状態異常の発症、PvPは未対応。実機ダメージと1.17.1差分は未検証です。</div>

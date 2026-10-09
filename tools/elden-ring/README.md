@@ -118,9 +118,15 @@ DLC名は [ボス一覧](https://gamewith.jp/eldenring/320528) 等で照合し�
 
 ## 戦技シミュレータ
 
-[モデルの条件・再生成手順](skills/SIMULATOR.md)。戦技、武器・派生、資料上の動作、命中させる判定、任意の仮定FPをビルドと一緒に保存・共有し、取り消し／やり直しにも対応する。居合・構えのR1/R2、獅子斬りなどの通常／残りFP0、猛獅子斬りの始動／追撃、二連斬りの複数判定を区別する。残りFP0はFP不足一般の再現ではない。
+[モデルの条件・再生成手順](skills/SIMULATOR.md)、[全267候補の対応表](../../data/elden-ring-skills/simulator-coverage.csv)、[残る必要資料](skills/REMAINING.md)。全1,665資料動作を表示し、判定参照が不足するキック等も不足理由を確認できる。固定派生の弓・調香瓶の戦灰候補を照合し、効果依存欠落・掴み条件未確認の動作は計算を停止する。
+
+戦技、武器・派生、資料上の動作、命中させる判定、任意の仮定FPをビルドと一緒に保存・共有し、取り消し／やり直しにも対応する。別戦技・別動作では仮定FPを解除する。居合・構えのR1/R2、獅子斬りなどの通常／残りFP0、猛獅子斬りの始動／追撃、二連斬りの複数判定を区別する。残りFP0はFP不足一般の再現ではない。
 
 ```bash
 node tools/test-elden-ring-skills.cjs
 node tools/test-elden-ring-skills-ui.cjs
+node tools/test-elden-ring-skills-loader.mjs --regenerate
+node tools/check-elden-ring.mjs
 ```
+
+PRと公開前に数値・収集・再生成・画面を自動検査する。全267対応表と49,920動作×武器の状態を照合し、仮定FPの持ち越しや候補欠落を回帰確認する。公開処理は検証成功後に実行する。
