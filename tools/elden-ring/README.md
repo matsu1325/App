@@ -110,3 +110,7 @@ node tools/test-elden-ring-dps.cjs
 DLC名は [ボス一覧](https://gamewith.jp/eldenring/320528) 等で照合し、通常敵の説明名・元資料独自の区分はアプリ用の訳を付ける。すべての説明名が公式名称という意味ではない。
 元資料の `[Boss]`、`[Boss HP]`、武器、形態、破壊後の条件も保持する。
 詳細には照合用の英語原名を併記し、日本語・英語双方の検索に対応する。
+
+## 戦技データの全件収集
+
+[収集結果・復元手順](skills/ALL-SKILLS-REPORT.md)、[全件台帳CSV](../../data/elden-ring-skills/all/coverage.csv)、[収集計画](SKILL-DATA-PLAN.md)。全278行（プレイヤー候補267行）を対象に、FP・モーション・攻撃・弾・バフ・補正パラメータを収集。原資料の参照欠落39件、入力条件・最終式・実機測定は未検証。GitHubの圧縮データは `python tools/elden-ring/skills/snapshot.py unpack` で全17ファイルを復元できる。
