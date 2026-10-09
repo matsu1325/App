@@ -1,0 +1,10 @@
+# Large JSONs are restored byte-for-byte from the committed packed snapshot.
+/actions.json
+/animations.json
+/attack-variants.json
+/compatibility.json
+/measurement-cases.json
+/parameters.json
+/payload.json
+/skills.json
+/weapon-variants.json

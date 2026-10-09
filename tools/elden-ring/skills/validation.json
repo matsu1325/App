@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-09",
+  "unit_tests": {
+    "command": "python -m unittest discover -s tools/elden-ring/skills -p 'test_*.py'",
+    "passed": 16,
+    "failures": 0
+  },
+  "integration": {
+    "command": "python tools/elden-ring/skills/verify.py",
+    "result": "passed",
+    "catalog_rows": 278,
+    "actions": 1665,
+    "parameter_nodes": 9450
+  },
+  "deterministic_regeneration": {
+    "compared_files": 17,
+    "byte_identical": true
+  },
+  "dataset_index_sha256": "6410c34c19ee39212836ef0a4cd4b192217b98ed6300097322f8934d3f664455",
+  "in_game_trials": 0,
+  "simulation_validation": "unverified",
+  "publication": {
+    "unit_tests_passed": 19,
+    "snapshot_boundary_tests": 3,
+    "restored_integration": "passed",
+    "packed_index_sha256": "6410c34c19ee39212836ef0a4cd4b192217b98ed6300097322f8934d3f664455",
+    "packed_archive_sha256": "3e333bc4488e52961e6ccab56e08393cf0c942b5205976c64488b57e1a7c652a",
+    "restored_files": 17
+  }
+}
