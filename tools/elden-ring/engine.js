@@ -119,7 +119,10 @@
     function skillActions(skillId,variantId){
       const v=catalogs.variants.get(variantId),skill=skillData.skills[skillId];
       if(!v||!skill?.legal_variants.includes(variantId))return [];
-      return skill.actions.map(id=>skillData.actions[id]).filter(a=>a.windows.some(w=>w.bindings[v.weapon_id]));
+      const all=skill.actions.map(id=>skillData.actions[id]),matching=all.filter(a=>a.weapon_ids?
+        !a.weapon_ids.length||a.weapon_ids.includes(v.weapon_id):a.windows.some(w=>w.bindings[v.weapon_id]));
+      // Keep source actions inspectable even when a default weapon has no verified animation binding.
+      return matching.length?matching:all;
     }
     function validateSkillSettings(input){
       const ids=Object.keys(skillData.skills),fallback=skillData.skills[100]?100:Number(ids[0]);
@@ -129,14 +132,20 @@
         variants.find(v=>v.weapon_id==='weapon:2000000'&&v.affinity_id===0)?.id||variants[0]?.id||'';
       const actions=skillActions(skillId,variantId),action=actions.find(a=>a.id===input?.actionId)||actions[0];
       let selectedWindows=null;
-      if(input?.actionId===action?.id&&Array.isArray(input?.selectedWindows)){
+      if(action&&input?.actionId===action.id&&Array.isArray(input?.selectedWindows)){
         if(input.selectedWindows.length>action.windows.length||input.selectedWindows.some(i=>!Number.isInteger(i)||!action.windows.some(w=>w.index===i)))
           throw Error('戦技の命中判定の指定が不正です');
         selectedWindows=[...new Set(input.selectedWindows)].sort((a,b)=>a-b);
       }
-      const fpOverride=input?.fpOverride??null;
+      let fpOverride=input?.fpOverride??null;
       if(fpOverride!==null&&(!Number.isInteger(fpOverride)||fpOverride<0||fpOverride>999))throw Error('戦技のFPは0〜999の整数にしてください');
+      if(input?.actionId!==action?.id)fpOverride=null;
       return {skillId,variantId,actionId:action?.id||'',selectedWindows,fpOverride};
+    }
+    function selectSkillSettings(previous,patch){
+      const next=validateSkillSettings({...previous,...patch});
+      if(next.skillId!==previous?.skillId||next.actionId!==previous?.actionId){next.fpOverride=null;next.selectedWindows=null;}
+      return next;
     }
     function skillSimulation(vOrId,stats,options={}){
       const base={status:'unsupported',total:null,modeledTotal:null,power:null,fp:null,damagePerFp:null,dps:null,
@@ -146,14 +155,20 @@
       if(!v||!skill?.legal_variants.includes(v.id))return {...base,reasons:['incompatible_weapon']};
       if(!action||action.skill_id!==skill.id||!skill.actions.includes(action.id))return {...base,reasons:['no_action_model']};
       if(options.fpOverride!=null&&(!Number.isInteger(options.fpOverride)||options.fpOverride<0||options.fpOverride>999))return {...base,status:'error',reasons:['invalid_fp']};
+      const fp=action.fp??options.fpOverride??null,fpSource=action.fp!==null?'mapped':fp!==null?'manual':'unmapped';
+      Object.assign(base,{fp,fpSource,missingDependencies:action.missing_dependencies||[],warnings:action.source_blockers||[]});
+      if(action.weapon_ids?.length&&!action.weapon_ids.includes(v.weapon_id))return {...base,reasons:['action_weapon_unverified']};
+      if(action.calculation_blocker)return {...base,reasons:[action.calculation_blocker]};
+      if(!action.windows.length)return {...base,reasons:[action.kind==='support_action'?'support_action':action.kind==='attack_reference_missing'?'attack_reference_missing':'action_reference_missing']};
+      if(action.weapon_ids&&!action.weapon_ids.length)return {...base,reasons:['action_weapon_unverified']};
       const r=weapon(v,stats,{upgrade:options.upgrade,twoHand:options.twoHand});
-      if(!r.usable)return {...base,status:'unusable',fp:action.fp,reasons:['requirements'],weapon:r};
+      if(!r.usable)return {...base,status:'unusable',reasons:['requirements'],weapon:r};
       const multiplier=options.multiplier??1;
       if(!finite(multiplier)||multiplier<=0)return {...base,status:'error',reasons:['invalid_multiplier']};
       const selected=options.selectedWindows??action.windows.map(w=>w.index);
       if(!Array.isArray(selected)||new Set(selected).size!==selected.length||selected.some(i=>!Number.isInteger(i)||!action.windows.some(w=>w.index===i)))
         return {...base,status:'error',reasons:['invalid_selection']};
-      if(!selected.length)return {...base,fp:action.fp,reasons:['no_selected_hits']};
+      if(!selected.length)return {...base,reasons:['no_selected_hits']};
       const hits=action.windows.map(window=>{
         const hit={index:window.index,selected:selected.includes(window.index),range:window.range,type:window.type,
           damage:null,power:null,mv:null,physical:null,attackId:null,reason:null};
@@ -173,9 +188,9 @@
       });
       const active=hits.filter(h=>h.selected),known=active.filter(h=>finite(h.damage)),complete=known.length===active.length;
       const modeledTotal=known.length?known.reduce((s,h)=>s+h.damage,0):null;
-      const total=complete?modeledTotal:null,fp=action.fp??options.fpOverride??null;
+      const total=complete?modeledTotal:null;
       return {...base,status:complete?'model_only':known.length?'partial':'unsupported',total,modeledTotal,
-        power:complete?known.reduce((s,h)=>s+h.power,0):null,fp,fpSource:action.fp!==null?'mapped':fp!==null?'manual':'unmapped',
+        power:complete?known.reduce((s,h)=>s+h.power,0):null,
         damagePerFp:complete&&selected.length===action.windows.length&&finite(fp)&&fp>0?total/fp:null,
         hits,complete,reasons:[...new Set(active.map(h=>h.reason).filter(Boolean))],weapon:r};
     }
@@ -257,7 +272,7 @@
       out.skillSimulation=validateSkillSettings(input.skillSimulation);
       out.compare=[...new Set(out.compare.filter(Boolean))];return out;
     }
-    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings};
+    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings,selectSkillSettings};
   }
   const api={create,graph,ATTRS,STATS,TYPES,clamp};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;

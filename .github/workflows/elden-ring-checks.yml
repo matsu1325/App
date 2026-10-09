@@ -1,0 +1,35 @@
+name: エルデンリング検証
+
+on:
+  pull_request:
+    paths:
+      - 'tools/**'
+      - 'data/elden-ring*'
+      - 'data/elden-ring*/**'
+      - 'apps/elden-ring-build-helper.html'
+      - '.github/workflows/**'
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 検証依存を固定して準備する
+        run: |
+          python -m pip install openpyxl==3.1.5
+          npm install --no-save --package-lock=false playwright@1.62.1
+          npx playwright install --with-deps chromium
+          node -e "require('fs').appendFileSync(process.env.GITHUB_ENV, 'ER_CHROME_PATH=' + require('playwright').chromium.executablePath() + '\n')"
+      - name: 数値・収集・再生成・画面を検証する
+        run: node tools/check-elden-ring.mjs

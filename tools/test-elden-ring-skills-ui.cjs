@@ -7,7 +7,7 @@ let server,browser;
  server=http.createServer((req,res)=>{res.setHeader('Content-Type','text/html; charset=utf-8');res.end(fs.readFileSync(path.join(root,'apps/elden-ring-build-helper.html')));});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const url=process.env.ER_UI_URL||`http://127.0.0.1:${server.address().port}/build.html`;
- browser=await chromium.launch({headless:true,executablePath:process.env.ER_CHROME_PATH||'/usr/bin/chromium'});
+ browser=await chromium.launch({headless:true,...(process.env.ER_CHROME_PATH?{executablePath:process.env.ER_CHROME_PATH}:{channel:'chromium'})});
  const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));await page.goto(url);await page.waitForFunction(()=>window.ERApp,{timeout:45000});
  await page.locator('#tab-skills').click();
@@ -54,11 +54,43 @@ let server,browser;
  const shared=Buffer.from(JSON.stringify(build)).toString('base64url'),other=await context.newPage();
  await other.goto(url+'#build='+shared);await other.waitForFunction(()=>window.ERApp);
  assert.deepEqual(await other.evaluate(()=>window.ERApp.getState().skillSimulation),build.skillSimulation);
+ // Audit regressions: every catalog entry remains selectable with weapon/action evidence.
+ const catalog=await page.evaluate(()=>{
+  const ids=Object.keys(ERApp.engine.skillData.skills),missing=[];
+  for(const id of ids){const el=document.getElementById('skill-select');el.value=id;el.dispatchEvent(new Event('change',{bubbles:true}));
+   const choice=ERApp.getState().skillSimulation;if(!choice.variantId||!choice.actionId)missing.push(id);
+  }
+  return {count:ids.length,missing};
+ });assert.equal(catalog.count,267);assert.deepEqual(catalog.missing,[]);
+ for(const id of ['404','405','406','4040','4050','4210']){
+  await page.locator('#skill-select').selectOption(id);assert.ok(await page.locator('#skill-weapon option').count()>0);
+  assert.notEqual(await page.locator('#skill-weapon').inputValue(),'');assert.equal(await page.locator('#skill-total').textContent(),'未計算');
+ }
+ await page.locator('#skill-select').selectOption('503');await page.locator('#skill-action').selectOption('503:a712_040000');
+ assert.ok((await page.locator('#skill-status').textContent()).includes('接続が不足'));
+ assert.ok((await page.locator('#skill-action').textContent()).includes('判定資料なし'));
+ await page.locator('#skill-select').selectOption('5320');await page.locator('#skill-action').selectOption('5320:a933_040000');
+ assert.equal(await page.locator('#skill-total').textContent(),'未計算');assert.ok((await page.locator('#skill-status').textContent()).includes('参照先'));
+ assert.ok((await page.locator('#skill-evidence').textContent()).includes('effect:102370'));
+ assert.equal(await page.locator('#skill-hits').textContent().then(t=>t.includes('対象外')),false,'selected but blocked hits are unknown');
+ await page.locator('#skill-select').selectOption('5220');await page.locator('#skill-action').selectOption('5220:a923_040090');
+ assert.equal(await page.locator('#skill-total').textContent(),'未計算');assert.ok((await page.locator('#skill-status').textContent()).includes('掴み'));
+ await page.evaluate(()=>{const s=ERApp.getState();s.weapons[0]='weapon:2080000:-1:base';
+  s.skillSimulation={skillId:112,variantId:'weapon:2000000:0:base',actionId:'112:a612_040000',selectedWindows:null,fpOverride:12};ERApp.importBuild(s);});
+ await page.locator('#skill-use-equipped').click();
+ assert.equal(await page.evaluate(()=>ERApp.getState().skillSimulation.skillId),1018);
+ assert.equal(await page.locator('#skill-fp-override').inputValue(),'');assert.equal(await page.locator('#skill-fp').textContent(),'未計算');
+ await page.locator('#undo-build').click();assert.equal(await page.locator('#skill-fp-override').inputValue(),'12');
+ assert.equal(await page.evaluate(()=>ERApp.getState().skillSimulation.skillId),112);
+ await page.locator('#redo-build').click();assert.equal(await page.locator('#skill-fp-override').inputValue(),'');
+ await page.reload();await page.waitForFunction(()=>window.ERApp);await page.locator('#tab-skills').click();
+ assert.equal(await page.locator('#skill-fp-override').inputValue(),'');
+ assert.ok((await page.locator('#skill-coverage').textContent()).includes('入力と基礎FP'));
  // The HTML and embedded compressed skill data also work without a network connection.
  const standalone=await browser.newContext();await standalone.setOffline(true);const offline=await standalone.newPage();
  await offline.route('http://offline.test/skills.html',r=>r.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'apps/elden-ring-build-helper.html'),'utf8')}));
  await offline.goto('http://offline.test/skills.html');await offline.waitForFunction(()=>window.ERApp);
  await offline.locator('#tab-skills').click();assert.notEqual(await offline.locator('#skill-total').textContent(),'未計算');
- assert.deepEqual(errors,[]);console.log('PASS: skill UI, FP/stance branches, partial projectile, buff, manual FP, autosave/undo/share, stats, mobile/desktop, offline HTML');
+ assert.deepEqual(errors,[]);console.log('PASS: skill UI, all 267 selectors, fixed-affinity ashes, missing dependencies/grabs/kick, scoped FP with undo/redo/reload, shares, mobile/desktop and offline');
  await browser.close();browser=null;await new Promise(resolve=>server.close(resolve));server=null;
 })().catch(async error=>{console.error(error);if(browser)await browser.close();if(server)server.close();process.exitCode=1;});
