@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
 <title>エルデンリング ビルド構築ヘルパー</title>
-<meta name="description" content="本編・DLCの能力値、装備条件、武器攻撃力、触媒補正、魔術・祈祷、防具、敵耐性を比較。ビルド保存・共有とオフライン利用に対応。">
+<meta name="description" content="本編・DLCの能力値、装備条件、武器攻撃力、触媒補正、戦技シミュレーション、魔術・祈祷、防具、敵耐性を比較。ビルド保存・共有とオフライン利用に対応。">
 <script type="application/json" id="app-manifest">{"name":"エルデンリング ビルド構築ヘルパー","reading":"えるでんりんぐ びるどこうちくへるぱー","desc":"本編・DLCの装備条件、武器攻撃力、触媒補正、魔法、防具、敵耐性を比較し、ビルドを保存・共有する。","category":"ゲーム","icon":"◇","tags":["ELDEN RING","DLC","ビルド","武器","魔術","祈祷","ランキング"]}</script>
 <style>
 :root{color-scheme:dark;--bg:#101612;--panel:#19221c;--panel2:#202b23;--line:#354336;--gold:#d9ba78;--text:#f0ebde;--muted:#adb8aa;--ok:#b5d0a5;--bad:#f4ad91;--radius:14px}
@@ -18,6 +18,7 @@
 @media(max-width:720px){.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.stat-input button{display:block;min-width:44px;min-height:44px}.stat-input input{min-height:44px}.overview-weapons{grid-template-columns:1fr}.compare-bar-items button{max-width:210px}.summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .history-toolbar{margin:0 0 18px}.history-toolbar small{font-size:11px}.favorite-button{margin-top:6px}.favorite-button[aria-pressed=true]{color:var(--gold);border-color:var(--gold)}.spell-component{margin-top:12px}.spell-component select{width:100%;max-width:100%}.build-ab{margin-top:24px}.ab-table td{white-space:normal;overflow-wrap:anywhere;min-width:85px}.ab-table th{white-space:normal;min-width:85px}.ab-table .ab-changed{background:#d9ba7810}.ab-table .ab-changed td:last-child{color:var(--gold)}#equip-targets small{margin-top:5px}#equip-targets .badge{white-space:normal}.overview-warning{color:var(--bad)}
+.skill-hit-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}#panel-skills .summary-tile strong{font-size:22px}#panel-skills .summary-tile{min-width:0;overflow-wrap:anywhere}@media(max-width:720px){.skill-hit-list{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -48,7 +49,7 @@
 <div class="summary-grid" id="build-summary"></div>
 <section id="build-overview" class="panel build-overview" aria-label="現在のビルド"></section>
 <div class="history-toolbar row" aria-label="ビルド操作履歴"><button id="undo-build" class="small" disabled>取り消す</button><button id="redo-build" class="small" disabled>やり直す</button><small id="history-status" role="status">直近20操作を戻せます</small></div>
-<nav class="tabs" role="tablist" aria-label="ビルド構築"><button role="tab" aria-selected="true" aria-controls="panel-weapons" id="tab-weapons" data-tab="weapons">武器</button><button role="tab" aria-selected="false" aria-controls="panel-spells" id="tab-spells" data-tab="spells" tabindex="-1">魔術・祈祷</button><button role="tab" aria-selected="false" aria-controls="panel-equipment" id="tab-equipment" data-tab="equipment" tabindex="-1">装備構成</button><button role="tab" aria-selected="false" aria-controls="panel-enemies" id="tab-enemies" data-tab="enemies" tabindex="-1">敵と耐性</button><button role="tab" aria-selected="false" aria-controls="panel-saves" id="tab-saves" data-tab="saves" tabindex="-1">保存・共有</button><button role="tab" aria-selected="false" aria-controls="panel-about" id="tab-about" data-tab="about" tabindex="-1">計算の範囲</button></nav>
+<nav class="tabs" role="tablist" aria-label="ビルド構築"><button role="tab" aria-selected="true" aria-controls="panel-weapons" id="tab-weapons" data-tab="weapons">武器</button><button role="tab" aria-selected="false" aria-controls="panel-skills" id="tab-skills" data-tab="skills" tabindex="-1">戦技</button><button role="tab" aria-selected="false" aria-controls="panel-spells" id="tab-spells" data-tab="spells" tabindex="-1">魔術・祈祷</button><button role="tab" aria-selected="false" aria-controls="panel-equipment" id="tab-equipment" data-tab="equipment" tabindex="-1">装備構成</button><button role="tab" aria-selected="false" aria-controls="panel-enemies" id="tab-enemies" data-tab="enemies" tabindex="-1">敵と耐性</button><button role="tab" aria-selected="false" aria-controls="panel-saves" id="tab-saves" data-tab="saves" tabindex="-1">保存・共有</button><button role="tab" aria-selected="false" aria-controls="panel-about" id="tab-about" data-tab="about" tabindex="-1">計算の範囲</button></nav>
 <section id="panel-weapons" role="tabpanel" aria-labelledby="tab-weapons">
 <div class="section-head"><div><h2>武器ランキング</h2><small>488装備・3,296派生を、現在の能力値で再計算</small></div><button id="show-compare" class="small">比較 <span id="compare-count">0</span>/6</button></div>
 <label style="margin-bottom:10px">名前で検索<input id="weapon-search" type="search" placeholder="例：打刀 / Moonveil" autocomplete="off"></label>
@@ -59,6 +60,20 @@
 <details id="weapon-assumptions" open style="margin:8px 0 12px"><summary style="cursor:pointer;color:var(--muted);font-size:12px;min-height:30px">比較の前提：ARとダメージの違い</summary><div class="notice" id="weapon-note">計算ARは属性別攻撃力の合計。敵の防御力・カット率を適用した値は「対象敵への推定」で比較できます。装備の条件付き攻撃効果・PvP補正は未反映。</div></details>
 <div class="notice" id="dps-note" hidden></div>
 <div class="count" id="weapon-count" aria-live="polite"></div><div id="weapon-results" class="cards"></div><button id="weapon-more" class="more" hidden>さらに40件</button>
+</section>
+<section id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" hidden>
+<div class="section-head"><div><h2>戦技シミュレーター</h2><small>武器ARと戦技倍率からの条件付き推定。能力値・派生・強化・対象敵に連動</small></div></div>
+<p id="skill-count" class="count"></p>
+<div class="grid2"><label>戦技名で絞る<input id="skill-search" type="search" placeholder="例：居合 / Lion" autocomplete="off"></label><label>戦技<select id="skill-select"></select></label></div>
+<div class="grid2" style="margin-top:12px"><label>使用武器（適合表の候補）<select id="skill-weapon"></select></label><label>派生<select id="skill-affinity"></select></label></div>
+<div class="grid2" style="margin-top:12px"><label>動作・入力分岐<select id="skill-action"></select></label><div class="actions"><button id="skill-use-equipped">右手1の武器を使う</button><button id="skill-for-enemy">対象敵を選ぶ</button></div></div>
+<label style="margin-top:12px">消費FPが未確定の動作：FPを指定（任意の仮定）<input id="skill-fp-override" type="number" min="0" max="999" placeholder="空欄は未計算"></label>
+<p id="skill-costs" class="field-note" style="margin-top:12px"></p><p id="skill-conditions" class="field-note"></p>
+<div class="notice">武器攻撃はAR × 属性別倍率で計算し、防御・カット率を判定ごとに適用します。選択した判定はそれぞれ1回命中する仮定です。始動・追撃は別動作。FPなしの分岐は残りFP0のモデルです。飛び道具の独自補正、条件付きバフ、状態異常の発症、PvPは未対応。実機ダメージと1.17.1差分は未検証です。</div>
+<div class="summary-grid"><div class="summary-tile"><small>選択判定の推定合計</small><strong id="skill-total">未計算</strong></div><div class="summary-tile"><small>防御前威力</small><strong id="skill-power">未計算</strong></div><div class="summary-tile"><small id="skill-fp-label">選択動作の基礎FP</small><strong id="skill-fp">未計算</strong></div><div class="summary-tile"><small>推定ダメージ / FP</small><strong id="skill-efficiency">未計算</strong></div></div>
+<p id="skill-status" class="notice" role="status"></p><div id="skill-hits"></div>
+<p class="field-note">FP効率は入力コストが分かり、動作の全判定を計算できる場合のみ表示します。装着の個別例外と入力選択は資料ベースの候補です。戦技DPSは反復周期の検証待ちです。</p>
+<details class="panel" style="margin-top:16px"><summary>追加効果と計算の根拠</summary><div id="skill-effects" style="margin-top:12px"></div><p id="skill-evidence" class="english"></p><p class="field-note">装備や戦技の条件付き攻撃倍率は自動適用しません。手動倍率は防御前攻撃力に掛かります。最終ダメージへのバフ倍率とは区別してください。</p></details>
 </section>
 <section id="panel-spells" role="tabpanel" aria-labelledby="tab-spells" hidden>
 <div class="section-head"><div><h2>魔術・祈祷の比較</h2><small>213魔法・523派生成分。系統強化・追加弾・全段命中は未反映</small></div></div>
@@ -105,6 +120,7 @@
 <dialog id="equip-dialog" aria-labelledby="equip-title"><div class="dialog-head"><h2 id="equip-title">装備先を選ぶ</h2><button id="close-equip" aria-label="装備先の選択を閉じる">閉じる</button></div><p id="equip-name" class="muted"></p><div id="equip-targets" class="equip-grid" style="margin-top:16px"></div></dialog>
 <dialog id="detail-dialog" aria-labelledby="dialog-title"><div class="dialog-head"><div id="dialog-title"></div><button id="close-dialog" class="close" aria-label="詳細を閉じる">閉じる</button></div><div id="dialog-content"></div></dialog>
 <div id="toast" role="status" hidden></div>
+<script type="application/json" id="er-skill-data">__ER_SKILL_DATA__</script>
 <script type="application/json" id="er-dps-data">__ER_DPS_DATA__</script>
 <script type="application/json" id="er-payload">__ER_PAYLOAD__</script>
 <script>

@@ -1,0 +1,42 @@
+{
+  "encoding": "gzip-base64",
+  "sha256": "9e240c26ead7765339994b64be24db0b92a700da38f66e0606c40387620a1b09",
+  "raw_bytes": 6800692,
+  "parts": [
+    {
+      "file": "part-000.b64",
+      "bytes": 96000,
+      "sha256": "26e7e48c8ec703c28f7e811e1b6e6076b2951f357d5306ca2ea1fe1172c9269f"
+    },
+    {
+      "file": "part-001.b64",
+      "bytes": 96000,
+      "sha256": "b072790d022fda6bbb533720ae21e2b223786562078b3fd4f9bfa09518538a10"
+    },
+    {
+      "file": "part-002.b64",
+      "bytes": 96000,
+      "sha256": "56c22cbfc975dc79749dc9bd8acbbfda1a7220746a8d007ff3ce0b476665c4f6"
+    },
+    {
+      "file": "part-003.b64",
+      "bytes": 96000,
+      "sha256": "a827274eda83e29df378bca0220909e9a3184628d22cf2fc0a0a401a66cd783c"
+    },
+    {
+      "file": "part-004.b64",
+      "bytes": 96000,
+      "sha256": "850c4cbc4b1e1dbc9179bd88a6a556308eeab719a413176ba2342aa947cdb544"
+    },
+    {
+      "file": "part-005.b64",
+      "bytes": 96000,
+      "sha256": "d002cd8c0c68a0c4fa3cf39914ff7abb1e973836907c8c63b55a72a5bb82472a"
+    },
+    {
+      "file": "part-006.b64",
+      "bytes": 34672,
+      "sha256": "e6e3b82ef3e28b330a3a4f36b0e95b0ed6cf740b02cbd803bf3ad9659dabd399"
+    }
+  ]
+}

@@ -20,7 +20,7 @@
     }
     throw new Error('Invalid scaling graph');
   }
-  function create(data,dpsData={models:{},blocked:{}}) {
+  function create(data,dpsData={models:{},blocked:{}},skillData={skills:{},actions:{},components:{}}) {
     const reg=data.regulation;
     const byId=(rows)=>new Map(rows.map(x=>[x.id,x]));
     const catalogs={weapons:byId(data.weapons),variants:byId(data.variants),spells:byId(data.spells),spellVariants:byId(data.spellVariants),armor:byId(data.armor),talismans:byId(data.talismans),enemies:byId(data.enemies)};
@@ -112,6 +112,73 @@
       const cycleDamage=hits.reduce((s,h)=>s+h.damage,0);
       return {...base,status:'model_only',dps:cycleDamage/model.seconds,cycleSeconds:model.seconds,cycleDamage,hits,reasons:[]};
     }
+    function skillVariants(skillId){
+      const ids=new Set(skillData.skills[skillId]?.legal_variants||[]);
+      return data.variants.filter(v=>ids.has(v.id));
+    }
+    function skillActions(skillId,variantId){
+      const v=catalogs.variants.get(variantId),skill=skillData.skills[skillId];
+      if(!v||!skill?.legal_variants.includes(variantId))return [];
+      return skill.actions.map(id=>skillData.actions[id]).filter(a=>a.windows.some(w=>w.bindings[v.weapon_id]));
+    }
+    function validateSkillSettings(input){
+      const ids=Object.keys(skillData.skills),fallback=skillData.skills[100]?100:Number(ids[0]);
+      const skillId=Number.isInteger(input?.skillId)&&skillData.skills[input.skillId]?input.skillId:fallback;
+      if(!finite(skillId))return {skillId:null,variantId:'',actionId:'',selectedWindows:null,fpOverride:null};
+      const variants=skillVariants(skillId),variantId=variants.some(v=>v.id===input?.variantId)?input.variantId:
+        variants.find(v=>v.weapon_id==='weapon:2000000'&&v.affinity_id===0)?.id||variants[0]?.id||'';
+      const actions=skillActions(skillId,variantId),action=actions.find(a=>a.id===input?.actionId)||actions[0];
+      let selectedWindows=null;
+      if(input?.actionId===action?.id&&Array.isArray(input?.selectedWindows)){
+        if(input.selectedWindows.length>action.windows.length||input.selectedWindows.some(i=>!Number.isInteger(i)||!action.windows.some(w=>w.index===i)))
+          throw Error('戦技の命中判定の指定が不正です');
+        selectedWindows=[...new Set(input.selectedWindows)].sort((a,b)=>a-b);
+      }
+      const fpOverride=input?.fpOverride??null;
+      if(fpOverride!==null&&(!Number.isInteger(fpOverride)||fpOverride<0||fpOverride>999))throw Error('戦技のFPは0〜999の整数にしてください');
+      return {skillId,variantId,actionId:action?.id||'',selectedWindows,fpOverride};
+    }
+    function skillSimulation(vOrId,stats,options={}){
+      const base={status:'unsupported',total:null,modeledTotal:null,power:null,fp:null,damagePerFp:null,dps:null,
+        hits:[],reasons:[],verification:'conditional_model_unmeasured',complete:false};
+      const v=typeof vOrId==='string'?catalogs.variants.get(vOrId):vOrId;
+      const skill=skillData.skills[options.skillId],action=skillData.actions[options.actionId];
+      if(!v||!skill?.legal_variants.includes(v.id))return {...base,reasons:['incompatible_weapon']};
+      if(!action||action.skill_id!==skill.id||!skill.actions.includes(action.id))return {...base,reasons:['no_action_model']};
+      if(options.fpOverride!=null&&(!Number.isInteger(options.fpOverride)||options.fpOverride<0||options.fpOverride>999))return {...base,status:'error',reasons:['invalid_fp']};
+      const r=weapon(v,stats,{upgrade:options.upgrade,twoHand:options.twoHand});
+      if(!r.usable)return {...base,status:'unusable',fp:action.fp,reasons:['requirements'],weapon:r};
+      const multiplier=options.multiplier??1;
+      if(!finite(multiplier)||multiplier<=0)return {...base,status:'error',reasons:['invalid_multiplier']};
+      const selected=options.selectedWindows??action.windows.map(w=>w.index);
+      if(!Array.isArray(selected)||new Set(selected).size!==selected.length||selected.some(i=>!Number.isInteger(i)||!action.windows.some(w=>w.index===i)))
+        return {...base,status:'error',reasons:['invalid_selection']};
+      if(!selected.length)return {...base,fp:action.fp,reasons:['no_selected_hits']};
+      const hits=action.windows.map(window=>{
+        const hit={index:window.index,selected:selected.includes(window.index),range:window.range,type:window.type,
+          damage:null,power:null,mv:null,physical:null,attackId:null,reason:null};
+        if(!hit.selected)return hit;
+        const binding=window.bindings[v.weapon_id],component=skillData.components[binding?.ref];
+        hit.reason=window.reason||binding?.reason||(!component?'missing_binding':component.reason);
+        if(component)Object.assign(hit,{mv:component.mv,physical:component.physical,attackId:component.attack_id,flat:component.flat});
+        if(hit.reason)return hit;
+        if(component.mv.length!==5||component.mv.some(n=>!finite(n)||n<0)||component.flat.some(n=>n!==0)){
+          hit.reason='independent_scaling';return hit;
+        }
+        const power=component.mv.map((mv,t)=>(r.attack[t]||0)*mv/100*multiplier);
+        const damage=options.scope==='raw'?power.reduce((s,n)=>s+n,0):
+          options.enemy?.physical?.[component.physical]?hitDamage(power,options.enemy,component.physical,1)?.total:null;
+        if(!finite(damage)){hit.reason='enemy_data';return hit;}
+        hit.damage=damage;hit.power=power.reduce((s,n)=>s+n,0);return hit;
+      });
+      const active=hits.filter(h=>h.selected),known=active.filter(h=>finite(h.damage)),complete=known.length===active.length;
+      const modeledTotal=known.length?known.reduce((s,h)=>s+h.damage,0):null;
+      const total=complete?modeledTotal:null,fp=action.fp??options.fpOverride??null;
+      return {...base,status:complete?'model_only':known.length?'partial':'unsupported',total,modeledTotal,
+        power:complete?known.reduce((s,h)=>s+h.power,0):null,fp,fpSource:action.fp!==null?'mapped':fp!==null?'manual':'unmapped',
+        damagePerFp:complete&&selected.length===action.windows.length&&finite(fp)&&fp>0?total/fp:null,
+        hits,complete,reasons:[...new Set(active.map(h=>h.reason).filter(Boolean))],weapon:r};
+    }
     function spell(variant,catalystId,stats,settings) {
       const sp=catalogs.spells.get(variant.spell_id),cat=catalogs.variants.get(catalystId);
       const required=Object.entries(sp.requirements).filter(([a,n])=>stats[a]<n).map(([a,n])=>({stat:a,short:n-stats[a],need:n,have:stats[a]}));
@@ -187,9 +254,10 @@
       out.memorized=out.memorized.filter(Boolean);
       out.enemy=out.enemy||data.enemies[0].id;
       out.settings.targetLevel=settings.targetLevel??null;
+      out.skillSimulation=validateSkillSettings(input.skillSimulation);
       out.compare=[...new Set(out.compare.filter(Boolean))];return out;
     }
-    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState};
+    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings};
   }
   const api={create,graph,ATTRS,STATS,TYPES,clamp};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
