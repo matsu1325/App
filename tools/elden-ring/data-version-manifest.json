@@ -1,0 +1,423 @@
+{
+  "schema": 1,
+  "audited_at": "2026-11-08",
+  "baseline_commit": "14f73c7364923ff1d1266f7a7c02f5aae08c595d",
+  "bundled_regulation": "1.17",
+  "latest_official_app": "1.17.2",
+  "latest_official_regulation": "1.17.3",
+  "official_url": "https://en.bandainamcoent.eu/elden-ring/news/elden-ring-patch-notes-version-1172",
+  "payload_sha256": "cf5a1bd43c17f040804d3350fe109821a3ef2774e318633fee8330f16124a32c",
+  "counts": {
+    "weapons": 488,
+    "variants": 3296,
+    "classes": 12
+  },
+  "upstream_checked_commit": "3539d87",
+  "upstream_regulation_sha256": "6ae98b99429cf63f3f2c6a737cf90f6e7507fa67c1dd7e45cad5937a2f3824a5",
+  "sources": [
+    {
+      "id": "weapon-source:COPYING",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/COPYING",
+      "sha256": "a0809e15daa0ec44337939232dc8de895234932bea405870ed9a1eac9456befe",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:README.md",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/README.md",
+      "sha256": "22c6527d15576bd09eb392499e263e8c1b51f64fc8f6070d1c88e7a59040df92",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:public/regulation-vanilla-v1.17.js",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/public/regulation-vanilla-v1.17.js",
+      "sha256": "6ae98b99429cf63f3f2c6a737cf90f6e7507fa67c1dd7e45cad5937a2f3824a5",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/app/regulationVersions.tsx",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/app/regulationVersions.tsx",
+      "sha256": "661caa9be1c6eded02cb76fbb7793c2fd4462a34476438d97da6f8c2fb3e110f",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/app/uiUtils.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/app/uiUtils.ts",
+      "sha256": "2194de1fd7d09e70e74155536fb61c0f91dc680d191e625c173ba9e464d62dfc",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/buildData.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/buildData.ts",
+      "sha256": "1de98b606ed168cb8fab35effe79e0d6e0845a38a95b8605a9f8fd47697ad735",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/calculator/attackPowerTypes.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/attackPowerTypes.ts",
+      "sha256": "5d62367b87ea27d697710e6742c03c185860e206d1225160553a6a19bbabefd4",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/calculator/attributes.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/attributes.ts",
+      "sha256": "64d8feb29cbe6f3c8230b4298cb55db73da23d624fe887771a922c09a899d439",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/calculator/calculator.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/calculator.ts",
+      "sha256": "6b3733e28f50403f13d5915ec2a48e6774f1ff144203ead522153853bff99f46",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/calculator/weapon.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/weapon.ts",
+      "sha256": "64e6da031744a80f35eb6ed5fe5342c066247a3f5a3d45ad75acc414e1874027",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/calculator/weaponTypes.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/calculator/weaponTypes.ts",
+      "sha256": "b38f3710e186c5d455eaa133f0bd562cdd47696286d5d479021df8b912e248e8",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/regulationData.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/regulationData.ts",
+      "sha256": "1949a2f85ef0c0439660c6711dd55c0d008951318e908c68caf26e98ca8c072c",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "weapon-source:src/vanillaWeaponIds.ts",
+      "url": "https://raw.githubusercontent.com/ThomasJClark/elden-ring-weapon-calculator/b8a1cf8847fe67aacc7f8fcb038a9cfd6725f19a/src/vanillaWeaponIds.ts",
+      "sha256": "5025788b1fbfedf3e30d27d284e7401dd48d80d20672a0898d374adec01e4f12",
+      "version": "1.17",
+      "license": "MIT (repository code); preserve source notices"
+    },
+    {
+      "id": "motion-values",
+      "url": "https://docs.google.com/spreadsheets/d/1j4bpTbsnp5Xsgw9TP2xv6d8R4qk0ErpE9r_5LGIDraU/export?format=xlsx",
+      "sha256": "1e776feab535fc33f93f2abebd6e1ca30d793ed1d55d98fb260cd1dfdc76fdd6",
+      "version": "1.17.1 (source title)",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "misc-effects",
+      "url": "https://docs.google.com/spreadsheets/d/1rfYfa5kcyoCuKgnS23dc8J8lLLTqWXsWtq9qG4TxT50/export?format=xlsx",
+      "sha256": "ce6bb7fe46e568e306c232521044d67499a01b243ba8fca5d69ba823db99b22e",
+      "version": "1.17.1 (source title)",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "build-planner",
+      "url": "https://docs.google.com/spreadsheets/d/19Op36P7gdVMkPzFQX6OsjZcfyUjdGOj7Cjk9qFAVj-U/export?format=xlsx",
+      "sha256": "b45c2fa51e8127b2beebeab74940c83eb2fa93c48cf33b1a561a2b53aafcf9f4",
+      "version": "1.17 / author declares 1.17.1 requires no update",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "pve-enemies",
+      "url": "https://docs.google.com/spreadsheets/d/1BVwmKqB8pvuyJkSTGYOM2kAJxFMQ0jVsc6aKYz_Upes/export?format=xlsx",
+      "sha256": "9df18e306d21cb4b404f8ac32da97ba9949c7c8860a47659f76dcb82266bee6b",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "ash-compatibility",
+      "url": "https://docs.google.com/spreadsheets/d/1BTwjJaSX8iEK7TjUi0TbCY34apgH_028_a_j2XcITqY/export?format=xlsx",
+      "sha256": "bd14348fab4bf31bd3bd5fa4ccd857339f5bc627bd9cbc551b26701549fe5bda",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "item-data",
+      "url": "https://docs.google.com/spreadsheets/d/1x6LvzrqA9LWXPbzPZBDG8aL4N3Xc_ZxtEFMWpUxQj5c/export?format=xlsx",
+      "sha256": "1ac9f388bbdbc114ab590cd3320dc329a16df72cd89e0509f86cccb02cf08bab",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "weapon-data",
+      "url": "https://docs.google.com/spreadsheets/d/1ybiI1WgyRs67kGklUXeroi58KDab2KsU_hKutBORiW0/export?format=xlsx",
+      "sha256": "cf5192dd32c73cab7bca72ba236624a5cb998591ac7b166d699b733b7669cd56",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "scaling-data",
+      "url": "https://docs.google.com/spreadsheets/d/1zoJIRmr-00XC1Rd-SwIpeNoHNpehY2kRHoh-4WeACxc/export?format=xlsx",
+      "sha256": "defa41ca30182aa356017938cd9e79c8e701f69a60d359ccf7f02bb2caab62e7",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "player-stats",
+      "url": "https://docs.google.com/spreadsheets/d/1bsi5OOMfuBma4e0c-FSxiofAitOeDpvruQphBRF-Los/export?format=xlsx",
+      "sha256": "dd0772d2dec6bfe29f15159f2aad008ac9bf10c9d6a1ec0a67c34e870c203fc1",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "parry-iframes",
+      "url": "https://docs.google.com/spreadsheets/d/1Hgqmd7FgKbrfPA6Zqu7kobDlVMbNcIj24QLGzztrIFQ/export?format=xlsx",
+      "sha256": "973206cc2eeac540acb67ae9353e8a79f3aec96c9738c01a290bc8a62b7e74eb",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "attack-ids",
+      "url": "https://docs.google.com/spreadsheets/d/13v1L2Jn_LoCEVfCm5E5blM0_CEtecTAJyGhjerlKI2A/export?format=xlsx",
+      "sha256": "f20ceeb6502b948a329106847b7003faf0ba0d6f3f3e59ae825944cbc06f3876",
+      "version": "verify workbook",
+      "license": "Public reference; reuse terms not yet established; not approved for public redistribution"
+    },
+    {
+      "id": "elden-ring-data/msg:README.md",
+      "url": "https://raw.githubusercontent.com/elden-ring-data/msg/4bbba478e478e9018d0293e0b18cd8cf706199e9/README.md",
+      "sha256": "bfe8ba1016be148e949f230b438a0fe7687dbf40c736117842d6cf5a2bb17004",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "elden-ring-data/msg:jpnjp/item.msgbnd.dcx.json",
+      "url": "https://raw.githubusercontent.com/elden-ring-data/msg/4bbba478e478e9018d0293e0b18cd8cf706199e9/jpnjp/item.msgbnd.dcx.json",
+      "sha256": "a9e943c7f5cc9f8e50a63f3cdba755251686bc287ab811421510a822e508564d",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "elden-ring-data/msg:engus/item.msgbnd.dcx.json",
+      "url": "https://raw.githubusercontent.com/elden-ring-data/msg/4bbba478e478e9018d0293e0b18cd8cf706199e9/engus/item.msgbnd.dcx.json",
+      "sha256": "c381365e9eed36a3225533a5955518bad105359d031b50db6ada2084d4eed108",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameText/GR/data/INTERROOT_win64/msg/engUS/AccessoryName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameText/GR/data/INTERROOT_win64/msg/engUS/AccessoryName_dlc01.fmg.xml",
+      "sha256": "0f8ec617e79bcf7d62ace75dd5bff16edc014f8b0f03f0b84f379fe54340b525",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameText/GR/data/INTERROOT_win64/msg/engUS/ArtsName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameText/GR/data/INTERROOT_win64/msg/engUS/ArtsName_dlc01.fmg.xml",
+      "sha256": "d66b7bafdb84607aaee0261c174b6c14f38521299a731a0bfec763cd7bf7ce65",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameText/GR/data/INTERROOT_win64/msg/engUS/GemName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameText/GR/data/INTERROOT_win64/msg/engUS/GemName_dlc01.fmg.xml",
+      "sha256": "236aa407dbdc8d984703e40b7ddff8bfd1d0964b613c4810601976134a866c50",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameText/GR/data/INTERROOT_win64/msg/engUS/GoodsName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameText/GR/data/INTERROOT_win64/msg/engUS/GoodsName_dlc01.fmg.xml",
+      "sha256": "90e9ec3418b6a042c5152f61e8dada6e76452c8ccd90fd4cb45dc4a5e303c79a",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameText/GR/data/INTERROOT_win64/msg/engUS/ProtectorName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameText/GR/data/INTERROOT_win64/msg/engUS/ProtectorName_dlc01.fmg.xml",
+      "sha256": "e64fa799bb206009c74e9f7450a20cd07a3ee3211621a48dea0e2d53b7035f2d",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameText/GR/data/INTERROOT_win64/msg/engUS/WeaponName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameText/GR/data/INTERROOT_win64/msg/engUS/WeaponName_dlc01.fmg.xml",
+      "sha256": "c81577ab58f549288654d5024b31aec75203b4e9098a39b5f3109c7c83f761d2",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/AccessoryName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/AccessoryName_dlc01.fmg.xml",
+      "sha256": "1d9bd58f26ac4378ffd315e02435690f684ff91458b6552fe8ffabead5edbb9d",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/ArtsName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/ArtsName_dlc01.fmg.xml",
+      "sha256": "53c0f6e3e1894ae891154826129812dcd5238b3e9a7f64d38477d4f95d866baa",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/GemName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/GemName_dlc01.fmg.xml",
+      "sha256": "1445156d7c059e30c6cd7f07d8bfb21d7a1d28426a93254b4f6f136bf046f8ae",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/GoodsName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/GoodsName_dlc01.fmg.xml",
+      "sha256": "9632573d29b5d99c19b1adf48dec9d757d7dd1de3e8edf5b956c2f4098a0bdb5",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/ProtectorName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/ProtectorName_dlc01.fmg.xml",
+      "sha256": "f70f96ddcb571a2b8e2e811413008ca7700d1fd9f8a5f07ba4de7214558ea568",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "ividyon/Impalers-Archive:GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/WeaponName_dlc01.fmg.xml",
+      "url": "https://raw.githubusercontent.com/ividyon/Impalers-Archive/23fdb0e125ed27266b1fd82446c17d687ffcd15a/GameTextJP/GR/data/INTERROOT_win64/msg/jpnJP/WeaponName_dlc01.fmg.xml",
+      "sha256": "3bc92fccb8f41ea3e101c349c8fbfaa7f3c677206b1e4cc4c2181bab8c719f31",
+      "version": "not declared; 2024 snapshot",
+      "license": "Game text; repository license not declared; names-only runtime extraction"
+    },
+    {
+      "id": "official-patch",
+      "url": "https://www.eldenring.jp/newsdetail/news_detail_260908_1.html",
+      "sha256": "6a675125d3e3e42cbce1da4aa19b8a872d7b5afe741f8f8d172a4741be8b58db",
+      "version": "1.17.1",
+      "license": "Reference only"
+    },
+    {
+      "id": "frame:AtkParam_Pc.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/AtkParam_Pc.json",
+      "sha256": "5c75fedbef00bfa0571fc5a6c702e0a4d8f00985e19ed568d83b5dea1c72101b",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:BehaviorParam_PC.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/BehaviorParam_PC.json",
+      "sha256": "b84402210d26ab21d9bdffff0e9eec1994561cfffdd2370b0341b55c82b90dbb",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:Bullet.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/Bullet.json",
+      "sha256": "233978503a87c742ed5788011f68e0eb9cbb13468909ec6ccd2d7ffa42b18403",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:EquipParamAccessory.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/EquipParamAccessory.json",
+      "sha256": "afabf05805d96a6e13b9bd69db030aeedbbe12008f210cf874bf22d31ffa0fa6",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:EquipParamGem.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/EquipParamGem.json",
+      "sha256": "c036a0b071d046f1446dbc6e6a862f60f9150efb90c1e2f3210954f9d0bbede0",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:EquipParamGoods.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/EquipParamGoods.json",
+      "sha256": "c1f6bcf27585cd9c189e9371238048d60cbbfa634d0be241cbb58b3c2da5ffcb",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:EquipParamProtector.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/EquipParamProtector.json",
+      "sha256": "c1bf7f1816ffb8be665bcb1fa902511cb89b8117cf85876f12d877504ffcd193",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:EquipParamWeapon.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/EquipParamWeapon.json",
+      "sha256": "14badeeca93b91b46ef2adc688ffec30f7ace2f809b6e0d234e8cadfa1925fb5",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:FinalDamageRateParam.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/FinalDamageRateParam.json",
+      "sha256": "4380f8196da0a3f88afa668c42b9a241b20e7723c9363c20d758ded973f51d49",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:Magic.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/Magic.json",
+      "sha256": "be6ce24bd15a4bde734ae0651b1deb2be65bf10c657a6823dc42ad09475910f9",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:SpEffectParam.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/SpEffectParam.json",
+      "sha256": "0481c04561cfe5e8282ec70bbe234a68daa31d83f7d1cb73606aa86da5ba4b5d",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:SwordArtsParam.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/SwordArtsParam.json",
+      "sha256": "fdea854a9b9448e611f7869505ad4e136014bad4ec280c4d0febb9a60d225690",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:ToughnessParam.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/ToughnessParam.json",
+      "sha256": "7b7a40e681afa16614c63eb4c2280f8ff5d92cea6afedf44aa7a527d55d0a925",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:animations.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/animations.json",
+      "sha256": "02d6fe03f9530989db61b585197c009aa492d4c53685a2898b7fca89850111b6",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:armaments.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/armaments.json",
+      "sha256": "93a747177e5a9aa4df7e1c4b8e28f1c699cfd4a3915e84bd92e138d13c2a7542",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    },
+    {
+      "id": "frame:attacks.json",
+      "url": "https://er-frame-data.nyasu.business/generated/1.17/attacks.json",
+      "sha256": "e05d77d060ba68da2718d302b03c58a9860ec90a6e7a0368c5433353955d2db6",
+      "version": "1.17 (site data path)",
+      "license": "Public reference; reuse terms not established"
+    }
+  ],
+  "accuracy": {
+    "ar": "reference-model; not independently game-verified",
+    "optimizer": "exact additive DP over internal floating-point AR, legal stat allocations",
+    "damage": "estimate",
+    "dps": "model-only; unmeasured"
+  },
+  "pending": [
+    "Regulation 1.17.3 raw data and parameter diff",
+    "120 independent in-game AR samples",
+    "in-game integer AR rounding validation",
+    "iOS Safari device and mobile performance validation"
+  ]
+}
