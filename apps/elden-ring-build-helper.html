@@ -406,6 +406,77 @@
 })(typeof globalThis!=='undefined'?globalThis:this);
 </script>
 <script>
+/* Exact internal-AR optimization for the bundled, additive weapon model.
+ * Equipment and handling stay fixed. This is not a game-data accuracy claim. */
+(function(root){
+'use strict';
+const STATS=['vig','mnd','end','str','dex','int','fai','arc'];
+async function optimize(engine,input,{signal,onProgress=()=>{},yieldControl=()=>new Promise(r=>setTimeout(r,0))}={}){
+  const check=()=>{if(signal?.aborted){const e=new Error('探索を中断しました');e.name='AbortError';throw e;}};
+  const state=engine.validateState(input.state),c=engine.data.classes.find(c=>c.name_en===state.className);
+  const target=input.targetLevel;
+  if(!Number.isInteger(target)||target<c.level||target>713)throw Error('目標レベルは素性の初期レベル〜713で指定してください');
+  if(!['respec','grow'].includes(input.mode))throw Error('育成または振り直しを選んでください');
+  const v=engine.catalogs.variants.get(input.variantId);
+  if(!v)throw Error('武器が不明です');
+  if(v.sorcery_tool||v.incantation_tool)throw Error('触媒の魔法威力最適化は未対応です');
+  if(input.mode==='grow'&&STATS.some(a=>state.stats[a]<c.stats[a]))throw Error('現在値が素性の初期値を下回っています');
+  const options={twoHand:state.settings.twoHand,upgrade:engine.getUpgrade(v,state.settings)};
+  const effective=stats=>engine.equipment({...state,stats}).stats;
+  const evaluate=stats=>engine.weapon(v,effective(stats),options);
+  const lo={},hi={};
+  for(const a of STATS){
+    const bounds=input.bounds?.[a]||{};
+    if(Object.keys(bounds).some(k=>!['min','max','fixed'].includes(k)))throw Error('不明な制約です');
+    for(const n of Object.values(bounds))if(!Number.isInteger(n)||n<1||n>99)throw Error('制約は1〜99の整数にしてください');
+    lo[a]=Math.max(c.stats[a],input.mode==='grow'?state.stats[a]:1,bounds.min??1);
+    hi[a]=bounds.max??99;
+    if(bounds.fixed!==undefined){lo[a]=Math.max(lo[a],bounds.fixed);hi[a]=Math.min(hi[a],bounds.fixed);}
+    if(lo[a]>hi[a])throw Error(a+' の上下限・固定値が矛盾しています');
+  }
+  // Requirements use the exact equipment clamp and handling path, including auto-2H bows.
+  for(const a of STATS){
+    while(lo[a]<=hi[a]&&evaluate(lo).missing.some(m=>m.stat===a))lo[a]++;
+    if(lo[a]>hi[a])throw Error(a+' の上限では武器の必要能力値を満たせません');
+  }
+  const sum=o=>STATS.reduce((n,a)=>n+o[a],0);
+  const budget=target-c.level+sum(c.stats)-sum(lo);
+  if(budget<0||budget>sum(hi)-sum(lo))throw Error('指定レベルでは制約を満たす配分を作れません');
+  const base=evaluate(lo);
+  if(!base.usable)throw Error('必要能力値を満たせません');
+  const tables=[];
+  for(let i=0;i<STATS.length;i++){
+    check();const a=STATS[i],values=[];
+    for(let n=lo[a];n<=hi[a];n++)values.push(evaluate({...lo,[a]:n}).total-base.total);
+    tables.push(values);onProgress({phase:'準備',completed:i+1,total:16});await yieldControl();
+  }
+  // engine.weapon() is a sum of independent stat curves once requirements are met.
+  // Fail closed if a future model introduces interactions.
+  for(const stats of [hi,Object.fromEntries(STATS.map(a=>[a,Math.floor((lo[a]+hi[a])/2)]))]){
+    const predicted=base.total+STATS.reduce((n,a,i)=>n+tables[i][stats[a]-lo[a]],0);
+    if(Math.abs(evaluate(stats).total-predicted)>1e-7)throw Error('この武器の非独立補正には未対応です');
+  }
+  let dp=new Float64Array(budget+1).fill(-Infinity);dp[0]=0;
+  const paths=[];
+  for(let i=0;i<STATS.length;i++){
+    check();const next=new Float64Array(budget+1).fill(-Infinity),path=new Int16Array(budget+1).fill(-1);
+    for(let p=0;p<=budget;p++)if(Number.isFinite(dp[p]))for(let n=0;n<tables[i].length&&p+n<=budget;n++){
+      const score=dp[p]+tables[i][n];
+      if(score>next[p+n]){next[p+n]=score;path[p+n]=n;}
+    }
+    dp=next;paths.push(path);onProgress({phase:'探索',completed:i+9,total:16});await yieldControl();
+  }
+  check();if(!Number.isFinite(dp[budget]))throw Error('合法な配分がありません');
+  const stats={...lo};let p=budget;
+  for(let i=7;i>=0;i--){const n=paths[i][p];if(n<0)throw Error('探索経路が不正です');stats[STATS[i]]=lo[STATS[i]]+n;p-=n;}
+  const next=engine.validateState({...state,stats,settings:{...state.settings,targetLevel:target}}),result=evaluate(stats),current=evaluate(state.stats);
+  if(p!==0||engine.buildLevel(next)!==target||!result.usable||Math.abs(result.total-base.total-dp[budget])>1e-7)throw Error('最終検査に失敗しました');
+  return {state:next,stats,current,result,delta:result.total-current.total,method:'exact-additive-dp',objective:'internal-ar',verification:'reference-data',mode:input.mode,targetLevel:target,variantId:v.id};
+}
+const api={optimize};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.EROptimizer=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script>
+<script>
 (async function () {
   'use strict';
   const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -781,11 +852,46 @@
       const skill=data.skills?.[w.default_skill_id];
       const gains=EREngine.ATTRS.map(a=>{if(derived.stats[a]>=99)return {a,n:null};const stats={...derived.stats,[a]:derived.stats[a]+1};return {a,n:engine.weapon(v,stats,{upgrade:r.upgrade,twoHand:state.settings.twoHand}).total-r.total};});
       showDialog(`<h2>${esc(name(w))}</h2><p class="english">${esc(v.name_en)}</p>`,`${badges(v,r)}<div class="dialog-grid"><div class="panel"><small>計算AR / +${r.upgrade}</small><h2 style="color:var(--gold)">${number(r.total,1)}</h2><div class="typed">${typed(r.attack)}</div><p class="muted">重量 ${w.weight} / ${state.settings.twoHand?'両手':'片手'}指定</p><p class="english">要求：${Object.entries(v.requirements).map(([a,n])=>LABEL[a]+' '+n).join(' / ')||'なし'}</p></div><div class="panel"><h3>能力値 +1 のAR増分</h3>${gains.map(g=>`<div class="row"><span>${LABEL[g.a]}</span><strong class="increment">${g.n===null?'上限':(g.n>=0?'+':'')+number(g.n,2)}</strong></div>`).join('')}<small>装備補正後の能力値を1増やした比較。</small></div></div><div class="table-wrap"><table><thead><tr><th>攻撃属性</th><th>AR / 蓄積</th><th>触媒補正</th></tr></thead><tbody>${Array.from({length:12},(_,t)=>r.attack[t]||r.spellScaling[t]?`<tr><td>${DAMAGE[t]||STATUS[t]}</td><td>${number(r.attack[t]||0,2)}</td><td>${r.spellScaling[t]?number(r.spellScaling[t],2):'—'}</td></tr>`:'').join('')}</tbody></table></div><h3 style="margin-top:16px">対象敵と攻撃パターン</h3><p class="english">${esc(jpEnemy(selectedEnemy()))} / ${esc(selectedEnemy().journey)}</p><label>攻撃成分<select id="detail-move">${option('standard','標準比較：MV100%・選択中の物理属性')}${moves.map(m=>option(m.id,`${m.name} · MV ${m.raw}`)).join('')}</select></label><div id="detail-damage" style="margin-top:12px"></div><div class="notice">各ヒットを別々に防御計算します。条件付きMV、複合する物理属性、追加弾・固有効果は未計算です。</div>${data.effects[w.name_en]?`<p class="english">装備の効果説明：${esc(data.effects[w.name_en].text)}（攻撃効果は未反映）</p>`:''}<div class="actions"><button data-equip-weapon="${esc(id)}" class="primary">装備する</button><button data-skill-weapon="${esc(id)}">戦技をシミュレート</button><button data-compare="${esc(id)}">比較候補を切り替える</button></div>`);
+      renderOptimizer(id);
       renderDetailDamage();
       renderDpsDetail(v,r);
       $('dialog-content').insertAdjacentHTML('beforeend',`<section id="detail-curves"><h3 style="margin-top:20px">能力値別ダメージ推移</h3><p class="field-note">他の能力値・派生・強化・敵・攻撃成分を固定し、装備補正後の能力値だけを変更。5能力を同じグラフに重ねて表示。破線は要求能力不足。</p><label>横軸の範囲<select id="curve-range">${option('99','1〜99（ゲーム内）')}${option('148','1〜148（100以上は仮想）')}</select></label><div id="curve-charts"></div></section>`);
       renderWeaponCurves();
       $('dialog-content').insertAdjacentHTML('afterbegin',`<p class="muted" style="margin-bottom:10px">既定戦技：${esc(skill?name(skill):'資料なし')} · 戦灰変更 ${w.allow_ash_of_war===true?'可能':w.allow_ash_of_war===false?'不可':'未確認'} · 武器付与 ${w.is_buffable===true?'可能（派生条件は別）':w.is_buffable===false?'不可':'未確認'}</p>`);
+    }
+    let optimizerRun=null,optimizerProposal=null;
+    function renderOptimizer(id){
+      optimizerRun?.abort();optimizerProposal=null;
+      const c=data.classes.find(c=>c.name_en===state.className);
+      $('dialog-content').insertAdjacentHTML('beforeend',`<section id="weapon-optimizer" class="panel" style="margin-top:20px"><h3>この武器に最適なステ振り</h3><p class="notice">計算対象：収録Reg 1.17 / 参考AR。最新Reg 1.17.3への更新・実機AR照合は未完了。探索は内蔵モデルの内部AR合計を最大化する厳密DPです。ゲーム表示の整数AR・対敵ダメージ・DPSの最適解は保証しません。装備・派生・強化・持ち方は現在の条件で固定。</p><div class="grid2"><label>目標レベル<input id="optimizer-level" type="number" min="${c.level}" max="713" value="${state.settings.targetLevel??engine.buildLevel(state)}"></label><label>配分モード<select id="optimizer-mode"><option value="respec">振り直し（素性初期値まで戻せる）</option><option value="grow">現在値から追加育成</option></select></label></div><details style="margin:12px 0" open><summary>8能力の制約（装備補正前）</summary><p class="field-note">生命・精神・持久は現在値で固定が初期設定。「範囲」にすると余剰ポイントの配分先にもなります。下限は素性の初期値以上。</p><div class="table-wrap"><table><thead><tr><th>能力</th><th>条件</th><th>下限 / 固定値</th><th>上限</th></tr></thead><tbody>${EREngine.STATS.map((a,i)=>`<tr><th>${LABEL[a]}</th><td><select id="optimizer-rule-${a}" aria-label="${LABEL[a]}の条件"><option value="range">範囲</option><option value="fixed"${i<3?' selected':''}>固定</option></select></td><td><input id="optimizer-min-${a}" aria-label="${LABEL[a]}の下限" type="number" min="${c.stats[a]}" max="99" value="${i<3?Math.max(c.stats[a],state.stats[a]):c.stats[a]}" style="width:80px"></td><td><input id="optimizer-max-${a}" aria-label="${LABEL[a]}の上限" type="number" min="${c.stats[a]}" max="99" value="99" style="width:80px"></td></tr>`).join('')}</tbody></table></div></details><div class="actions"><button id="optimizer-start" class="primary">AR最大の配分を計算</button><button id="optimizer-cancel" disabled>中断</button></div><p id="optimizer-status" role="status" aria-live="polite"></p><div id="optimizer-result"></div></section>`);
+      $('optimizer-start').onclick=async()=>{
+        optimizerRun?.abort();const controller=new AbortController();optimizerRun=controller;optimizerProposal=null;
+        const snapshot=JSON.stringify(state),variant=id;const bounds={};
+        for(const a of EREngine.STATS){const min=Number($('optimizer-min-'+a).value),max=Number($('optimizer-max-'+a).value);bounds[a]=$('optimizer-rule-'+a).value==='fixed'?{fixed:min}:{min,max};}
+        $('optimizer-result').innerHTML='';renderWeaponCurves();$('optimizer-start').disabled=true;$('optimizer-cancel').disabled=false;
+        try{
+          const start=performance.now(),result=await EROptimizer.optimize(engine,{state:JSON.parse(snapshot),variantId:variant,targetLevel:Number($('optimizer-level').value),mode:$('optimizer-mode').value,bounds},{signal:controller.signal,onProgress:p=>{if($('optimizer-status'))$('optimizer-status').textContent=`${p.phase} ${p.completed}/${p.total}`;}});
+          if(controller.signal.aborted||lastWeaponDetail!==variant||snapshot!==JSON.stringify(state)||!$('optimizer-result'))return;
+          optimizerProposal={...result,snapshot};
+          $('optimizer-status').textContent=`探索完了：${number(performance.now()-start,0)}ms · 厳密DP（内部AR） · Lv${result.targetLevel}整合・要求能力充足`;
+          $('optimizer-result').innerHTML=`<p>現在の参考AR ${number(result.current.total,2)} → 提案 ${number(result.result.total,2)}（${signed(result.delta,2)}）</p><p class="field-note">同率時は決定的な順序で1配分を表示。同ARの別解は列挙しません。現在配分が要求不足の場合、増分には不足解消も含みます。</p><div class="typed">${typed(result.result.attack)}</div><div class="table-wrap"><table><thead><tr><th>能力</th><th>現在</th><th>提案</th><th>差</th></tr></thead><tbody>${EREngine.STATS.map(a=>`<tr><th>${LABEL[a]}</th><td>${state.stats[a]}</td><td>${result.stats[a]}</td><td>${signed(result.stats[a]-state.stats[a],0)}</td></tr>`).join('')}</tbody></table></div><div class="actions"><button id="optimizer-try">一時的に試す</button><button id="optimizer-apply" class="primary">この配分を適用</button></div><div id="optimizer-preview"></div>`;
+          renderWeaponCurves();
+          $('optimizer-try').onclick=()=>{
+            if(!optimizerProposal||snapshot!==JSON.stringify(state))return;
+            const e=engine.equipment(result.state),r=engine.weapon(variant,e.stats,{upgrade:result.result.upgrade,twoHand:state.settings.twoHand});
+            const damage=engine.hitDamage(r.attack,selectedEnemy(),$('physical-type').value,multiplier());
+            $('optimizer-preview').textContent=`一時プレビュー（未保存）：HP ${e.hp} / FP ${e.fp} / スタミナ ${e.stamina} / ${e.roll} / 参考AR ${number(r.total,2)}${damage?' / 標準推定ダメージ '+number(damage.total,1):''}`;
+          };
+          $('optimizer-apply').onclick=()=>{
+            if(storageConflict){toast('別タブの変更を確認してから適用してください');return;}
+            if(snapshot!==JSON.stringify(state)){toast('ビルドが変わりました。再計算してください');return;}
+            state=engine.validateState({...state,stats:{...result.stats},settings:{...state.settings,targetLevel:result.targetLevel}});syncControls();update();showWeaponDetail(variant);toast('最適配分を適用しました。1操作で取り消せます');
+          };
+        }catch(e){if($('optimizer-status')&&optimizerRun===controller)$('optimizer-status').textContent=e.message;}
+        finally{if(optimizerRun===controller&&$('optimizer-start')){$('optimizer-start').disabled=false;$('optimizer-cancel').disabled=true;}}
+      };
+      $('optimizer-cancel').onclick=()=>optimizerRun?.abort();
+      for(const el of $('weapon-optimizer').querySelectorAll('input,select'))el.addEventListener('change',()=>{optimizerRun?.abort();optimizerProposal=null;$('optimizer-result').innerHTML='';renderWeaponCurves();});
     }
     function renderDpsDetail(v,r){
       const result=getWeaponDps(v,r),scope=$('weapon-sort').value==='dpsEnemy'?'対敵':'防御前';
@@ -823,14 +929,14 @@
         const paths=[];
         for(let i=1;i<points.length;i++){const p=points[i-1],q=points[i];paths.push(`<path d="M${x(p.value).toFixed(2)},${y(p.damage).toFixed(2)} L${x(q.value).toFixed(2)},${y(q.damage).toFixed(2)}"${!p.usable||!q.usable?' stroke-dasharray="3 3"':''}/>`);}
         const current=derived.stats[a],base=points[current-1];
-        return `<g data-curve-series="${a}" stroke="${colors[a]}" fill="none" stroke-width="2"><title>${LABEL[a]}：現在 ${current}、推定 ${number(base.damage,1)}</title>${paths.join('')}<circle cx="${x(current)}" cy="${y(base.damage)}" r="4" fill="${colors[a]}" stroke="#172019"/></g>`;
+        return `<g data-curve-series="${a}" stroke="${colors[a]}" fill="none" stroke-width="2"><title>${LABEL[a]}：現在 ${current}、推定 ${number(base.damage,1)}</title>${paths.join('')}${optimizerProposal&&optimizerProposal.variantId===lastWeaponDetail&&optimizerProposal.snapshot===JSON.stringify(state)?(()=>{const n=engine.equipment(optimizerProposal.state).stats[a],point=points[n-1];return `<rect x="${x(n)-4}" y="${y(point.damage)-4}" width="8" height="8" fill="${colors[a]}"><title>${LABEL[a]}：最適配分 ${n}（他能力は現在値固定）</title></rect>`;})():''}<circle cx="${x(current)}" cy="${y(base.damage)}" r="4" fill="${colors[a]}" stroke="#172019"/></g>`;
       }).join('');
       const legend=series.map(({a})=>`<label class="check" style="color:${colors[a]}"><input type="checkbox" checked data-curve-visible="${a}"><span aria-hidden="true" style="display:inline-block;width:22px;border-top:3px solid ${colors[a]}"></span>${LABEL[a]}</label>`).join('');
       const controls=series.map(({a,points})=>{
         const current=derived.stats[a],base=points[current-1],next=points[current];
         return `<div data-curve="${a}" style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px"><h3 style="color:${colors[a]}">${LABEL[a]}</h3><p class="english">現在 ${current}：${number(base.damage,1)} ／ +1：${next?number(next.damage-base.damage,2):'ゲーム内上限'}${base.usable?'':' ／ 要求能力不足'}</p><label>値を確認<input type="range" min="1" max="${max}" value="${current}" data-curve-probe="${a}"></label><output data-curve-output="${a}" class="english"></output></div>`;
       }).join('');
-      $('curve-charts').innerHTML=(max>99?'<p class="notice">100〜148はゲーム内で割り振れない仮想値。収録補正曲線の範囲内で計算し、両手筋力は実効148で上限処理します。</p>':'')+`<article class="panel curve-panel" style="margin-top:12px;padding:12px"><div class="row" aria-label="能力値の凡例">${legend}</div><p class="field-note">凡例のチェックで系列の表示を切り替え。丸印は各能力の現在値。破線は要求能力不足。系列が重なる場合は表示を切り替えて確認できます。</p><svg id="attribute-curve-chart" viewBox="0 0 560 245" role="img" aria-label="5能力の推定ダメージ推移" style="display:block;width:100%;height:auto"><title>筋力・技量・知力・信仰・神秘の推定ダメージを同じ座標で比較</title><text x="48" y="15" fill="#adb5a6" font-size="11">推定ダメージ</text>${[0,.5,1].map(f=>`<line x1="48" y1="${y(top*f)}" x2="542" y2="${y(top*f)}" stroke="#364235"/><text x="42" y="${y(top*f)+4}" text-anchor="end" fill="#adb5a6" font-size="11">${Math.round(top*f)}</text>`).join('')}${max>99?`<rect x="${x(99)}" y="24" width="${542-x(99)}" height="170" fill="#9bbbd3" opacity=".07"/><text x="${(x(99)+542)/2}" y="38" text-anchor="middle" fill="#adb5a6" font-size="11">仮想範囲</text>`:''}${lines}${[1,20,40,60,80,99,...(max>99?[120,148]:[])].map(n=>`<text x="${x(n)}" y="211" text-anchor="middle" fill="#adb5a6" font-size="11">${n}</text>`).join('')}<text x="290" y="233" text-anchor="middle" fill="#adb5a6" font-size="11">装備補正後の能力値</text></svg>${controls}</article>`;
+      $('curve-charts').innerHTML=(max>99?'<p class="notice">100〜148はゲーム内で割り振れない仮想値。収録補正曲線の範囲内で計算し、両手筋力は実効148で上限処理します。</p>':'')+`<article class="panel curve-panel" style="margin-top:12px;padding:12px"><div class="row" aria-label="能力値の凡例">${legend}</div><p class="field-note">凡例のチェックで系列の表示を切り替え。丸印は各能力の現在値、四角印は最適配分の装備補正後の値。各系列は他の4能力を現在値に固定した感度分析で、提案全体のダメージではありません。破線は要求能力不足。系列が重なる場合は表示を切り替えて確認できます。</p><svg id="attribute-curve-chart" viewBox="0 0 560 245" role="img" aria-label="5能力の推定ダメージ推移" style="display:block;width:100%;height:auto"><title>筋力・技量・知力・信仰・神秘の推定ダメージを同じ座標で比較</title><text x="48" y="15" fill="#adb5a6" font-size="11">推定ダメージ</text>${[0,.5,1].map(f=>`<line x1="48" y1="${y(top*f)}" x2="542" y2="${y(top*f)}" stroke="#364235"/><text x="42" y="${y(top*f)+4}" text-anchor="end" fill="#adb5a6" font-size="11">${Math.round(top*f)}</text>`).join('')}${max>99?`<rect x="${x(99)}" y="24" width="${542-x(99)}" height="170" fill="#9bbbd3" opacity=".07"/><text x="${(x(99)+542)/2}" y="38" text-anchor="middle" fill="#adb5a6" font-size="11">仮想範囲</text>`:''}${lines}${[1,20,40,60,80,99,...(max>99?[120,148]:[])].map(n=>`<text x="${x(n)}" y="211" text-anchor="middle" fill="#adb5a6" font-size="11">${n}</text>`).join('')}<text x="290" y="233" text-anchor="middle" fill="#adb5a6" font-size="11">装備補正後の能力値</text></svg>${controls}</article>`;
       document.querySelectorAll('[data-curve-probe]').forEach(el=>updateCurveProbe(el));
     }
     function updateCurveProbe(el){
@@ -949,7 +1055,7 @@
         case 'spell-more':spellLimit+=40;renderSpells();break;
         case 'show-compare':case 'compare-bar-open':showCompare();break;
         case 'close-equip':$('equip-dialog').close();pendingWeapon='';break;
-        case 'close-dialog':$('detail-dialog').close();lastWeaponDetail='';break;
+        case 'close-dialog':optimizerRun?.abort();$('detail-dialog').close();lastWeaponDetail='';break;
         case 'scope-link':event.preventDefault();activate('about');break;
         case 'rank-for-enemy':state.settings.weaponSort='enemy';$('weapon-sort').value='enemy';activate('weapons');update();break;
         case 'save-build':saveBuild();break;
