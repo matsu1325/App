@@ -20,6 +20,37 @@
     }
     throw new Error('Invalid scaling graph');
   }
+  function normalizeOptimizerSettings(input,state) {
+    const defaults={version:1,mode:'respec',protectEquippedWeapons:true,protectMemorizedSpells:true,applyMode:'stats-only',targetSlot:null,castingSlots:{sorcery:null,incantation:null},castingVariants:{sorcery:'',incantation:''},bounds:Object.fromEntries(STATS.slice(0,3).map(a=>[a,{fixed:state.stats[a]}]))};
+    if(input==null)return defaults;
+    if(typeof input!=='object'||Array.isArray(input))throw Error('最適化条件の形式が不正です');
+    if(input.version!==1)return {...defaults,needsReview:true};
+    const out={...defaults,bounds:input.bounds===undefined?{...defaults.bounds}:{},castingSlots:{...defaults.castingSlots},castingVariants:{...defaults.castingVariants}};
+    for(const [key,values] of Object.entries({mode:['respec','grow'],applyMode:['stats-only','equip']})){
+      if(input[key]!==undefined&&!values.includes(input[key]))throw Error('最適化条件の選択が不正です');out[key]=input[key]??defaults[key];
+    }
+    for(const key of ['protectEquippedWeapons','protectMemorizedSpells']){
+      if(input[key]!==undefined&&typeof input[key]!=='boolean')throw Error('保護条件はON/OFFで指定してください');out[key]=input[key]??true;
+    }
+    const slot=n=>n===null||Number.isInteger(n)&&n>=0&&n<6;
+    if(input.targetSlot!==undefined&&!slot(input.targetSlot))throw Error('装備先のスロットが不正です');
+    out.targetSlot=input.targetSlot??null;
+    if(out.applyMode==='equip'&&out.targetSlot===null)throw Error('対象武器を装備するスロットを選んでください');
+    for(const key of ['castingSlots','castingVariants'])if(input[key]!==undefined&&(!input[key]||typeof input[key]!=='object'||Array.isArray(input[key])))throw Error('触媒条件の形式が不正です');
+    for(const type of ['sorcery','incantation']){
+      const n=input.castingSlots?.[type]??null;if(!slot(n))throw Error('触媒のスロットが不正です');out.castingSlots[type]=n;
+      const id=input.castingVariants?.[type]??'';if(typeof id!=='string'||id.length>120)throw Error('触媒の参照が不正です');out.castingVariants[type]=id;
+    }
+    if(input.bounds!==undefined&&(typeof input.bounds!=='object'||!input.bounds||Array.isArray(input.bounds)))throw Error('能力条件の形式が不正です');
+    for(const [a,b] of Object.entries(input.bounds||{})){
+      if(!STATS.includes(a)||!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!['min','max','fixed'].includes(k)))throw Error('能力条件に不明な項目があります');
+      for(const n of Object.values(b))if(!Number.isInteger(n)||n<1||n>99)throw Error('能力条件は1〜99の整数にしてください');
+      if(b.fixed!==undefined&&(b.min!==undefined||b.max!==undefined))throw Error('固定値と範囲は同時に指定できません');
+      if((b.min??1)>(b.max??99))throw Error('能力条件の下限が上限を超えています');out.bounds[a]={...b};
+    }
+    if(input.needsReview===true)out.needsReview=true;
+    return out;
+  }
   function create(data,dpsData={models:{},blocked:{}},skillData={skills:{},actions:{},components:{}}) {
     const reg=data.regulation;
     const byId=(rows)=>new Map(rows.map(x=>[x.id,x]));
@@ -270,9 +301,10 @@
       out.enemy=out.enemy||data.enemies[0].id;
       out.settings.targetLevel=settings.targetLevel??null;
       out.skillSimulation=validateSkillSettings(input.skillSimulation);
+      if(input.optimizerSettings!==undefined)out.optimizerSettings=normalizeOptimizerSettings(input.optimizerSettings,out);
       out.compare=[...new Set(out.compare.filter(Boolean))];return out;
     }
-    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings,selectSkillSettings};
+    return {normalizeOptimizerSettings,data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings,selectSkillSettings};
   }
   const api={create,graph,ATTRS,STATS,TYPES,clamp};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
