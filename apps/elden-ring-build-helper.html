@@ -19,6 +19,7 @@
 
 .history-toolbar{margin:0 0 18px}.history-toolbar small{font-size:11px}.favorite-button{margin-top:6px}.favorite-button[aria-pressed=true]{color:var(--gold);border-color:var(--gold)}.spell-component{margin-top:12px}.spell-component select{width:100%;max-width:100%}.build-ab{margin-top:24px}.ab-table td{white-space:normal;overflow-wrap:anywhere;min-width:85px}.ab-table th{white-space:normal;min-width:85px}.ab-table .ab-changed{background:#d9ba7810}.ab-table .ab-changed td:last-child{color:var(--gold)}#equip-targets small{margin-top:5px}#equip-targets .badge{white-space:normal}.overview-warning{color:var(--bad)}
 .skill-hit-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}#panel-skills .summary-tile strong{font-size:22px}#panel-skills .summary-tile{min-width:0;overflow-wrap:anywhere}@media(max-width:720px){.skill-hit-list{grid-template-columns:1fr}}
+.optimizer-bounds input{width:76px}.optimizer-bounds select{width:82px}.optimizer-bounds th{min-width:52px}#weapon-optimizer{min-width:0}#optimizer-status{white-space:pre-line;overflow-wrap:anywhere}#optimizer-casting-fields label{min-width:0}#optimizer-result th,#optimizer-result td{white-space:normal;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -113,7 +114,7 @@
 </section>
 </main>
 </div>
-<footer class="footer">非公式のビルド補助ツール。データ：1.17パラメータ / 1.17.1表記の参考資料。<a href="#" id="scope-link">対応範囲を確認</a> · <a href="../index.html">Appsへ戻る</a><p id="release-updated" style="margin-top:8px">更新日時：<time datetime="2026-11-08T13:53:31.000Z">2026/11/08 22:53:31</time>（日本時間） · 版：5c8f5c9</p></footer>
+<footer class="footer">非公式のビルド補助ツール。データ：1.17パラメータ / 1.17.1表記の参考資料。<a href="#" id="scope-link">対応範囲を確認</a> · <a href="../index.html">Appsへ戻る</a><p id="release-updated" style="margin-top:8px">更新日時：<time datetime="2026-11-09T23:23:36.000Z">2026/11/10 08:23:36</time>（日本時間） · 版：7668d48</p></footer>
 </div>
 </div>
 <aside id="compare-bar" class="compare-bar" aria-label="武器の比較候補" hidden><div class="compare-bar-head"><strong id="compare-bar-count"></strong><button id="compare-bar-open" class="primary">比較する</button></div><div id="compare-bar-items" class="compare-bar-items"></div></aside>
@@ -145,6 +146,37 @@
       }
     }
     throw new Error('Invalid scaling graph');
+  }
+  function normalizeOptimizerSettings(input,state) {
+    const defaults={version:1,mode:'respec',protectEquippedWeapons:true,protectMemorizedSpells:true,applyMode:'stats-only',targetSlot:null,castingSlots:{sorcery:null,incantation:null},castingVariants:{sorcery:'',incantation:''},bounds:Object.fromEntries(STATS.slice(0,3).map(a=>[a,{fixed:state.stats[a]}]))};
+    if(input==null)return defaults;
+    if(typeof input!=='object'||Array.isArray(input))throw Error('最適化条件の形式が不正です');
+    if(input.version!==1)return {...defaults,needsReview:true};
+    const out={...defaults,bounds:input.bounds===undefined?{...defaults.bounds}:{},castingSlots:{...defaults.castingSlots},castingVariants:{...defaults.castingVariants}};
+    for(const [key,values] of Object.entries({mode:['respec','grow'],applyMode:['stats-only','equip']})){
+      if(input[key]!==undefined&&!values.includes(input[key]))throw Error('最適化条件の選択が不正です');out[key]=input[key]??defaults[key];
+    }
+    for(const key of ['protectEquippedWeapons','protectMemorizedSpells']){
+      if(input[key]!==undefined&&typeof input[key]!=='boolean')throw Error('保護条件はON/OFFで指定してください');out[key]=input[key]??true;
+    }
+    const slot=n=>n===null||Number.isInteger(n)&&n>=0&&n<6;
+    if(input.targetSlot!==undefined&&!slot(input.targetSlot))throw Error('装備先のスロットが不正です');
+    out.targetSlot=input.targetSlot??null;
+    if(out.applyMode==='equip'&&out.targetSlot===null)throw Error('対象武器を装備するスロットを選んでください');
+    for(const key of ['castingSlots','castingVariants'])if(input[key]!==undefined&&(!input[key]||typeof input[key]!=='object'||Array.isArray(input[key])))throw Error('触媒条件の形式が不正です');
+    for(const type of ['sorcery','incantation']){
+      const n=input.castingSlots?.[type]??null;if(!slot(n))throw Error('触媒のスロットが不正です');out.castingSlots[type]=n;
+      const id=input.castingVariants?.[type]??'';if(typeof id!=='string'||id.length>120)throw Error('触媒の参照が不正です');out.castingVariants[type]=id;
+    }
+    if(input.bounds!==undefined&&(typeof input.bounds!=='object'||!input.bounds||Array.isArray(input.bounds)))throw Error('能力条件の形式が不正です');
+    for(const [a,b] of Object.entries(input.bounds||{})){
+      if(!STATS.includes(a)||!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!['min','max','fixed'].includes(k)))throw Error('能力条件に不明な項目があります');
+      for(const n of Object.values(b))if(!Number.isInteger(n)||n<1||n>99)throw Error('能力条件は1〜99の整数にしてください');
+      if(b.fixed!==undefined&&(b.min!==undefined||b.max!==undefined))throw Error('固定値と範囲は同時に指定できません');
+      if((b.min??1)>(b.max??99))throw Error('能力条件の下限が上限を超えています');out.bounds[a]={...b};
+    }
+    if(input.needsReview===true)out.needsReview=true;
+    return out;
   }
   function create(data,dpsData={models:{},blocked:{}},skillData={skills:{},actions:{},components:{}}) {
     const reg=data.regulation;
@@ -396,9 +428,10 @@
       out.enemy=out.enemy||data.enemies[0].id;
       out.settings.targetLevel=settings.targetLevel??null;
       out.skillSimulation=validateSkillSettings(input.skillSimulation);
+      if(input.optimizerSettings!==undefined)out.optimizerSettings=normalizeOptimizerSettings(input.optimizerSettings,out);
       out.compare=[...new Set(out.compare.filter(Boolean))];return out;
     }
-    return {data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings,selectSkillSettings};
+    return {normalizeOptimizerSettings,data,catalogs,decoded,weapon,spell,equipment,minimumClass,buildLevel,loadBudget,equipmentPreview,getUpgrade,defenseDamage,hitDamage,weaponDps,validateState,skillData,skillVariants,skillActions,skillSimulation,validateSkillSettings,selectSkillSettings};
   }
   const api={create,graph,ATTRS,STATS,TYPES,clamp};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
@@ -406,14 +439,134 @@
 })(typeof globalThis!=='undefined'?globalThis:this);
 </script>
 <script>
+/* Requirements-only preservation. Equipped catalysts, never comparison selections. */
+(function(root){
+'use strict';
+const STATS=['vig','mnd','end','str','dex','int','fai','arc'];
+const LABEL={vig:'生命力',mnd:'精神力',end:'持久力',str:'筋力',dex:'技量',int:'知力',fai:'信仰',arc:'神秘'};
+const slotName=i=>`${i<3?'右手':'左手'}${i%3+1}`;
+const name=x=>x?.name_ja||x?.name_en||'';
+function context(engine,input){
+ const original=engine.validateState(input.state),settings=engine.normalizeOptimizerSettings(input.optimizerSettings,original);
+ if(settings.needsReview)throw Error('保存された最適化条件の版を確認し、「条件を保存」で再設定してください');
+ const variant=engine.catalogs.variants.get(input.variantId);if(!variant)throw Error('対象武器が不明です');
+ const state={...original,weapons:[...original.weapons]};
+ if(settings.applyMode==='equip')state.weapons[settings.targetSlot]=variant.id;
+ const targetSlot=settings.applyMode==='equip'?settings.targetSlot:state.weapons.indexOf(variant.id);
+ const casting={};
+ for(const [kind,flag] of [['sorcery','sorcery_tool'],['incantation','incantation_tool']]){
+   let slot=settings.castingSlots[kind];
+   const candidates=state.weapons.flatMap((id,i)=>engine.catalogs.variants.get(id)?.[flag]?[i]:[]);
+   const stale=slot!==null&&(!engine.catalogs.variants.get(state.weapons[slot])?.[flag]||settings.castingVariants[kind]!==state.weapons[slot]);
+   casting[kind]={slot,valid:slot!==null&&!stale&&!!engine.catalogs.variants.get(state.weapons[slot])?.[flag],stale,candidates};
+ }
+ return {original,state,settings,variant,targetSlot,casting};
+}
+function inspect(engine,ctx,state){
+ const {settings,variant,targetSlot,casting}=ctx,equip=engine.equipment(state),rows=[];
+ const calc=(v,twoHand)=>engine.weapon(v,equip.stats,{twoHand,upgrade:engine.getUpgrade(v,state.settings)});
+ const target=calc(variant,state.settings.twoHand);
+ rows.push({key:'target',name:'対象武器：'+name(engine.catalogs.weapons.get(variant.weapon_id)),kind:'target',protected:true,usable:target.usable,missing:target.missing,reasons:[],result:target});
+ for(let i=0;i<6;i++){
+  const v=engine.catalogs.variants.get(state.weapons[i]);if(!v)continue;
+  const r=calc(v,i===targetSlot?state.settings.twoHand:false);
+  rows.push({key:'weapon:'+i,name:slotName(i)+'：'+name(engine.catalogs.weapons.get(v.weapon_id)),kind:'weapon',slot:i,protected:settings.protectEquippedWeapons,usable:r.usable,missing:r.missing,reasons:[],result:r});
+ }
+ const used=state.memorized.reduce((n,id)=>n+(engine.catalogs.spells.get(id)?.memory_slots||0),0);
+ const capacity=Math.min(12,state.settings.memory+(state.talismans.some(id=>engine.catalogs.talismans.get(id)?.name_en==='Moon of Nokstella')?2:0));
+ for(const id of state.memorized){
+  const sp=engine.catalogs.spells.get(id),kind=sp.type==='Sorcery'?'sorcery':'incantation',flag=kind==='sorcery'?'sorcery_tool':'incantation_tool',binding=casting[kind],reasons=[];
+  const v=binding.slot!==null?engine.catalogs.variants.get(state.weapons[binding.slot]):null;
+  const cat=v?.[flag]?calc(v,false):null;
+  const missing=Object.entries(sp.requirements).filter(([a,n])=>equip.stats[a]<n).map(([stat,need])=>({stat,need,have:equip.stats[stat],short:need-equip.stats[stat]}));
+  if(binding.stale)reasons.push('保存した触媒が変更されています。触媒を選び直してください');
+  else if(!cat)reasons.push((kind==='sorcery'?'魔術':'祈祷')+'用の装備済み触媒を選んでください');
+  if(cat?.missing.length)missing.push(...cat.missing);
+  if(used>capacity)reasons.push(`記憶枠不足：必要${used} / 使用可能${capacity}`);
+  rows.push({key:'spell:'+id,name:name(sp),kind:'spell',protected:settings.protectMemorizedSpells,usable:!missing.length&&!reasons.length,missing,reasons,verification:'requirements-only'});
+ }
+ return {equip,target,rows,memory:{used,capacity}};
+}
+function prepare(engine,input){
+ const ctx=context(engine,input),base=inspect(engine,ctx,ctx.state);
+ const structural=base.rows.filter(r=>r.protected&&r.reasons.length);
+ if(structural.length)throw Error(structural.map(r=>r.name+'：'+r.reasons.join(' / ')).join('\n'));
+ const minima={},reasons={};
+ for(const a of STATS){
+  let n=1,last=[];
+  while(n<=99){
+   const report=inspect(engine,ctx,{...ctx.state,stats:{...ctx.state.stats,[a]:n}});
+   const missing=report.rows.filter(r=>r.protected&&r.missing.some(m=>m.stat===a));
+   if(!missing.length)break;last=missing.map(r=>r.name);n++;
+  }
+  if(n>99)throw Error(`${LABEL[a]}は装備補正込みでも要求を満たせません：${last.join(' / ')}`);
+  minima[a]=n;reasons[a]=last;
+ }
+ return {...ctx,minima,reasons};
+}
+function verify(engine,ctx,state){
+ const report=inspect(engine,ctx,state),bad=report.rows.filter(r=>r.protected&&!r.usable);
+ if(bad.length)throw Error('保護条件を満たしません：'+bad.map(r=>r.name).join(' / '));return report;
+}
+const api={context,inspect,prepare,verify,LABEL,slotName};
+if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ERBuildConstraints=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script>
+<script>
+(function(root){
+'use strict';
+const Constraints=typeof module!=='undefined'&&module.exports?require('./build-constraints.js'):root.ERBuildConstraints;
+function compare(engine,ctx,next,{enemy,physical='Phys',multiplier=1,hits=[100]}={}){
+ const before=Constraints.inspect(engine,ctx,ctx.original),after=Constraints.inspect(engine,ctx,next);
+ const beforeRows=new Map(before.rows.map(r=>[r.key,r]));
+ const changes=after.rows.map(r=>({...r,before:beforeRows.get(r.key),newlyUnusable:beforeRows.get(r.key)?.usable===true&&!r.usable}));
+ const damage=r=>enemy&&physical&&Array.isArray(hits)&&hits.length?hits.reduce((sum,mv)=>{
+  if(sum===null)return null;const value=engine.hitDamage(Object.fromEntries([0,1,2,3,4].map(t=>[t,(r.attack[t]||0)*mv/100])),enemy,physical,multiplier)?.total;
+  return value==null?null:sum+value;
+ },0):null;
+ const oldId=ctx.settings.applyMode==='equip'?ctx.original.weapons[ctx.settings.targetSlot]:null;
+ const old=oldId?engine.weapon(oldId,before.equip.stats,{twoHand:ctx.original.settings.twoHand,upgrade:engine.getUpgrade(engine.catalogs.variants.get(oldId),ctx.original.settings)}):null;
+ return {before,after,changes,arDelta:after.target.total-before.target.total,equippedArDelta:old?after.target.total-old.total:null,
+  damageBefore:damage(before.target),damageAfter:damage(after.target),budgetBefore:engine.loadBudget(before.equip),budgetAfter:engine.loadBudget(after.equip)};
+}
+const api={compare};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.ERBuildComparison=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script>
+<script>
+/* Optimizer markup; state changes are owned by the existing UI/history controller. */
+(function(root){
+'use strict';
+function form(engine,state,variantId,{esc,option,LABEL}){
+ const s=engine.normalizeOptimizerSettings(state.optimizerSettings,state),c=engine.data.classes.find(c=>c.name_en===state.className);
+ const weapons=[...state.weapons];if(s.applyMode==='equip')weapons[s.targetSlot]=variantId;
+ const row=a=>{const b=s.bounds[a]||{},fixed=b.fixed!==undefined;return `<tr><th>${LABEL[a]}</th><td><select id="optimizer-rule-${a}" aria-label="${LABEL[a]}の条件">${option('range','範囲',!fixed)}${option('fixed','固定',fixed)}</select></td><td><input id="optimizer-min-${a}" aria-label="${LABEL[a]}の下限・固定値" type="number" min="1" max="99" value="${b.fixed??b.min??c.stats[a]}"></td><td><input id="optimizer-max-${a}" aria-label="${LABEL[a]}の上限" type="number" min="1" max="99" value="${b.max??99}"${fixed?' disabled':''}></td></tr>`;};
+ const table=attrs=>`<div class="table-wrap"><table class="optimizer-bounds"><thead><tr><th>能力</th><th>条件</th><th>下限 / 固定</th><th>上限</th></tr></thead><tbody>${attrs.map(row).join('')}</tbody></table></div>`;
+ return `<section id="weapon-optimizer" class="panel" style="margin-top:20px"><h3>この武器に最適なステ振り</h3><p class="field-note">収録Reg 1.17の参考ARを最大化。最新Regへの更新・実機照合は未完了。敵への推定ダメージ・DPSの最大化とは異なります。</p>${s.needsReview?'<p id="optimizer-settings-review" class="notice">保存した条件の版を確認できません。内容を確認して「条件を保存」を押してください。</p>':''}<div class="grid2"><label>目標レベル<input id="optimizer-level" type="number" min="${c.level}" max="713" value="${state.settings.targetLevel??engine.buildLevel(state)}"></label><label>配分モード<select id="optimizer-mode">${option('respec','振り直し（素性初期値まで）',s.mode==='respec')}${option('grow','現在値から追加育成',s.mode==='grow')}</select></label></div><div style="margin:12px 0"><label class="check"><input id="optimizer-protect-weapons" type="checkbox"${s.protectEquippedWeapons?' checked':''}>装備中の武器・盾・触媒の必要能力を維持</label><label class="check"><input id="optimizer-protect-spells" type="checkbox"${s.protectMemorizedSpells?' checked':''}>記憶魔法の必要能力・装備済み触媒・記憶枠を維持</label><p class="field-note">補助装備と詠唱は片手で判定。対象武器には選択中の持ち方を適用します。魔法の特殊制限・FP確保は未検証です。</p></div><div class="grid2"><label>適用方法<select id="optimizer-apply-mode">${option('stats-only','ステ振りのみ',s.applyMode==='stats-only')}${option('equip','対象武器も装備',s.applyMode==='equip')}</select></label><label id="optimizer-slot-label"${s.applyMode==='equip'?'':' hidden'}>交換するスロット<select id="optimizer-target-slot">${Array.from({length:6},(_,i)=>option(i,ERBuildConstraints.slotName(i),i===(s.targetSlot??0))).join('')}</select></label></div><div class="grid2" id="optimizer-casting-fields"></div><p class="field-note">能力条件は装備補正前。必要能力は補正後で判定。生命・精神・持久の固定を範囲にすると、その能力にも余剰を配分します。</p>${table(['vig','mnd','end'])}<details id="optimizer-advanced" style="margin:12px 0"><summary>攻撃5能力の詳細条件</summary>${table(['str','dex','int','fai','arc'])}</details><p class="field-note">固定装備の常時効果を反映。条件付き効果・武器固有能力補正・大ルーン・霊薬は未対応。同ARの別解は列挙しません。</p><div class="actions"><button id="optimizer-save">条件を保存</button><button id="optimizer-start" class="primary">AR最大の配分を計算</button><button id="optimizer-cancel" disabled>中断</button></div><p id="optimizer-status" role="status" aria-live="polite"></p><div id="optimizer-result"></div></section>`;
+}
+function comparison(result,beforeState,{esc,number,signed,LABEL,typed}){
+ const c=result.comparison,b=c.before.equip,a=c.after.equip;
+ const pairs=[['レベル',result.targetLevel===null?'—':result.targetLevel,null],['HP',b.hp,a.hp],['FP',b.fp,a.fp],['スタミナ',b.stamina,a.stamina],['装備重量',b.weight,a.weight],['最大重量',b.load,a.load],['重量区分',b.roll,a.roll],['中量以下まで追加できる重量',c.budgetBefore.canAdd,c.budgetAfter.canAdd],['中量に戻すための減量',c.budgetBefore.mustRemove,c.budgetAfter.mustRemove]];
+ const status=r=>!r?'対象なし':r.usable?(r.kind==='spell'?'収録条件OK':'要求充足'):[...r.missing.map(m=>`${LABEL[m.stat]} ${m.have}→必要${m.need}`),...r.reasons].join(' / ');
+ const body=c.changes.map(r=>`<tr${!r.usable?' class="overview-warning"':''}><th>${esc(r.name)}${r.protected?'（保護）':''}</th><td>${esc(status(r.before))}</td><td>${esc(status(r))}${r.newlyUnusable?' / 新たに使用不可':''}</td></tr>`).join('');
+ const bad=c.changes.filter(r=>r.kind!=='target'&&!r.usable).length;
+ return `<div class="notice">参考AR ${number(c.before.target.total,2)} → ${number(c.after.target.total,2)}（${signed(c.arDelta,2)}） / HP ${signed(a.hp-b.hp,0)} / ${esc(b.roll)}→${esc(a.roll)} / 条件不足 ${bad}件</div><p class="field-note">AR差は同じ対象武器での配分比較。装備交換を含む場合、重量と使用条件は交換後の構成で計算。魔法は収録された能力・触媒種類・記憶枠のみ判定しています。</p>${c.equippedArDelta!==null?`<p>交換前の装備武器からのAR差：${signed(c.equippedArDelta,2)}</p>`:''}<div class="typed">${typed(c.after.target.attack)}</div><div class="table-wrap"><table><thead><tr><th>能力</th><th>現在</th><th>提案</th><th>差</th></tr></thead><tbody>${Object.keys(LABEL).map(key=>`<tr><th>${LABEL[key]}</th><td>${beforeState.stats[key]}（補正後${b.stats[key]}）</td><td>${result.stats[key]}（補正後${a.stats[key]}）</td><td>${signed(result.stats[key]-beforeState.stats[key],0)}</td></tr>`).join('')}</tbody></table></div><div class="table-wrap"><table><thead><tr><th>指標</th><th>現在</th><th>提案</th></tr></thead><tbody><tr><th>レベル</th><td>${esc(result.currentLevel)}</td><td>${result.targetLevel}</td></tr>${pairs.slice(1).map(([label,x,y])=>`<tr><th>${label}</th><td>${typeof x==='number'?number(x,1):esc(x)}</td><td>${typeof y==='number'?number(y,1):esc(y)}</td></tr>`).join('')}<tr><th>同じ攻撃動作の推定ダメージ</th><td>${number(c.damageBefore,1)}</td><td>${number(c.damageAfter,1)}</td></tr></tbody></table></div><div class="table-wrap"><table><thead><tr><th>攻撃属性</th><th>現在AR</th><th>提案AR</th><th>差</th></tr></thead><tbody>${['物理','魔力','炎','雷','聖'].map((label,t)=>`<tr><th>${label}</th><td>${number(c.before.target.attack[t]||0,2)}</td><td>${number(c.after.target.attack[t]||0,2)}</td><td>${signed((c.after.target.attack[t]||0)-(c.before.target.attack[t]||0),2)}</td></tr>`).join('')}</tbody></table></div><details open><summary>全装備・記憶魔法の条件</summary><div class="table-wrap"><table><thead><tr><th>対象</th><th>現在</th><th>提案</th></tr></thead><tbody>${body}</tbody></table></div></details><details><summary>必要能力の根拠</summary><ul>${Object.entries(result.constraintReport.minima).filter(([key,n])=>n>1).map(([key,n])=>`<li>${LABEL[key]} 基礎${n}以上：${esc(result.constraintReport.reasons[key].join(' / '))}</li>`).join('')}</ul></details>`;
+}
+root.EROptimizerUI={form,comparison};
+})(typeof globalThis!=='undefined'?globalThis:this);
+</script>
+<script>
 /* Exact internal-AR optimization for the bundled, additive weapon model.
  * Equipment and handling stay fixed. This is not a game-data accuracy claim. */
 (function(root){
 'use strict';
+const Constraints=typeof module!=='undefined'&&module.exports?require('./build-constraints.js'):root.ERBuildConstraints;
+const Comparison=typeof module!=='undefined'&&module.exports?require('./build-comparison.js'):root.ERBuildComparison;
 const STATS=['vig','mnd','end','str','dex','int','fai','arc'];
 async function optimize(engine,input,{signal,onProgress=()=>{},yieldControl=()=>new Promise(r=>setTimeout(r,0))}={}){
   const check=()=>{if(signal?.aborted){const e=new Error('探索を中断しました');e.name='AbortError';throw e;}};
-  const state=engine.validateState(input.state),c=engine.data.classes.find(c=>c.name_en===state.className);
+  const prepared=input.optimizerSettings?Constraints.prepare(engine,input):null;
+  if(prepared)input={...input,mode:prepared.settings.mode,bounds:prepared.settings.bounds};
+  const state=prepared?prepared.state:engine.validateState(input.state),c=engine.data.classes.find(c=>c.name_en===state.className);
   const target=input.targetLevel;
   if(!Number.isInteger(target)||target<c.level||target>713)throw Error('目標レベルは素性の初期レベル〜713で指定してください');
   if(!['respec','grow'].includes(input.mode))throw Error('育成または振り直しを選んでください');
@@ -429,10 +582,10 @@ async function optimize(engine,input,{signal,onProgress=()=>{},yieldControl=()=>
     const bounds=input.bounds?.[a]||{};
     if(Object.keys(bounds).some(k=>!['min','max','fixed'].includes(k)))throw Error('不明な制約です');
     for(const n of Object.values(bounds))if(!Number.isInteger(n)||n<1||n>99)throw Error('制約は1〜99の整数にしてください');
-    lo[a]=Math.max(c.stats[a],input.mode==='grow'?state.stats[a]:1,bounds.min??1);
+    lo[a]=Math.max(c.stats[a],input.mode==='grow'?state.stats[a]:1,bounds.min??1,prepared?.minima[a]??1);
     hi[a]=bounds.max??99;
     if(bounds.fixed!==undefined){lo[a]=Math.max(lo[a],bounds.fixed);hi[a]=Math.min(hi[a],bounds.fixed);}
-    if(lo[a]>hi[a])throw Error(a+' の上下限・固定値が矛盾しています');
+    if(lo[a]>hi[a])throw Error((Constraints.LABEL[a]||a)+' の上下限・固定値が要求と矛盾しています'+(prepared?.reasons[a]?.length?'：'+prepared.reasons[a].join(' / '):''));
   }
   // Requirements use the exact equipment clamp and handling path, including auto-2H bows.
   for(const a of STATS){
@@ -441,7 +594,8 @@ async function optimize(engine,input,{signal,onProgress=()=>{},yieldControl=()=>
   }
   const sum=o=>STATS.reduce((n,a)=>n+o[a],0);
   const budget=target-c.level+sum(c.stats)-sum(lo);
-  if(budget<0||budget>sum(hi)-sum(lo))throw Error('指定レベルでは制約を満たす配分を作れません');
+  if(budget<0)throw Error(`指定レベルでは不足します。必要最低レベル ${target-budget}（あと${-budget}ポイント）`+(prepared?'\n'+STATS.filter(a=>lo[a]>c.stats[a]).map(a=>`${Constraints.LABEL[a]} ${lo[a]}以上：${prepared.reasons[a].join(' / ')||'指定した固定・下限'}`).join('\n'):''));
+  if(budget>sum(hi)-sum(lo))throw Error('能力の上限・固定値により全ポイントを配分できません');
   const base=evaluate(lo);
   if(!base.usable)throw Error('必要能力値を満たせません');
   const tables=[];
@@ -469,9 +623,10 @@ async function optimize(engine,input,{signal,onProgress=()=>{},yieldControl=()=>
   check();if(!Number.isFinite(dp[budget]))throw Error('合法な配分がありません');
   const stats={...lo};let p=budget;
   for(let i=7;i>=0;i--){const n=paths[i][p];if(n<0)throw Error('探索経路が不正です');stats[STATS[i]]=lo[STATS[i]]+n;p-=n;}
-  const next=engine.validateState({...state,stats,settings:{...state.settings,targetLevel:target}}),result=evaluate(stats),current=evaluate(state.stats);
+  const next=engine.validateState({...state,...(prepared?{optimizerSettings:prepared.settings}:{}),stats,settings:{...state.settings,targetLevel:target}}),result=evaluate(stats),current=evaluate(state.stats);
   if(p!==0||engine.buildLevel(next)!==target||!result.usable||Math.abs(result.total-base.total-dp[budget])>1e-7)throw Error('最終検査に失敗しました');
-  return {state:next,stats,current,result,delta:result.total-current.total,method:'exact-additive-dp',objective:'internal-ar',verification:'reference-data',mode:input.mode,targetLevel:target,variantId:v.id};
+  if(prepared)Constraints.verify(engine,prepared,next);
+  return {...(prepared?{comparison:Comparison.compare(engine,prepared,next,input.combat),constraintReport:{minima:prepared.minima,reasons:prepared.reasons},dataVersion:input.dataVersion||null}:{}),state:next,stats,current,result,delta:result.total-current.total,method:'exact-additive-dp',objective:'internal-ar',verification:'reference-data',mode:input.mode,targetLevel:target,variantId:v.id};
 }
 const api={optimize};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.EROptimizer=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
@@ -860,38 +1015,86 @@ const api={optimize};if(typeof module!=='undefined'&&module.exports)module.expor
       $('dialog-content').insertAdjacentHTML('afterbegin',`<p class="muted" style="margin-bottom:10px">既定戦技：${esc(skill?name(skill):'資料なし')} · 戦灰変更 ${w.allow_ash_of_war===true?'可能':w.allow_ash_of_war===false?'不可':'未確認'} · 武器付与 ${w.is_buffable===true?'可能（派生条件は別）':w.is_buffable===false?'不可':'未確認'}</p>`);
     }
     let optimizerRun=null,optimizerProposal=null;
+    $('detail-dialog').addEventListener('close',()=>{optimizerRun?.abort();optimizerRun=null;optimizerProposal=null;});
     function renderOptimizer(id){
-      optimizerRun?.abort();optimizerProposal=null;
-      const c=data.classes.find(c=>c.name_en===state.className);
-      $('dialog-content').insertAdjacentHTML('beforeend',`<section id="weapon-optimizer" class="panel" style="margin-top:20px"><h3>この武器に最適なステ振り</h3><p class="notice">計算対象：収録Reg 1.17 / 参考AR。最新Reg 1.17.3への更新・実機AR照合は未完了。探索は内蔵モデルの内部AR合計を最大化する厳密DPです。ゲーム表示の整数AR・対敵ダメージ・DPSの最適解は保証しません。装備・派生・強化・持ち方は現在の条件で固定。</p><div class="grid2"><label>目標レベル<input id="optimizer-level" type="number" min="${c.level}" max="713" value="${state.settings.targetLevel??engine.buildLevel(state)}"></label><label>配分モード<select id="optimizer-mode"><option value="respec">振り直し（素性初期値まで戻せる）</option><option value="grow">現在値から追加育成</option></select></label></div><details style="margin:12px 0" open><summary>8能力の制約（装備補正前）</summary><p class="field-note">生命・精神・持久は現在値で固定が初期設定。「範囲」にすると余剰ポイントの配分先にもなります。下限は素性の初期値以上。</p><div class="table-wrap"><table><thead><tr><th>能力</th><th>条件</th><th>下限 / 固定値</th><th>上限</th></tr></thead><tbody>${EREngine.STATS.map((a,i)=>`<tr><th>${LABEL[a]}</th><td><select id="optimizer-rule-${a}" aria-label="${LABEL[a]}の条件"><option value="range">範囲</option><option value="fixed"${i<3?' selected':''}>固定</option></select></td><td><input id="optimizer-min-${a}" aria-label="${LABEL[a]}の下限" type="number" min="${c.stats[a]}" max="99" value="${i<3?Math.max(c.stats[a],state.stats[a]):c.stats[a]}" style="width:80px"></td><td><input id="optimizer-max-${a}" aria-label="${LABEL[a]}の上限" type="number" min="${c.stats[a]}" max="99" value="99" style="width:80px"></td></tr>`).join('')}</tbody></table></div></details><div class="actions"><button id="optimizer-start" class="primary">AR最大の配分を計算</button><button id="optimizer-cancel" disabled>中断</button></div><p id="optimizer-status" role="status" aria-live="polite"></p><div id="optimizer-result"></div></section>`);
-      $('optimizer-start').onclick=async()=>{
-        optimizerRun?.abort();const controller=new AbortController();optimizerRun=controller;optimizerProposal=null;
-        const snapshot=JSON.stringify(state),variant=id;const bounds={};
-        for(const a of EREngine.STATS){const min=Number($('optimizer-min-'+a).value),max=Number($('optimizer-max-'+a).value);bounds[a]=$('optimizer-rule-'+a).value==='fixed'?{fixed:min}:{min,max};}
-        $('optimizer-result').innerHTML='';renderWeaponCurves();$('optimizer-start').disabled=true;$('optimizer-cancel').disabled=false;
+      optimizerRun?.abort();optimizerRun=null;optimizerProposal=null;
+      const helpers={esc,option,LABEL,number,signed,typed};
+      const initial=engine.normalizeOptimizerSettings(state.optimizerSettings,state);
+      let needsReview=initial.needsReview===true;
+      $('dialog-content').insertAdjacentHTML('beforeend',EROptimizerUI.form(engine,state,id,helpers));
+      const fingerprint=()=>JSON.stringify({...state,name:'',_physical:$('physical-type').value,_move:$('detail-move')?.value,_data:payload.sha256});
+      const clearResult=()=>{optimizerRun?.abort();optimizerRun=null;optimizerProposal=null;$('optimizer-result').innerHTML='';$('optimizer-start').disabled=false;$('optimizer-cancel').disabled=true;renderWeaponCurves();};
+      let castingDisplayWeapons=null;
+      function refreshCasting(){
+        const weapons=[...state.weapons];if($('optimizer-apply-mode').value==='equip')weapons[Number($('optimizer-target-slot').value)]=id;
+        const previous={};for(const kind of ['sorcery','incantation'])previous[kind]=$('optimizer-casting-'+kind)?.value;
+        $('optimizer-slot-label').hidden=$('optimizer-apply-mode').value!=='equip';
+        $('optimizer-casting-fields').innerHTML=['sorcery','incantation'].map(kind=>{
+          const label=kind==='sorcery'?'魔術':'祈祷',flag=kind==='sorcery'?'sorcery_tool':'incantation_tool';
+          const candidates=weapons.flatMap((variantId,slot)=>C.variants.get(variantId)?.[flag]?[{slot,id:variantId}]:[]);
+          const saved=initial.castingSlots[kind],binding=saved!==null&&initial.castingVariants[kind]===weapons[saved]?String(saved):'';
+          const old=previous[kind],changed=old!==undefined&&old!==''&&castingDisplayWeapons&&castingDisplayWeapons[Number(old)]!==weapons[Number(old)];
+          const value=changed?'':old??(saved!==null?binding:candidates.length===1?String(candidates[0].slot):'');
+          return `<label>${label}に使う装備済み触媒<select id="optimizer-casting-${kind}">${option('','触媒を選択',value==='')}${candidates.map(x=>option(x.slot,ERBuildConstraints.slotName(x.slot)+'：'+weaponName(C.variants.get(x.id)),value===String(x.slot))).join('')}</select></label>`;
+        }).join('');
+        castingDisplayWeapons=weapons;
+        for(const el of $('optimizer-casting-fields').querySelectorAll('select'))el.onchange=clearResult;
+      }
+      function readSettings(){
+        const bounds={};for(const key of EREngine.STATS){const min=Number($('optimizer-min-'+key).value),max=Number($('optimizer-max-'+key).value);bounds[key]=$('optimizer-rule-'+key).value==='fixed'?{fixed:min}:{min,max};}
+        const applyMode=$('optimizer-apply-mode').value,targetSlot=applyMode==='equip'?Number($('optimizer-target-slot').value):null,weapons=[...state.weapons];
+        if(targetSlot!==null)weapons[targetSlot]=id;
+        const castingSlots={},castingVariants={};for(const kind of ['sorcery','incantation']){const value=$('optimizer-casting-'+kind).value;castingSlots[kind]=value===''?null:Number(value);castingVariants[kind]=value===''?'':weapons[Number(value)];}
+        return engine.normalizeOptimizerSettings({version:1,mode:$('optimizer-mode').value,applyMode,targetSlot,castingSlots,castingVariants,bounds,protectEquippedWeapons:$('optimizer-protect-weapons').checked,protectMemorizedSpells:$('optimizer-protect-spells').checked},state);
+      }
+      function readLevel(){const n=Number($('optimizer-level').value);if(!Number.isInteger(n)||n<1||n>713)throw Error('目標レベルは1〜713の整数にしてください');return n;}
+      refreshCasting();
+      $('optimizer-save').onclick=()=>{
         try{
-          const start=performance.now(),result=await EROptimizer.optimize(engine,{state:JSON.parse(snapshot),variantId:variant,targetLevel:Number($('optimizer-level').value),mode:$('optimizer-mode').value,bounds},{signal:controller.signal,onProgress:p=>{if($('optimizer-status'))$('optimizer-status').textContent=`${p.phase} ${p.completed}/${p.total}`;}});
-          if(controller.signal.aborted||lastWeaponDetail!==variant||snapshot!==JSON.stringify(state)||!$('optimizer-result'))return;
-          optimizerProposal={...result,snapshot};
-          $('optimizer-status').textContent=`探索完了：${number(performance.now()-start,0)}ms · 厳密DP（内部AR） · Lv${result.targetLevel}整合・要求能力充足`;
-          $('optimizer-result').innerHTML=`<p>現在の参考AR ${number(result.current.total,2)} → 提案 ${number(result.result.total,2)}（${signed(result.delta,2)}）</p><p class="field-note">同率時は決定的な順序で1配分を表示。同ARの別解は列挙しません。現在配分が要求不足の場合、増分には不足解消も含みます。</p><div class="typed">${typed(result.result.attack)}</div><div class="table-wrap"><table><thead><tr><th>能力</th><th>現在</th><th>提案</th><th>差</th></tr></thead><tbody>${EREngine.STATS.map(a=>`<tr><th>${LABEL[a]}</th><td>${state.stats[a]}</td><td>${result.stats[a]}</td><td>${signed(result.stats[a]-state.stats[a],0)}</td></tr>`).join('')}</tbody></table></div><div class="actions"><button id="optimizer-try">一時的に試す</button><button id="optimizer-apply" class="primary">この配分を適用</button></div><div id="optimizer-preview"></div>`;
+          if(storageConflict)throw Error('別タブの変更を確認してから条件を保存してください');
+          const settings=readSettings(),targetLevel=readLevel();clearResult();
+          state=engine.validateState({...state,optimizerSettings:settings,settings:{...state.settings,targetLevel}});syncControls();update();needsReview=false;$('optimizer-settings-review')?.remove();
+          $('optimizer-status').textContent=saveError?'条件を画面に反映しました。端末への保存に失敗しています。':'条件を保存しました。保存・共有・取り消しに対応しています。';
+        }catch(e){$('optimizer-status').textContent=e.message;}
+      };
+      $('optimizer-start').onclick=async()=>{
+        clearResult();const controller=new AbortController();optimizerRun=controller;
+        const snapshot=fingerprint(),before=structuredClone(state),variant=id;
+        $('optimizer-start').disabled=true;$('optimizer-cancel').disabled=false;
+        try{
+          if(needsReview)throw Error('条件の版を確認し、「条件を保存」を押してください');
+          const settings=readSettings(),start=performance.now(),move=(movesByWeapon.get(C.variants.get(id).weapon_id)||[]).find(m=>m.id===$('detail-move')?.value);
+          const combat={enemy:selectedEnemy(),physical:move?({Standard:'Phys',Strike:'Strike',Slash:'Slash',Pierce:'Pierce'})[move.physical]||null:$('physical-type').value,hits:move?move.hits:[100],multiplier:multiplier()};
+          const result=await EROptimizer.optimize(engine,{state:before,variantId:variant,targetLevel:readLevel(),optimizerSettings:settings,combat,dataVersion:{regulation:'1.17',sha256:payload.sha256}},{signal:controller.signal,onProgress:p=>{if(optimizerRun===controller&&$('optimizer-status'))$('optimizer-status').textContent=`${p.phase} ${p.completed}/${p.total}`;}});
+          if(controller.signal.aborted||lastWeaponDetail!==variant||snapshot!==fingerprint()||!$('optimizer-result'))return;
+          result.currentLevel=engine.buildLevel(before);
+          optimizerProposal={...result,snapshot:JSON.stringify(state)};
+          $('optimizer-status').textContent=`探索完了：${number(performance.now()-start,0)}ms · 厳密DP（内部AR） · Lv${result.targetLevel}整合・保護条件充足`;
+          $('optimizer-result').innerHTML=EROptimizerUI.comparison(result,before,helpers)+`<div class="actions"><button id="optimizer-try">一時的に試す</button><button id="optimizer-apply" class="primary">この配分を適用${settings.applyMode==='equip'?'・装備交換':''}</button></div><div id="optimizer-preview"></div>`;
           renderWeaponCurves();
           $('optimizer-try').onclick=()=>{
-            if(!optimizerProposal||snapshot!==JSON.stringify(state))return;
-            const e=engine.equipment(result.state),r=engine.weapon(variant,e.stats,{upgrade:result.result.upgrade,twoHand:state.settings.twoHand});
-            const damage=engine.hitDamage(r.attack,selectedEnemy(),$('physical-type').value,multiplier());
-            $('optimizer-preview').textContent=`一時プレビュー（未保存）：HP ${e.hp} / FP ${e.fp} / スタミナ ${e.stamina} / ${e.roll} / 参考AR ${number(r.total,2)}${damage?' / 標準推定ダメージ '+number(damage.total,1):''}`;
+            if(!optimizerProposal||snapshot!==fingerprint()){toast('条件が変わりました。再計算してください');return;}
+            const e=result.comparison.after.equip;
+            $('optimizer-preview').textContent=`一時プレビュー（未保存）：HP ${e.hp} / FP ${e.fp} / スタミナ ${e.stamina} / ${e.roll} / 参考AR ${number(result.result.total,2)} / ${settings.applyMode==='equip'?ERBuildConstraints.slotName(settings.targetSlot)+'を対象武器に交換':'装備構成は現在のまま'}`;
           };
           $('optimizer-apply').onclick=()=>{
-            if(storageConflict){toast('別タブの変更を確認してから適用してください');return;}
-            if(snapshot!==JSON.stringify(state)){toast('ビルドが変わりました。再計算してください');return;}
-            state=engine.validateState({...state,stats:{...result.stats},settings:{...state.settings,targetLevel:result.targetLevel}});syncControls();update();showWeaponDetail(variant);toast('最適配分を適用しました。1操作で取り消せます');
+            try{
+              if(storageConflict)throw Error('別タブの変更を確認してから適用してください');
+              if(snapshot!==fingerprint())throw Error('ビルドまたは計算条件が変わりました。再計算してください');
+              const next=engine.validateState({...result.state,name:state.name});
+              const ctx=ERBuildConstraints.prepare(engine,{state,variantId:variant,optimizerSettings:next.optimizerSettings});ERBuildConstraints.verify(engine,ctx,next);
+              if(engine.buildLevel(next)!==result.targetLevel)throw Error('目標レベルの最終検査に失敗しました');
+              state=next;syncControls();update();showWeaponDetail(variant);toast(saveError?'画面に反映しましたが端末への保存に失敗しました':'配分と装備・条件を適用しました。1操作で取り消せます');
+            }catch(e){toast(e.message);}
           };
         }catch(e){if($('optimizer-status')&&optimizerRun===controller)$('optimizer-status').textContent=e.message;}
         finally{if(optimizerRun===controller&&$('optimizer-start')){$('optimizer-start').disabled=false;$('optimizer-cancel').disabled=true;}}
       };
       $('optimizer-cancel').onclick=()=>optimizerRun?.abort();
-      for(const el of $('weapon-optimizer').querySelectorAll('input,select'))el.addEventListener('change',()=>{optimizerRun?.abort();optimizerProposal=null;$('optimizer-result').innerHTML='';renderWeaponCurves();});
+      for(const el of $('weapon-optimizer').querySelectorAll('input,select'))el.addEventListener('change',()=>{
+        clearResult();if(el.id==='optimizer-apply-mode'||el.id==='optimizer-target-slot')refreshCasting();
+        if(el.id.startsWith('optimizer-rule-')){const key=el.id.slice('optimizer-rule-'.length);$('optimizer-max-'+key).disabled=el.value==='fixed';}
+      });
     }
     function renderDpsDetail(v,r){
       const result=getWeaponDps(v,r),scope=$('weapon-sort').value==='dpsEnemy'?'対敵':'防御前';
