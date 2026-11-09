@@ -4,7 +4,7 @@ const p=JSON.parse(fs.readFileSync('data/elden-ring-payload.json')),d=JSON.parse
 const base=(c=d.classes[0])=>e.validateState({schema:1,className:c.name_en,stats:{...c.stats},settings:{upgradeMode:'max'},weapons:[],armor:[],talismans:[],memorized:[],compare:[]});
 const variant=(name,affinity)=>d.variants.find(v=>e.catalogs.weapons.get(v.weapon_id).name_en===name&&(affinity===undefined||v.affinity_id===affinity));
 const fast={yieldControl:()=>Promise.resolve()},sword=variant('Longsword',8),giant=variant('Giant-Crusher',0),staff=variant("Astrologer's Staff"),comet=d.spells.find(s=>s.name_en==='Comet Azur');
-const settings=(state,patch={})=>({...e.normalizeOptimizerSettings(null,state),...patch});
+const settings=(state,patch={})=>{const out=e.normalizeOptimizerSettings(null,state);for(const [kind,flag] of [['sorcery','sorcery_tool'],['incantation','incantation_tool']]){const slots=state.weapons.flatMap((id,i)=>e.catalogs.variants.get(id)?.[flag]?[i]:[]);if(slots.length===1){out.castingSlots[kind]=slots[0];out.castingVariants[kind]=state.weapons[slots[0]];}}return {...out,...patch};};
 async function main(){
  let state=base();state.weapons[0]=giant.id;const input={state,variantId:sword.id,targetLevel:200,optimizerSettings:settings(state,{bounds:{str:{max:59}}})};
  await assert.rejects(optimize(e,input,fast),/筋力.*巨人砕き/);
@@ -20,6 +20,7 @@ async function main(){
  await assert.rejects(optimize(e,{state,variantId:sword.id,targetLevel:200,optimizerSettings:settings(state,{bounds:{int:{max:59}}})},fast),/知力.*彗星アズール/);
  const spell=await optimize(e,{state,variantId:sword.id,targetLevel:200,optimizerSettings:settings(state)},fast);assert.ok(spell.comparison.changes.find(r=>r.key==='spell:'+comet.id).usable);assert.ok(spell.stats.int>=60);assert.equal(spell.state.optimizerSettings.castingVariants.sorcery,staff.id);
  state.settings.memory=2;await assert.rejects(optimize(e,{state,variantId:sword.id,targetLevel:200,optimizerSettings:settings(state)},fast),/記憶枠不足/);state.settings.memory=10;
+ await assert.rejects(optimize(e,{state,variantId:sword.id,targetLevel:200,optimizerSettings:settings(state,{castingSlots:{sorcery:null,incantation:null},castingVariants:{sorcery:'',incantation:''}})},fast),/装備済み触媒/);
  const stale=settings(state,{castingSlots:{sorcery:3,incantation:null},castingVariants:{sorcery:'old-variant',incantation:''}});await assert.rejects(optimize(e,{state,variantId:sword.id,targetLevel:200,optimizerSettings:stale},fast),/選び直し/);
  // Protection of a casting tool remains active when general equipment protection is off.
  const highStaff=d.variants.find(v=>v.sorcery_tool&&(v.requirements.str||0)>10);if(highStaff){state.weapons[3]=highStaff.id;const bound=(highStaff.requirements.str||0)-1;await assert.rejects(optimize(e,{state,variantId:sword.id,targetLevel:200,optimizerSettings:settings(state,{protectEquippedWeapons:false,bounds:{str:{max:bound}}})},fast));}

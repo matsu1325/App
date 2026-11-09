@@ -34,6 +34,10 @@ const {chromium}=require('playwright');let server,browser;
   // A stale proposal cannot overwrite a later imported build.
   await page.evaluate(()=>{const s=ERApp.getState();s.stats.vig++;ERApp.importBuild(s);});const changed=await current();await page.locator('#optimizer-apply').click();assert.deepEqual(await current(),changed);assert.match(await page.locator('#toast').innerText(),/再計算/);
   await page.locator('#close-dialog').click();
+  // A single replacement catalyst must still be explicitly reselected when its saved binding is stale.
+  await page.evaluate(()=>{const e=ERApp.engine,s=ERApp.getState(),staff=e.data.variants.find(v=>v.sorcery_tool);s.weapons[3]=staff.id;s.optimizerSettings=e.normalizeOptimizerSettings(null,s);s.optimizerSettings.castingSlots.sorcery=3;s.optimizerSettings.castingVariants.sorcery='old-catalyst';ERApp.importBuild(s);});
+  await open();assert.equal(await page.locator('#optimizer-casting-sorcery').inputValue(),'');await page.locator('#optimizer-start').click();await page.waitForFunction(()=>document.querySelector('#optimizer-status').textContent.includes('装備済み触媒'));assert.equal(await page.locator('#optimizer-apply').count(),0);
+  await page.locator('#optimizer-casting-sorcery').selectOption('3');await page.locator('#optimizer-start').click();await page.locator('#optimizer-apply').waitFor();await page.locator('#close-dialog').click();
   await page.evaluate(()=>{const s=ERApp.getState();s.memorized=[];s.optimizerSettings={version:99};ERApp.importBuild(s);});await open();await page.locator('#optimizer-start').click();assert.match(await page.locator('#optimizer-status').innerText(),/条件の版/);
   await page.locator('#optimizer-save').click();assert.equal((await current()).optimizerSettings.needsReview,undefined);
   await page.locator('#optimizer-start').click();await page.locator('#optimizer-apply').waitFor();

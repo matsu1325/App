@@ -17,7 +17,6 @@ function context(engine,input){
    let slot=settings.castingSlots[kind];
    const candidates=state.weapons.flatMap((id,i)=>engine.catalogs.variants.get(id)?.[flag]?[i]:[]);
    const stale=slot!==null&&(!engine.catalogs.variants.get(state.weapons[slot])?.[flag]||settings.castingVariants[kind]!==state.weapons[slot]);
-   if(slot===null&&candidates.length===1){slot=candidates[0];settings.castingSlots[kind]=slot;settings.castingVariants[kind]=state.weapons[slot];}
    casting[kind]={slot,valid:slot!==null&&!stale&&!!engine.catalogs.variants.get(state.weapons[slot])?.[flag],stale,candidates};
  }
  return {original,state,settings,variant,targetSlot,casting};
