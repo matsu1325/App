@@ -14,15 +14,15 @@ const UX = (() => {
   const originals={render,captureSnapshot,applySnapshot,buildSegments,validateImportData,currentBackupObject,renderProjects,renderCharaChips};
   // Back up the exact old values before the first v5 write, not merely the current form.
   const oldSet=store.set.bind(store);
-  let migrationReady=store.get('tsubaki.schemaVersion',0)===5;
+  let migrationReady=store.get('tsubaki.schemaVersion',0)===6;
   store.set=function(key,value){
-    if(!migrationReady && key!=='tsubaki.migrationBackup' && key!=='tsubaki.schemaVersion'){
+    if(!migrationReady && key!=='tsubaki.migrationBackup.v6' && key!=='tsubaki.schemaVersion'){
       const raw={};
-      try {for(const name of Object.values(K)){const text=localStorage.getItem(name);if(text!==null)raw[name]=text;}
-        if(!oldSet('tsubaki.migrationBackup',{ver:4,raw,created:Date.now()})){store.stage(key,value);return false;}
-        const readback=JSON.parse(localStorage.getItem('tsubaki.migrationBackup'));
+      try {for(const name of [...Object.values(K),prefKey,classificationKey,"tsubaki.schemaVersion"]){const text=localStorage.getItem(name);if(text!==null)raw[name]=text;}
+        if(!oldSet('tsubaki.migrationBackup.v6',{ver:5,raw,created:Date.now()})){store.stage(key,value);return false;}
+        const readback=JSON.parse(localStorage.getItem('tsubaki.migrationBackup.v6'));
         if(JSON.stringify(readback.raw)!==JSON.stringify(raw))throw new Error('移行退避の照合に失敗');
-        if(!oldSet('tsubaki.schemaVersion',5)){store.stage(key,value);return false;}migrationReady=true;
+        if(!oldSet('tsubaki.schemaVersion',6)){store.stage(key,value);return false;}migrationReady=true;
       }catch(e){store.stage(key,value);store.failures.set(key,'移行前データを退避できません。書き出してから再試行してください。');return false;}
     }
     return oldSet(key,value);
@@ -113,7 +113,7 @@ const UX = (() => {
     if(root.contains(document.activeElement)&&document.activeElement.matches('textarea,input'))return;
     const expanded=new Set([...root.querySelectorAll('details[open]')].map(el=>el.dataset.person));
     root.innerHTML=people.map(p=>`<details class="ux-person" data-person="${esc(p.id)}" ${expanded.has(p.id)?'open':''}><summary>${esc(p.name||p.tag||'人物')} <span class="status-pill">人物別</span></summary>
-      ${[['name','呼称'],['position','位置'],['appearance','外見'],['outfit','衣装'],['pose','動作・表情']].map(([k,label])=>`<label class="lbl" for="ux-person-${esc(p.id)}-${k}">${label}</label><textarea rows="2" id="ux-person-${esc(p.id)}-${k}" data-person-field="${k}">${esc(p[k]||'')}</textarea>`).join('')}
+      ${[['name','呼称'],['promptAlias','プロンプト内の一意な呼称'],['position','位置'],['appearance','外見'],['outfit','衣装'],['pose','動作・表情']].map(([k,label])=>`<label class="lbl" for="ux-person-${esc(p.id)}-${k}">${label}</label><textarea rows="2" id="ux-person-${esc(p.id)}-${k}" data-person-field="${k}">${esc(p[k]||'')}</textarea>`).join('')}
       <label class="lbl">共通の外見補足をこの人物へ移動</label><button class="btn small" data-person-move>移動する</button><button class="btn small" data-person-remove>この人物を外す</button></details>`).join('');
   }
   renderCharaChips=function(listRef,id){if(id!=='t3-charaChips'){originals.renderCharaChips(listRef,id);return;}const people=state.t3.people||[];$('#'+id).innerHTML=people.filter(p=>p.tag).map(p=>`<span class="chip sel">${esc(p.name||p.tag)}<button class="x" data-ux-person="${esc(p.id)}" aria-label="${esc(p.name||p.tag)}を外す">✕</button></span>`).join('')+listRef.map((tag,i)=>people.some(p=>p.tag===tag)?'':`<span class="chip sel">${esc(tag)}<button class="x" data-i="${i}" aria-label="キャラタグを外す">✕</button></span>`).join('');};
@@ -150,8 +150,8 @@ const UX = (() => {
   copyPrompt=async function(){const raw=$('#pvArea').value.trim();if(!raw)return;const text=getCopyText();const done=await writeClipboard(text);if(done){saveHistory(text,false,captureSnapshot(),raw);toast((state.manualEdit?'手動版':'自動版')+'をコピーしました');}else{openSheet('sheetPreview');$('#pvArea').focus();$('#pvArea').select();toast('コピーできません。選択した本文を手動でコピーしてください');}updateStatus();};
   saveHistory=function(text,fav,snapshot,sourceText=text){const list=store.get(K.hist,[]);const index=list.findIndex(h=>h.text===text&&h.kind!=='prompt');const item={...(index>=0?list[index]:{}),id:index>=0?list[index].id:uid('h'),text,sourceText,mode:state.mode,ts:Date.now(),fav:!!fav||(index>=0&&!!list[index].fav),state:snapshot||null,negative:state.negative,kind:'copy'};if(index>=0)list.splice(index,1);list.unshift(item);const kept=list.filter(h=>h.fav||h.kind==='prompt');const copies=list.filter(h=>!h.fav&&h.kind!=='prompt').slice(0,100);safeSave(K.hist,[...kept,...copies].sort((a,b)=>(b.ts||0)-(a.ts||0)));};
   function installLayout(){
-    $('.t3-source').childNodes[0].textContent='Tsubaki.3 専用 / v5.0 · ';
-    const versionNote=[...$('#sheetSettings').querySelectorAll('p')].find(el=>el.textContent.includes('椿ノ工房 v4.0'));if(versionNote)versionNote.childNodes[0].textContent='椿ノ工房 v5.0 ・ Tsubaki.3 専用';
+    $('.t3-source').childNodes[0].textContent='Tsubaki.3 専用 / v6.0 · ';
+    const versionNote=[...$('#sheetSettings').querySelectorAll('p')].find(el=>el.textContent.includes('椿ノ工房 v4.0'));if(versionNote)versionNote.childNodes[0].textContent='椿ノ工房 v6.0 ・ Tsubaki.3 専用';
     $('.t3-resources').hidden=true;
     const nav=document.createElement('nav');nav.className='ux-nav';nav.setAttribute('aria-label','主な操作');nav.innerHTML='<button class="btn on" id="ux-make">つくる</button><button class="btn" id="ux-char">キャラ</button><button class="btn" id="ux-saved">保存</button><button class="btn" id="ux-materials" aria-expanded="false">素材・型紙</button>';
     $('nav.modes').before(nav);$('nav.modes').hidden=true;
@@ -284,7 +284,8 @@ const UX = (() => {
       if(state.mode==='t3'){
         if(state.t3.people.some(p=>p.id===id)||(ref.includes(c.tag)&&!state.t3.people.some(p=>p.tag===c.tag)))continue;
         if(mode==='appearance'&&!c.appearance){toast((c.name||c.tag)+'には外見メモがありません');continue;}
-        const p={id:c.id,name:c.name||c.tag,tag:mode==='appearance'?'':c.tag,position:'',appearance:mode==='tag'?'':c.appearance||'',outfit:'',pose:''};
+        let aliasIndex=1;while(state.t3.people.some(p=>p.promptAlias==='Character-'+aliasIndex))aliasIndex++;
+        const p={id:c.id,promptAlias:'Character-'+aliasIndex,name:c.name||c.tag,tag:mode==='appearance'?'':c.tag,position:'',appearance:mode==='tag'?'':c.appearance||'',outfit:'',pose:''};
         state.t3.people.push(p);if(p.tag&&!ref.includes(p.tag))ref.push(p.tag);
       }else{if(mode!=='appearance'&&!ref.includes(c.tag))ref.push(c.tag);if(mode!=='tag'&&c.appearance)state.adv.lookMain=[state.adv.lookMain,c.appearance].filter(Boolean).join('\n');}
       c.lastUsedAt=Date.now();count++;ui.selected.delete(id);
@@ -361,10 +362,10 @@ const UX = (() => {
     const blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tsubaki_koubou_v5_backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
     safeSave('tsubaki.lastExport',Date.now());updateBackupNote();let warning='';try{validateImportData(data);}catch(e){warning=e.message;}toast(blob.size>2*1024*1024?'書き出しを開始しました。ただし2MB上限を超え、この版では読み戻せません。':warning?'救出データを書き出しました。通常の読み戻しには確認が必要です：'+warning:'書き出しを開始しました。端末にファイルを保存してください');
   }
-  function updateBackupNote(){const time=store.get('tsubaki.lastExport',null);$('#ux-backup-note').textContent='このブラウザに保存。別端末には自動同期されません。読み込み上限2MB。対応形式v1〜v5。最終書き出し操作：'+(time?new Date(time).toLocaleString('ja-JP'):'未実施')+'。ファイルの保存完了は端末側で確認してください。';}
-  currentBackupObject=function(){const data=originals.currentBackupObject();data.ver=5;data.uxPrefs=clone(prefs);data.classificationBackup=store.get(classificationKey,null);const rawRecovery={};for(const [key,message]of store.failures){if(message.includes('読み込めません')){try{rawRecovery[key]=localStorage.getItem(key);}catch(e){}}}if(Object.keys(rawRecovery).length)data.rawRecovery=rawRecovery;return data;};
+  function updateBackupNote(){const time=store.get('tsubaki.lastExport',null);$('#ux-backup-note').textContent='このブラウザに保存。別端末には自動同期されません。読み込み上限2MB。対応形式v1〜v6。最終書き出し操作：'+(time?new Date(time).toLocaleString('ja-JP'):'未実施')+'。ファイルの保存完了は端末側で確認してください。';}
+  currentBackupObject=function(){const data=originals.currentBackupObject();data.ver=6;data.uxPrefs=clone(prefs);data.classificationBackup=store.get(classificationKey,null);const rawRecovery={};for(const [key,message]of store.failures){if(message.includes('読み込めません')){try{rawRecovery[key]=localStorage.getItem(key);}catch(e){}}}if(Object.keys(rawRecovery).length)data.rawRecovery=rawRecovery;return data;};
   validateImportData=function(data){
-    if(Number(data?.ver)>5)throw new Error('この版で対応していないバックアップです');
+    if(Number(data?.ver)>6)throw new Error('この版で対応していないバックアップです');
     if(new Blob([JSON.stringify(data)]).size>2*1024*1024)throw new Error('読み込み上限2MBを超えています');
     for(const [key,max] of [['history',500],['charaLibrary',2000],['projects',500],['styleNames',1000],['myPresets',1000],['favTags',1000],['recentTags',1000]])if(data?.[key]?.length>max)throw new Error(key+'が上限'+max+'件を超えています。切り捨てず中止しました');
     if(data?.charaLibrary?.some(x=>!x||typeof x.tag!=='string'))throw new Error('無効なキャラ行があります');
@@ -374,8 +375,9 @@ const UX = (() => {
     function snapshotShape(s){
       if(!s||typeof s!=='object'||Array.isArray(s))throw new Error('下書き・プロジェクト形式が不正です');
       for(const key of ['t3','basic','adv','tag','tpl','versions'])if(s[key]!==undefined&&(!s[key]||typeof s[key]!=='object'||Array.isArray(s[key])))throw new Error(key+'の保存形式が不正です');
-      if(s.t3){for(const key of Object.keys(freshT3()))if(s.t3[key]!==undefined){const value=s.t3[key];if(['charas','people'].includes(key)){if(!Array.isArray(value))throw new Error(key+'が配列ではありません');}else if(['characterLora','styleLora'].includes(key)){if(typeof value!=='boolean')throw new Error('LoRA形式が不正です');}else if(typeof value!=='string'||value.length>10000)throw new Error('入力欄の文字数・形式が不正です');}
+      if(s.t3){for(const key of Object.keys(freshT3()))if(s.t3[key]!==undefined){const value=s.t3[key];if(['charas','people','qualityBlocks','editFields'].includes(key)){if(!Array.isArray(value))throw new Error(key+'が配列ではありません');}else if(['characterLora','styleLora'].includes(key)){if(typeof value!=='boolean')throw new Error('LoRA形式が不正です');}else if(typeof value!=='string'||value.length>10000)throw new Error('入力欄の文字数・形式が不正です');}
         if(s.t3.charas?.some(x=>typeof x!=='string'||x.length>4000))throw new Error('キャラタグ形式が不正です');if(s.t3.people?.some(p=>!p||typeof p.id!=='string'||['name','tag','position','appearance','outfit','pose'].some(k=>p[k]!==undefined&&(typeof p[k]!=='string'||p[k].length>4000))))throw new Error('人物別入力の形式が不正です');}
+      if(s.t3)T3V6.validate(s.t3);
       if(s.adv){for(const key of ['charas','quality'])if(s.adv[key]!==undefined&&!Array.isArray(s.adv[key]))throw new Error('素材構築の配列形式が不正です');if(s.adv.aes&&AES_CATS.some(c=>s.adv.aes[c.key]!==undefined&&!Array.isArray(s.adv.aes[c.key])))throw new Error('撮影設定の形式が不正です');}
       if(s.tag&&s.tag.tags!==undefined&&!Array.isArray(s.tag.tags))throw new Error('タグ資産の形式が不正です');
     }

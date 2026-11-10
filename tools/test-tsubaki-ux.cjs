@@ -55,10 +55,10 @@ const library=[
   test(a.output()==='Exact manual text\n第二行','input preserves manual version');
   test(a.d.getElementById('ux-version-note').textContent.includes('未反映'),'manual stale state visible');
   a.click('ux-use-auto');test(a.output().includes('An adult musician'),'explicit auto switch');a.click('ux-use-manual');test(a.output()==='Exact manual text\n第二行','manual switch restores exact text');
-  const backup=a.json('currentBackupObject()');test(backup.ver===5&&backup.draft.versions.manual==='Exact manual text\n第二行','both versions in v5 backup');
+  const backup=a.json('currentBackupObject()');test(backup.ver===6&&backup.draft.versions.manual==='Exact manual text\n第二行','both versions in v6 backup');
   a.click('t3-reset');a.click('confirmOk');test(a.output()==='','explicit reset clears chosen version');a.click('ux-undo');test(a.output()==='Exact manual text\n第二行','reset undo restores complete manual snapshot');
   a.click('t3-copy');await Promise.resolve();test(a.copied.at(-1)==='Exact manual text\n第二行','copies selected manual version');
-  const migration=a.stored('migrationBackup');test(migration.raw['tsubaki.charaLibrary']===JSON.stringify(library),'migration backup retains exact old values');
+  const migration=a.stored('migrationBackup.v6');test(migration.raw['tsubaki.charaLibrary']===JSON.stringify(library),'migration backup retains exact old values');
   a.click('t3-save');a.input('ux-prompt-name','Named manual');a.click('ux-prompt-save');test(a.stored('history').some(h=>h.name==='Named manual'&&h.text==='Exact manual text\n第二行'),'named prompt save');
   test(a.stored('history').some(h=>h.id==='old'),'existing saved prompt retained');
   const fresh=a.json('currentBackupObject()');a.eval('applyImportedData(validateImportData('+JSON.stringify(fresh)+'),"replace")');
@@ -78,30 +78,30 @@ const library=[
   test(a.stored('charaLibrary').filter(c=>c.tag.includes('new_(chainsaw_man)')).length===1,'bulk duplicate default skip');
   const huge={app:'tsubaki-koubou',ver:5,charaLibrary:Array.from({length:2001},(_,i)=>({id:String(i),tag:'t'+i}))};
   assert.throws(()=>a.eval('validateImportData('+JSON.stringify(huge)+')'),/上限/);checks++;
-  assert.throws(()=>a.eval('validateImportData({app:"tsubaki-koubou",ver:6})'),/対応/);checks++;
+  assert.throws(()=>a.eval('validateImportData({app:"tsubaki-koubou",ver:7})'),/対応/);checks++;
   const idConflict={app:'tsubaki-koubou',ver:5,charaLibrary:[{...library[0],name:'Different incoming'}]};a.eval('applyImportedData(validateImportData('+JSON.stringify(idConflict)+'),"merge")');test(a.stored('charaLibrary').some(c=>c.name==='Different incoming')&&a.stored('charaLibrary').some(c=>c.name==='レゼ'),'merge preserves both conflicting records');
   test(a.errors.length===0,'all upgraded flows without runtime errors');
-  a.w.close();
+  await new Promise(r=>setTimeout(r,0));a.w.close();
 
-  a=boot({}, {copyFailure:true});a.input('t3-request','Copy failure test.');a.click('t3-copy');await new Promise(r=>setTimeout(r,10));test(!a.stored('history'),'failed copy creates no success history');test(a.d.getElementById('sheetPreview').classList.contains('on'),'failed copy exposes manual selection');a.w.close();
+  a=boot({}, {copyFailure:true});a.input('t3-request','Copy failure test.');a.click('t3-copy');await new Promise(r=>setTimeout(r,10));test(!a.stored('history'),'failed copy creates no success history');test(a.d.getElementById('sheetPreview').classList.contains('on'),'failed copy exposes manual selection');await new Promise(r=>setTimeout(r,0));a.w.close();
 
   a=boot({charaLibrary:library});a.input('t3-request','Initial persistent draft.');await new Promise(r=>setTimeout(r,650));
   a.eval('Storage.prototype.setItem=function(){throw new Error("quota")};');a.input('t3-request','Recoverable draft after quota failure.');await new Promise(r=>setTimeout(r,650));
   test(a.json('store.get(K.draft,null)').t3.request==='Recoverable draft after quota failure.','quota failure keeps latest memory draft');test(a.d.getElementById('ux-save-status').textContent.includes('保存できません'),'quota failure never says saved');test(a.json('currentBackupObject()').draft.t3.request==='Recoverable draft after quota failure.','rescue export uses current draft');test(a.stored('draft').t3.request==='Initial persistent draft.','persistent draft not overwritten on failure');
-  const incoming={app:'tsubaki-koubou',ver:5,charaLibrary:[{id:'incoming',tag:'incoming',work:'New'}]};assert.throws(()=>a.eval('applyImportedData(validateImportData('+JSON.stringify(incoming)+'),"replace")'),/退避/);checks++;test(a.stored('charaLibrary').length===library.length,'failed import backup does not delete existing library');a.w.close();
+  const incoming={app:'tsubaki-koubou',ver:5,charaLibrary:[{id:'incoming',tag:'incoming',work:'New'}]};assert.throws(()=>a.eval('applyImportedData(validateImportData('+JSON.stringify(incoming)+'),"replace")'),/退避/);checks++;test(a.stored('charaLibrary').length===library.length,'failed import backup does not delete existing library');await new Promise(r=>setTimeout(r,0));a.w.close();
 
-  a=boot({charaLibrary:library});a.eval('store.markConflict()');a.input('t3-request','Conflict draft.');await new Promise(r=>setTimeout(r,650));test(a.d.getElementById('ux-save-status').textContent.includes('別タブ'),'tab conflict visibly blocks writes');test(!a.stored('draft'),'tab conflict does not overwrite draft');test(a.json('captureSnapshot()').t3.request==='Conflict draft.','tab conflict retains rescue content');a.w.close();
+  a=boot({charaLibrary:library});a.eval('store.markConflict()');a.input('t3-request','Conflict draft.');await new Promise(r=>setTimeout(r,650));test(a.d.getElementById('ux-save-status').textContent.includes('別タブ'),'tab conflict visibly blocks writes');test(!a.stored('draft'),'tab conflict does not overwrite draft');test(a.json('captureSnapshot()').t3.request==='Conflict draft.','tab conflict retains rescue content');await new Promise(r=>setTimeout(r,0));a.w.close();
 
-  a=boot({charaLibrary:'{broken-json'});a.click('ux-char');test(a.w.localStorage.getItem('tsubaki.charaLibrary')==='{broken-json','corrupt source never silently reset');test(a.d.getElementById('ux-save-status').textContent.includes('読み込めません'),'corrupt data visible status');a.w.close();
+  a=boot({charaLibrary:'{broken-json'});a.click('ux-char');test(a.w.localStorage.getItem('tsubaki.charaLibrary')==='{broken-json','corrupt source never silently reset');test(a.d.getElementById('ux-save-status').textContent.includes('読み込めません'),'corrupt data visible status');await new Promise(r=>setTimeout(r,0));a.w.close();
 
   a=boot({charaLibrary:Array.from({length:1000},(_,i)=>({id:'large-'+i,name:'Character '+String(i).padStart(4,'0'),tag:'tag'+i,work:'Series',note:'x'.repeat(200)}))});
   a.click('ux-char');a.select('ux-library-view','list');test(a.d.querySelectorAll('[data-select-char]').length===30,'large list bounds initial rendered cards');test(a.d.getElementById('ux-library-count').textContent.includes('1000人'),'pagination does not lose total');
   a.d.querySelector('[data-ux-more]').click();test(a.d.querySelectorAll('[data-select-char]').length===60,'load more reveals next page');
-  a.input('charaLibSearch','Character 0999');await new Promise(r=>setTimeout(r,180));test(a.d.querySelector('[data-select-char="large-999"]'),'search reaches items beyond rendered page');a.w.close();
+  a.input('charaLibSearch','Character 0999');await new Promise(r=>setTimeout(r,180));test(a.d.querySelector('[data-select-char="large-999"]'),'search reaches items beyond rendered page');await new Promise(r=>setTimeout(r,0));a.w.close();
 
   const variants=[{...library[0],id:'v1',name:'Variant one',appearance:'A white coat.'},{...library[0],id:'v2',name:'Variant two',appearance:'A green coat.'}];
   a=boot({charaLibrary:variants});a.click('ux-char');a.d.querySelector('[data-select-char="v1"]').click();a.d.querySelector('[data-select-char="v2"]').click();a.click('ux-add-selected');test(a.json('state.t3.people').length===2,'same-tag clothing variants remain separate by ID');
-  a.d.querySelector('[data-ux-person="v1"]').click();test(a.output().includes('A green coat.')&&!a.output().includes('A white coat.'),'chip removal preserves other same-tag variant');a.w.close();
+  a.d.querySelector('[data-ux-person="v1"]').click();test(a.output().includes('A green coat.')&&!a.output().includes('A white coat.'),'chip removal preserves other same-tag variant');await new Promise(r=>setTimeout(r,0));a.w.close();
 
   a=boot({charaLibrary:library,history:[{id:'keep',text:'Keep me.',mode:'t3',fav:true}]});
   a.eval('store.set(K.draft,{mode:"t3",t3:{request:"Before transaction"}})');const oldRaw=a.w.localStorage.getItem('tsubaki.charaLibrary');
@@ -109,6 +109,6 @@ const library=[
   const failing={app:'tsubaki-koubou',ver:5,charaLibrary:[{id:'new',name:'New',tag:'new'}],history:[{id:'incoming',text:'Incoming',mode:'t3'}]};
   assert.throws(()=>a.eval('applyImportedData(validateImportData('+JSON.stringify(failing)+'),"replace")'),/保存に失敗/);checks++;
   test(a.w.localStorage.getItem('tsubaki.charaLibrary')===oldRaw,'late failure rolls back earlier persistent writes');test(a.stored('history')[0].text==='Keep me.','late failure preserves history');test(a.json('store.get(K.charaLib,null)')[0].id==='a','late failure does not expose partially imported cache');
-  test(a.stored('importBackup').charaLibrary.length===4,'late failure leaves recovery snapshot');a.w.close();
+  test(a.stored('importBackup').charaLibrary.length===4,'late failure leaves recovery snapshot');await new Promise(r=>setTimeout(r,0));a.w.close();
   console.log('Tsubaki UX v5: '+checks+' checks passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

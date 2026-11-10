@@ -69,7 +69,7 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   task('referenceEdit');input('t3-ref2','');check(d.getElementById('t3-warnings').textContent.includes('役割を指定'),'missing reference editing role warning');
   input('t3-ref2','outfit design only');check(!d.getElementById('t3-warnings').textContent.includes('役割を指定'),'reference editing warning resolves');
   task('generate');check(!output().includes('@image1')&&!output().includes('@image2'),'hidden reference fields excluded from new generation');
-  select('t3-style','flat');check(output().includes('Warm light from the left.'),'explicit lighting is never silently deleted');
+  evaluate('state.t3.editFields=["light"]');select('t3-style','flat');check(output().includes('Warm light from the left.'),'explicit lighting is never silently deleted');
   d.getElementById('t3-characterLora').click();d.getElementById('t3-styleLora').click();
   check(!output().includes('Short black hair.')&&!output().includes('Sparse ink contours.'),'LoRA suppression affects selected supplemental fields');
   check(output().includes('A green coat.')&&output().includes('A cheerful smile.'),'LoRA suppression retains outfit and action');
@@ -130,7 +130,7 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   const snap=plain(evaluate('captureSnapshot()'));check(snap.manualEdit&&snap.manualText==='Manually edited final prompt.','manual output in snapshot');
   evaluate('applySnapshot('+JSON.stringify(snap)+')');check(output()==='Manually edited final prompt.','manual output restores');
   closeSheets();
-  const backup=plain(evaluate('currentBackupObject()'));check(backup.ver===5&&backup.draft.manualText==='Manually edited final prompt.','v5 backup includes draft');
+  const backup=plain(evaluate('currentBackupObject()'));check(backup.ver===6&&backup.draft.manualText==='Manually edited final prompt.','v6 backup includes draft');
   check(backup.uxPrefs.view==='list','character view preference included in backup');
   const normalized=plain(evaluate('validateImportData('+JSON.stringify(backup)+')'));check(normalized.draft.manualText===backup.draft.manualText,'import accepts v5 draft');
   check(normalized.charaLibrary.find(x=>x.id==='reze').workAuto===true,'import preserves automatic work metadata');
@@ -142,5 +142,5 @@ function plain(x){return JSON.parse(JSON.stringify(x));}
   w.dispatchEvent(new w.Event('pagehide'));check(stored('draft').t3.appearance==='Appearance-only draft.','pagehide preserves last input');
   check(errors.length===0,'all flows complete without runtime errors');
   console.log(`Tsubaki.3: ${checks} checks passed; existing character, dictionary, prompt and project preserved.`);
-  w.close();
+  await new Promise(r=>setTimeout(r,0));w.close();
 })().catch(e=>{console.error(e);w.close();process.exitCode=1;});

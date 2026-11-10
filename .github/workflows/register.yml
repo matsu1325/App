@@ -36,6 +36,15 @@ jobs:
         with:
           node-version: 20
 
+      - name: Tsubaki構造と保存互換性を検証する
+        run: |
+          npm install --no-save --package-lock=false jsdom@26.1.0
+          node tools/build-tsubaki-ux.cjs
+          git diff --exit-code -- apps/
+          node tools/test-tsubaki.cjs
+          node tools/test-tsubaki-ux.cjs
+          node tools/test-tsubaki-prompt-core.cjs
+
       - name: Steamセール台帳を更新する
         if: github.event_name == 'workflow_dispatch'
         run: node tools/build-steam-sales.mjs

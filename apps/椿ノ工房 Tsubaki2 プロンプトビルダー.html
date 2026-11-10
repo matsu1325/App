@@ -17366,14 +17366,17 @@ const ADV_BLOCK_DEFAULTS = {
   weight: { chara:1, look:1, scene:1, pose:1, aes:1, style:1, quality:1 }
 };
 function freshBlockConfig() { return JSON.parse(JSON.stringify(ADV_BLOCK_DEFAULTS)); }
-function freshT3() { return {task:"generate",request:"",ref1:"",ref2:"",keep:"",layout:"",style:"",light:"",text:"",textPlace:"",appearance:"",outfit:"",pose:"",scene:"",camera:"",styleDetail:"",characterLora:false,styleLora:false,charas:[],people:[]}; }
+function freshT3() { return {compilerVersion:"t3-structured-v1",ref1Role:"custom",ref2Role:"custom",textRole:"text",qualityBlocks:[],editFields:[],task:"generate",request:"",ref1:"",ref2:"",keep:"",layout:"",style:"",light:"",text:"",textPlace:"",appearance:"",outfit:"",pose:"",scene:"",camera:"",styleDetail:"",characterLora:false,styleLora:false,charas:[],people:[]}; }
 function normalizeT3(value) {
   const out = freshT3();
   if (!value || typeof value !== "object") return out;
   Object.keys(out).forEach(k => { if(typeof value[k] === "string") out[k] = value[k].slice(0,10000); });
   ["characterLora","styleLora"].forEach(k => out[k] = value[k] === true);
   out.charas = Array.isArray(value.charas) ? value.charas.filter(x => typeof x === "string").map(x => x.slice(0,4000)) : [];
-  out.people = Array.isArray(value.people) ? value.people.filter(x=>x && typeof x.id === "string").map(x=>Object.fromEntries(["id","name","tag","position","appearance","outfit","pose"].map(k=>[k,typeof x[k]==="string"?x[k].slice(0,4000):""]))) : [];
+  out.compilerVersion = value.compilerVersion === "t3-structured-v1" ? value.compilerVersion : "legacy-v5";
+  out.qualityBlocks = Array.isArray(value.qualityBlocks) ? value.qualityBlocks.map(x=>({...x})) : [];
+  out.editFields = Array.isArray(value.editFields) ? value.editFields.filter(x=>["style","light","camera","layout"].includes(x)) : [];
+  out.people = Array.isArray(value.people) ? value.people.filter(x=>x && typeof x.id === "string").map(x=>Object.fromEntries(["id","name","tag","position","appearance","outfit","pose","promptAlias","appearancePolicy"].map(k=>[k,typeof x[k]==="string"?x[k].slice(0,4000):""]))) : [];
   if (!["generate","reference","edit","referenceEdit"].includes(out.task)) out.task="generate";
   if (!["","anime","manga","watercolor","photo","lineart","flat"].includes(out.style)) out.style="";
   return out;
@@ -18431,6 +18434,7 @@ function buildSegments() {
 
   if (state.mode === "t3") {
     const t = state.t3;
+    if(t.compilerVersion === "t3-structured-v1") return T3Core.compile(t).blocks;
     if (![t.request,t.appearance,t.outfit,t.pose,t.scene,t.text,...t.charas,...t.people.map(p=>[p.name,p.tag,p.appearance,p.outfit,p.pose].join(''))].some(x => x.trim())) return seg;
     const editing = ["edit","referenceEdit"].includes(t.task);
     if (editing) {
@@ -18537,6 +18541,7 @@ const CONFLICT_PAIRS = [
 ];
 function validate(text) {
   const warns = [];
+  if(state.mode === "t3" && state.t3.compilerVersion === "t3-structured-v1" && !state.manualEdit) return T3Core.compile(state.t3).diagnostics;
   const prose = state.mode === "t3" && !state.manualEdit ? Object.entries(state.t3).filter(([k,v])=>k!=="text" && typeof v === "string").map(([,v])=>v).join(" ") : text;
   if (hasJa(prose)) warns.push({ type: "info", msg: "日本語の草案です。公式ガイドは英語の出力を推奨しています。PixAIのプロンプトヘルパーをオンにするか、英語整形用の指示をAIへ渡してください。画像に入れる文字は原文を保持します。" });
   if (state.mode === "t3" && ![state.t3.request,state.t3.appearance,state.t3.outfit,state.t3.pose,state.t3.scene,state.t3.text,...state.t3.charas].some(x=>x.trim()) && !state.manualEdit) warns.push({type:"warn",msg:"描きたい内容・変更したい箇所を入力してください。"});
@@ -18679,7 +18684,7 @@ async function writeClipboard(text) {
 }
 function getCopyText() {
   const raw = $("#pvArea").value.trim();
-  return store.get(K.singleLine, false) ? raw.replace(/\n+/g, ", ").replace(/,\s*,/g, ",") : raw;
+  return store.get(K.singleLine, false) ? (state.mode === "t3" ? raw.replace(/\n+/g, " ") : raw.replace(/\n+/g, ", ").replace(/,\s*,/g, ",")) : raw;
 }
 async function copyPrompt(skipWarnings = false) {
   const raw = $("#pvArea").value.trim();
@@ -19979,6 +19984,63 @@ $("#btnAi").addEventListener("click", async () => {
 });
 
 /* TSUBAKI_UX_V5_START */
+/* Pure Tsubaki.3 compiler. Presets below are independently written, not official quotations. */
+const T3Core = (() => {
+ const presets=[
+ ['line','線を明瞭に','Clean, precise contours and readable silhouettes.',''],
+ ['detail','情報量を増やす','Rich environmental detail and carefully rendered materials.',''],
+ ['contrast','深い明暗','Deep shadows and strong directional highlights.','light'],
+ ['flat','フラット塗り','Uniform flat colors without shadows, gradients or highlights.','flat'],
+ ['mono','モノクロ漫画','Monochrome ink drawing with screentones.','mono'],
+ ['cel','セルアニメ','Anime cel shading with clear color separation.','color'],
+ ['background','背景の質感','Subtle realistic textures in the background.',''],
+ ['3d','3D感','Smooth modeled forms with soft volumetric lighting.','light']
+ ].map(([id,label,text,group])=>({id,label,text,group,version:1}));
+ const styles={anime:'Render as an anime illustration with clear contours and readable shapes.',manga:'Render as a monochrome manga with expressive ink lines and screentones.',watercolor:'Render as a watercolor illustration with soft pigment transitions and paper texture.',photo:'Use photographic textures and natural perspective.',lineart:'Render as uncolored line art.',flat:'Use uniform flat colors without shading or gradients.'};
+ function compile(t){
+  const blocks=[],diagnostics=[];const add=(block,text,path)=>{if(text?.trim())blocks.push({block,text:text.trim(),sourcePaths:[path]});};
+  const warn=(msg,path)=>diagnostics.push({type:'warn',msg,sourcePaths:[path]});
+  const editing=['edit','referenceEdit'].includes(t.task), people=t.people||[], quality=t.qualityBlocks||[];
+  const content=[t.request,t.appearance,t.outfit,t.pose,t.scene,t.text,...(t.charas||[]),...people.map(p=>[p.name,p.tag,p.appearance,p.outfit,p.pose].join(''))].some(x=>x?.trim());
+  if(!content){warn('描きたい内容・変更したい箇所を入力してください。','request');return {blocks,diagnostics};}
+  if(editing)add('chara','Edit @image1 as the source image.','task');
+  if(t.task!=='generate'){
+   if(t.ref1?.trim())add('chara',`${editing?'Source image context:':'Create a new image using @image1 as the reference for'} ${t.ref1Role&&t.ref1Role!=='custom'?t.ref1Role+': ':''}${t.ref1.trim()}.`,'ref1');
+   else if(!editing)add('chara',`Use @image1 as the reference for ${t.ref1Role&&t.ref1Role!=='custom'?t.ref1Role:"the character's identity"}.`,'ref1');
+   if(t.ref2?.trim()||t.ref2Role&&t.ref2Role!=='custom')add('chara',`Use @image2 only as the reference for ${t.ref2Role&&t.ref2Role!=='custom'?t.ref2Role+': ':''}${t.ref2||''}.`,'ref2');
+   if(t.task==='referenceEdit'&&!t.ref2?.trim()&&(!t.ref2Role||t.ref2Role==='custom'))warn('@image2の役割を指定してください。','ref2');
+  }
+  const include=k=>!editing||(t.editFields||[]).includes(k);
+  const effects=()=>{
+   if(!t.styleLora&&include('style')){add('style',styles[t.style],'style');add('style',t.styleDetail,'styleDetail');quality.forEach(p=>add('quality',p.text,'qualityBlocks'));}
+   if(include('light'))add('aes',t.light,'light');if(include('camera'))add('aes',t.camera,'camera');
+  };
+  if(!editing)effects();
+  add('subject',t.request,'request');
+  (t.charas||[]).filter(c=>!people.some(p=>p.tag===c)).forEach(c=>add('chara',c,'charas'));
+  const aliases=new Set();people.forEach((p,i)=>{const alias=p.promptAlias||p.name||`Character-${i+1}`;
+   if(aliases.has(alias))warn('人物の呼称が重複しています。人物別に異なる呼称を指定してください。','people');aliases.add(alias);
+   add('chara',[`Character: ${alias}.`,p.tag,p.position&&`Position: ${p.position}.`,!(p.appearancePolicy==='external-lora'||t.characterLora)&&p.appearance,p.outfit&&`Outfit: ${p.outfit}`,p.pose&&`Action: ${p.pose}`].filter(Boolean).join('\n'),'people');
+  });
+  if(!t.characterLora)add('look',t.appearance,'appearance');add('look',t.outfit,'outfit');add('pose',t.pose,'pose');add('scene',t.scene,'scene');
+  if(editing)effects();
+  if(t.text?.trim())add('tpl',`${t.textRole||'text'}: ${JSON.stringify(t.text)}. ${t.textPlace?'Place it at '+t.textPlace+'. ':''}Render the text exactly as written, preserving its spelling and language.`,'text');
+  if(include('layout'))add('aes',t.layout,'layout');
+  if(t.task!=='generate'&&t.keep?.trim())add('look',`Preserve ${t.keep.trim()}.`,'keep');
+  if(editing)add('look','Keep all elements outside the explicitly requested changes unchanged.','keep');
+  const groups=new Set(quality.map(x=>x.group));
+  if((groups.has('flat')||['flat','lineart'].includes(t.style))&&(groups.has('light')||t.light?.trim()))warn('影なし・線画と、明暗または光の指定が併存しています。','qualityBlocks');
+  if((groups.has('mono')||t.style==='manga')&&groups.has('color'))warn('モノクロとカラーの指定が併存しています。','qualityBlocks');
+  if(people.length>1&&[t.appearance,t.outfit,t.pose].some(x=>x?.trim()))warn('共通の外見・衣装・動作が複数人物に適用されます。特定人物の条件は人物別欄へ移してください。','people');
+  const prose=[t.request,t.appearance,t.outfit,t.pose,t.scene,...people.flatMap(p=>[p.appearance,p.outfit,p.pose])].join(' ');
+  if(/[\u3040-\u30ff\u4e00-\u9fff]/.test(prose))diagnostics.push({type:'info',msg:'日本語の草案です。精密な英語整形は「AI連携」の指示文を利用できます。画像内の文字は翻訳しません。'});
+  if(/@image(?:[3-9]|\d{2,})\b/.test(blocks.map(b=>b.text).join('\n')))warn('この作業台の参照案内は@image1・@image2です。追加の参照指定を確認してください。','request');
+  return {blocks,diagnostics};
+ }
+ return {presets,compile};
+})();
+if(typeof module!=='undefined')module.exports=T3Core;
+
 /* v5 usability layer. Embedded before initialization; no network or API dependency. */
 const UX = (() => {
   const clone=x=>JSON.parse(JSON.stringify(x));
@@ -19995,15 +20057,15 @@ const UX = (() => {
   const originals={render,captureSnapshot,applySnapshot,buildSegments,validateImportData,currentBackupObject,renderProjects,renderCharaChips};
   // Back up the exact old values before the first v5 write, not merely the current form.
   const oldSet=store.set.bind(store);
-  let migrationReady=store.get('tsubaki.schemaVersion',0)===5;
+  let migrationReady=store.get('tsubaki.schemaVersion',0)===6;
   store.set=function(key,value){
-    if(!migrationReady && key!=='tsubaki.migrationBackup' && key!=='tsubaki.schemaVersion'){
+    if(!migrationReady && key!=='tsubaki.migrationBackup.v6' && key!=='tsubaki.schemaVersion'){
       const raw={};
-      try {for(const name of Object.values(K)){const text=localStorage.getItem(name);if(text!==null)raw[name]=text;}
-        if(!oldSet('tsubaki.migrationBackup',{ver:4,raw,created:Date.now()})){store.stage(key,value);return false;}
-        const readback=JSON.parse(localStorage.getItem('tsubaki.migrationBackup'));
+      try {for(const name of [...Object.values(K),prefKey,classificationKey,"tsubaki.schemaVersion"]){const text=localStorage.getItem(name);if(text!==null)raw[name]=text;}
+        if(!oldSet('tsubaki.migrationBackup.v6',{ver:5,raw,created:Date.now()})){store.stage(key,value);return false;}
+        const readback=JSON.parse(localStorage.getItem('tsubaki.migrationBackup.v6'));
         if(JSON.stringify(readback.raw)!==JSON.stringify(raw))throw new Error('移行退避の照合に失敗');
-        if(!oldSet('tsubaki.schemaVersion',5)){store.stage(key,value);return false;}migrationReady=true;
+        if(!oldSet('tsubaki.schemaVersion',6)){store.stage(key,value);return false;}migrationReady=true;
       }catch(e){store.stage(key,value);store.failures.set(key,'移行前データを退避できません。書き出してから再試行してください。');return false;}
     }
     return oldSet(key,value);
@@ -20094,7 +20156,7 @@ const UX = (() => {
     if(root.contains(document.activeElement)&&document.activeElement.matches('textarea,input'))return;
     const expanded=new Set([...root.querySelectorAll('details[open]')].map(el=>el.dataset.person));
     root.innerHTML=people.map(p=>`<details class="ux-person" data-person="${esc(p.id)}" ${expanded.has(p.id)?'open':''}><summary>${esc(p.name||p.tag||'人物')} <span class="status-pill">人物別</span></summary>
-      ${[['name','呼称'],['position','位置'],['appearance','外見'],['outfit','衣装'],['pose','動作・表情']].map(([k,label])=>`<label class="lbl" for="ux-person-${esc(p.id)}-${k}">${label}</label><textarea rows="2" id="ux-person-${esc(p.id)}-${k}" data-person-field="${k}">${esc(p[k]||'')}</textarea>`).join('')}
+      ${[['name','呼称'],['promptAlias','プロンプト内の一意な呼称'],['position','位置'],['appearance','外見'],['outfit','衣装'],['pose','動作・表情']].map(([k,label])=>`<label class="lbl" for="ux-person-${esc(p.id)}-${k}">${label}</label><textarea rows="2" id="ux-person-${esc(p.id)}-${k}" data-person-field="${k}">${esc(p[k]||'')}</textarea>`).join('')}
       <label class="lbl">共通の外見補足をこの人物へ移動</label><button class="btn small" data-person-move>移動する</button><button class="btn small" data-person-remove>この人物を外す</button></details>`).join('');
   }
   renderCharaChips=function(listRef,id){if(id!=='t3-charaChips'){originals.renderCharaChips(listRef,id);return;}const people=state.t3.people||[];$('#'+id).innerHTML=people.filter(p=>p.tag).map(p=>`<span class="chip sel">${esc(p.name||p.tag)}<button class="x" data-ux-person="${esc(p.id)}" aria-label="${esc(p.name||p.tag)}を外す">✕</button></span>`).join('')+listRef.map((tag,i)=>people.some(p=>p.tag===tag)?'':`<span class="chip sel">${esc(tag)}<button class="x" data-i="${i}" aria-label="キャラタグを外す">✕</button></span>`).join('');};
@@ -20131,8 +20193,8 @@ const UX = (() => {
   copyPrompt=async function(){const raw=$('#pvArea').value.trim();if(!raw)return;const text=getCopyText();const done=await writeClipboard(text);if(done){saveHistory(text,false,captureSnapshot(),raw);toast((state.manualEdit?'手動版':'自動版')+'をコピーしました');}else{openSheet('sheetPreview');$('#pvArea').focus();$('#pvArea').select();toast('コピーできません。選択した本文を手動でコピーしてください');}updateStatus();};
   saveHistory=function(text,fav,snapshot,sourceText=text){const list=store.get(K.hist,[]);const index=list.findIndex(h=>h.text===text&&h.kind!=='prompt');const item={...(index>=0?list[index]:{}),id:index>=0?list[index].id:uid('h'),text,sourceText,mode:state.mode,ts:Date.now(),fav:!!fav||(index>=0&&!!list[index].fav),state:snapshot||null,negative:state.negative,kind:'copy'};if(index>=0)list.splice(index,1);list.unshift(item);const kept=list.filter(h=>h.fav||h.kind==='prompt');const copies=list.filter(h=>!h.fav&&h.kind!=='prompt').slice(0,100);safeSave(K.hist,[...kept,...copies].sort((a,b)=>(b.ts||0)-(a.ts||0)));};
   function installLayout(){
-    $('.t3-source').childNodes[0].textContent='Tsubaki.3 専用 / v5.0 · ';
-    const versionNote=[...$('#sheetSettings').querySelectorAll('p')].find(el=>el.textContent.includes('椿ノ工房 v4.0'));if(versionNote)versionNote.childNodes[0].textContent='椿ノ工房 v5.0 ・ Tsubaki.3 専用';
+    $('.t3-source').childNodes[0].textContent='Tsubaki.3 専用 / v6.0 · ';
+    const versionNote=[...$('#sheetSettings').querySelectorAll('p')].find(el=>el.textContent.includes('椿ノ工房 v4.0'));if(versionNote)versionNote.childNodes[0].textContent='椿ノ工房 v6.0 ・ Tsubaki.3 専用';
     $('.t3-resources').hidden=true;
     const nav=document.createElement('nav');nav.className='ux-nav';nav.setAttribute('aria-label','主な操作');nav.innerHTML='<button class="btn on" id="ux-make">つくる</button><button class="btn" id="ux-char">キャラ</button><button class="btn" id="ux-saved">保存</button><button class="btn" id="ux-materials" aria-expanded="false">素材・型紙</button>';
     $('nav.modes').before(nav);$('nav.modes').hidden=true;
@@ -20265,7 +20327,8 @@ const UX = (() => {
       if(state.mode==='t3'){
         if(state.t3.people.some(p=>p.id===id)||(ref.includes(c.tag)&&!state.t3.people.some(p=>p.tag===c.tag)))continue;
         if(mode==='appearance'&&!c.appearance){toast((c.name||c.tag)+'には外見メモがありません');continue;}
-        const p={id:c.id,name:c.name||c.tag,tag:mode==='appearance'?'':c.tag,position:'',appearance:mode==='tag'?'':c.appearance||'',outfit:'',pose:''};
+        let aliasIndex=1;while(state.t3.people.some(p=>p.promptAlias==='Character-'+aliasIndex))aliasIndex++;
+        const p={id:c.id,promptAlias:'Character-'+aliasIndex,name:c.name||c.tag,tag:mode==='appearance'?'':c.tag,position:'',appearance:mode==='tag'?'':c.appearance||'',outfit:'',pose:''};
         state.t3.people.push(p);if(p.tag&&!ref.includes(p.tag))ref.push(p.tag);
       }else{if(mode!=='appearance'&&!ref.includes(c.tag))ref.push(c.tag);if(mode!=='tag'&&c.appearance)state.adv.lookMain=[state.adv.lookMain,c.appearance].filter(Boolean).join('\n');}
       c.lastUsedAt=Date.now();count++;ui.selected.delete(id);
@@ -20342,10 +20405,10 @@ const UX = (() => {
     const blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tsubaki_koubou_v5_backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
     safeSave('tsubaki.lastExport',Date.now());updateBackupNote();let warning='';try{validateImportData(data);}catch(e){warning=e.message;}toast(blob.size>2*1024*1024?'書き出しを開始しました。ただし2MB上限を超え、この版では読み戻せません。':warning?'救出データを書き出しました。通常の読み戻しには確認が必要です：'+warning:'書き出しを開始しました。端末にファイルを保存してください');
   }
-  function updateBackupNote(){const time=store.get('tsubaki.lastExport',null);$('#ux-backup-note').textContent='このブラウザに保存。別端末には自動同期されません。読み込み上限2MB。対応形式v1〜v5。最終書き出し操作：'+(time?new Date(time).toLocaleString('ja-JP'):'未実施')+'。ファイルの保存完了は端末側で確認してください。';}
-  currentBackupObject=function(){const data=originals.currentBackupObject();data.ver=5;data.uxPrefs=clone(prefs);data.classificationBackup=store.get(classificationKey,null);const rawRecovery={};for(const [key,message]of store.failures){if(message.includes('読み込めません')){try{rawRecovery[key]=localStorage.getItem(key);}catch(e){}}}if(Object.keys(rawRecovery).length)data.rawRecovery=rawRecovery;return data;};
+  function updateBackupNote(){const time=store.get('tsubaki.lastExport',null);$('#ux-backup-note').textContent='このブラウザに保存。別端末には自動同期されません。読み込み上限2MB。対応形式v1〜v6。最終書き出し操作：'+(time?new Date(time).toLocaleString('ja-JP'):'未実施')+'。ファイルの保存完了は端末側で確認してください。';}
+  currentBackupObject=function(){const data=originals.currentBackupObject();data.ver=6;data.uxPrefs=clone(prefs);data.classificationBackup=store.get(classificationKey,null);const rawRecovery={};for(const [key,message]of store.failures){if(message.includes('読み込めません')){try{rawRecovery[key]=localStorage.getItem(key);}catch(e){}}}if(Object.keys(rawRecovery).length)data.rawRecovery=rawRecovery;return data;};
   validateImportData=function(data){
-    if(Number(data?.ver)>5)throw new Error('この版で対応していないバックアップです');
+    if(Number(data?.ver)>6)throw new Error('この版で対応していないバックアップです');
     if(new Blob([JSON.stringify(data)]).size>2*1024*1024)throw new Error('読み込み上限2MBを超えています');
     for(const [key,max] of [['history',500],['charaLibrary',2000],['projects',500],['styleNames',1000],['myPresets',1000],['favTags',1000],['recentTags',1000]])if(data?.[key]?.length>max)throw new Error(key+'が上限'+max+'件を超えています。切り捨てず中止しました');
     if(data?.charaLibrary?.some(x=>!x||typeof x.tag!=='string'))throw new Error('無効なキャラ行があります');
@@ -20355,8 +20418,9 @@ const UX = (() => {
     function snapshotShape(s){
       if(!s||typeof s!=='object'||Array.isArray(s))throw new Error('下書き・プロジェクト形式が不正です');
       for(const key of ['t3','basic','adv','tag','tpl','versions'])if(s[key]!==undefined&&(!s[key]||typeof s[key]!=='object'||Array.isArray(s[key])))throw new Error(key+'の保存形式が不正です');
-      if(s.t3){for(const key of Object.keys(freshT3()))if(s.t3[key]!==undefined){const value=s.t3[key];if(['charas','people'].includes(key)){if(!Array.isArray(value))throw new Error(key+'が配列ではありません');}else if(['characterLora','styleLora'].includes(key)){if(typeof value!=='boolean')throw new Error('LoRA形式が不正です');}else if(typeof value!=='string'||value.length>10000)throw new Error('入力欄の文字数・形式が不正です');}
+      if(s.t3){for(const key of Object.keys(freshT3()))if(s.t3[key]!==undefined){const value=s.t3[key];if(['charas','people','qualityBlocks','editFields'].includes(key)){if(!Array.isArray(value))throw new Error(key+'が配列ではありません');}else if(['characterLora','styleLora'].includes(key)){if(typeof value!=='boolean')throw new Error('LoRA形式が不正です');}else if(typeof value!=='string'||value.length>10000)throw new Error('入力欄の文字数・形式が不正です');}
         if(s.t3.charas?.some(x=>typeof x!=='string'||x.length>4000))throw new Error('キャラタグ形式が不正です');if(s.t3.people?.some(p=>!p||typeof p.id!=='string'||['name','tag','position','appearance','outfit','pose'].some(k=>p[k]!==undefined&&(typeof p[k]!=='string'||p[k].length>4000))))throw new Error('人物別入力の形式が不正です');}
+      if(s.t3)T3V6.validate(s.t3);
       if(s.adv){for(const key of ['charas','quality'])if(s.adv[key]!==undefined&&!Array.isArray(s.adv[key]))throw new Error('素材構築の配列形式が不正です');if(s.adv.aes&&AES_CATS.some(c=>s.adv.aes[c.key]!==undefined&&!Array.isArray(s.adv.aes[c.key])))throw new Error('撮影設定の形式が不正です');}
       if(s.tag&&s.tag.tags!==undefined&&!Array.isArray(s.tag.tags))throw new Error('タグ資産の形式が不正です');
     }
@@ -20404,6 +20468,44 @@ const UX = (() => {
   addStyle();installLayout();installSheets();installLibrary();installSaved();installBackup();
   // No eager migration or classification: existing values stay byte-for-byte unchanged until an explicit edit.
   return {classificationPlan,showClassification,applyClassification,undoStep,versions:()=>clone(versions),prefs,ui,exportBackup,openEditor,renderSaved};
+})();
+
+/* Integration installed after the maintained UX layer, before draft restoration. */
+const T3V6=(()=>{
+ const roleOptions='<option value="custom">自由記述</option>'+['identity','outfit','pose','composition','style'].map(v=>`<option value="${v}">${({identity:'人物の特徴',outfit:'衣装',pose:'ポーズ',composition:'構図',style:'画風'})[v]}</option>`).join('');
+ const panel=document.createElement('details');panel.className='t3-details';panel.id='t3-structure';panel.innerHTML=`<summary>Tsubaki.3 構造・仕上げ</summary><p id="t3-compiler-note" class="hint"></p><button class="btn small" id="t3-optimize">旧・新の構造を比較</button><label class="lbl" for="t3-ref1Role">画像1から借りる要素（編集では元画像）</label><select id="t3-ref1Role">${roleOptions}</select><label class="lbl" for="t3-ref2Role">画像2から借りる要素</label><select id="t3-ref2Role">${roleOptions}</select><p class="hint" id="t3-attach-order"></p><label class="lbl" for="t3-textRole">文字の役割</label><select id="t3-textRole"><option value="text">文字</option><option value="title">タイトル</option><option value="caption">説明</option><option value="dialogue">台詞</option><option value="character name">人物名</option></select><fieldset><legend>追加の品質・画風（任意）</legend>${T3Core.presets.map(p=>`<label style="display:block"><input type="checkbox" data-t3-quality="${p.id}"> ${p.label}</label>`).join('')}</fieldset><p class="hint">資料を参考に作成した短い英文です。未選択の条件は追加しません。</p><fieldset><legend>画像編集で今回変更する仕上げ項目</legend>${[['style','画風・追加ブロック'],['light','光'],['camera','カメラ'],['layout','レイアウト']].map(([k,v])=>`<label style="display:block"><input type="checkbox" data-t3-edit="${k}"> ${v}</label>`).join('')}</fieldset><p class="hint">編集時の非採用項目も入力は保持します。画像はPixAIへ手動で添付してください。出力比率はPixAI側でも設定します。</p>`;
+ $('#ux-style-details').append(panel);
+ const oldRender=render,oldSync=syncT3UI;
+ function sync(){if(!$('#t3-compiler-note'))return;const t=state.t3;
+  $('#t3-compiler-note').textContent=t.compilerVersion==='t3-structured-v1'?'構造最適化版を使用中。更新: 2026-11-10':'旧形式の出力を保持中。比較して最適化できます。';
+  ['ref1Role','ref2Role','textRole'].forEach(k=>$('#t3-'+k).value=t[k]||({textRole:'text'}[k]||'custom'));
+  $$('[data-t3-quality]').forEach(el=>el.checked=(t.qualityBlocks||[]).some(p=>p.id===el.dataset.t3Quality));
+  $$('[data-t3-edit]').forEach(el=>el.checked=(t.editFields||[]).includes(el.dataset.t3Edit));
+  $('#t3-attach-order').textContent=t.task==='generate'?'新規生成では参照を使用しません。':`PixAI添付順: @image1（${['edit','referenceEdit'].includes(t.task)?'元画像':t.ref1Role||'特徴参照'}）${t.ref2?.trim()||t.ref2Role!=='custom'?' → @image2（'+(t.ref2Role||'参照')+'）':''}`;
+ }
+ syncT3UI=function(){oldSync();sync();};render=function(){oldRender();sync();};
+ panel.addEventListener('change',e=>{const el=e.target;let key;
+  if(el.dataset.t3Quality){const id=el.dataset.t3Quality;state.t3.qualityBlocks=(state.t3.qualityBlocks||[]).filter(p=>p.id!==id);if(el.checked)state.t3.qualityBlocks.push({...T3Core.presets.find(p=>p.id===id)});}
+  else if(el.dataset.t3Edit){key=el.dataset.t3Edit;state.t3.editFields=(state.t3.editFields||[]).filter(x=>x!==key);if(el.checked)state.t3.editFields.push(key);}
+  else if(['t3-ref1Role','t3-ref2Role','t3-textRole'].includes(el.id))state.t3[el.id.slice(3)]=el.value;
+  else return;
+  state.manualEdit=false;render();
+ });
+ const sheet=document.createElement('div');sheet.className='sheet ux-managed';sheet.id='t3-compare';sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','構造の比較');sheet.innerHTML='<div class="sheet-body"><h2>旧・新の構造を比較</h2><label class="lbl" for="t3-before">現在の自動版</label><textarea id="t3-before" readonly rows="7"></textarea><label class="lbl" for="t3-after">最適化した自動版</label><textarea id="t3-after" readonly rows="7"></textarea><p class="hint">採用時は現在のプロジェクトを複製します。手動版は保持し、自動版への変更は「自動版を使う」で確認できます。</p><button class="btn" id="t3-adopt">複製して採用</button><button class="btn" id="t3-compare-close">閉じる</button></div>';document.body.append(sheet);
+ $('#t3-optimize').onclick=()=>{$('#t3-before').value=joinSegments(buildSegments());$('#t3-after').value=T3Core.compile({...state.t3,compilerVersion:'t3-structured-v1'}).blocks.map(b=>b.text).join('\n\n');openSheet('t3-compare');};
+ $('#t3-compare-close').onclick=()=>closeSheet('t3-compare');
+ $('#t3-adopt').onclick=()=>{const snapshot=captureSnapshot(),projects=getProjects();if(projects.length>=500){toast('プロジェクト上限です。採用を中止しました');return;}const id='p'+crypto.randomUUID();const copy=JSON.parse(JSON.stringify(snapshot));copy.t3.compilerVersion='t3-structured-v1';copy.activeProject=id;
+  if(!store.set(K.projects,[...projects,{id,name:'T3構造最適化 '+new Date().toLocaleString('ja-JP'),created:Date.now(),updated:Date.now(),state:copy}])){toast('保存できないため中止しました');return;}
+  applySnapshot(copy);closeSheet('t3-compare');toast('最適化したプロジェクトを複製しました');};
+ function validate(t){
+  if(t.compilerVersion!==undefined&&!['legacy-v5','t3-structured-v1'].includes(t.compilerVersion))throw new Error('未知のコンパイラ版です');
+  for(const k of ['ref1Role','ref2Role'])if(t[k]!==undefined&&!['custom','identity','outfit','pose','composition','style'].includes(t[k]))throw new Error('参照の役割が不正です');
+  if(t.textRole!==undefined&&!['text','title','caption','dialogue','character name'].includes(t.textRole))throw new Error('文字の役割が不正です');
+  if(t.editFields!==undefined&&(!Array.isArray(t.editFields)||t.editFields.length>4||t.editFields.some(x=>!['style','light','camera','layout'].includes(x))))throw new Error('編集対象が不正です');
+  if(t.qualityBlocks!==undefined&&(!Array.isArray(t.qualityBlocks)||t.qualityBlocks.length>32||t.qualityBlocks.some(p=>!p||typeof p.id!=='string'||p.id.length>80||typeof p.text!=='string'||p.text.length>4000||!Number.isInteger(p.version)||typeof p.group!=='string')))throw new Error('品質ブロックが不正です');
+  for(const p of t.people||[])for(const k of ['promptAlias','appearancePolicy'])if(p[k]!==undefined&&(typeof p[k]!=='string'||p[k].length>4000))throw new Error('人物別設定が不正です');
+ }
+ sync();return {validate};
 })();
 
 /* TSUBAKI_UX_V5_END */
